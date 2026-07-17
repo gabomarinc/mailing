@@ -1,16 +1,17 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
 const session = require('express-session');
 const { KindeClient, GrantType } = require('@kinde-oss/kinde-nodejs-sdk');
 const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
+const { neon } = require('@neondatabase/serverless');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-// En Vercel el sistema de archivos es de solo lectura excepto /tmp
-const DB_PATH = process.env.VERCEL ? path.join('/tmp', 'data.json') : path.join(__dirname, 'data.json');
+
+// Configurar base de datos Neon
+const sql = neon(process.env.DATABASE_URL || 'postgresql://user:pass@ep-host.neon.tech/db?sslmode=require');
 
 // Middleware
 app.use(cors());
@@ -35,31 +36,6 @@ const options = {
   grantType: GrantType.AUTHORIZATION_CODE
 };
 const kindeClient = new KindeClient(options);
-
-// Helper: Leer Base de Datos
-const readDB = () => {
-  try {
-    if (!fs.existsSync(DB_PATH)) {
-      return { onboarding: { completed: false, companyName: '', monthlyVolume: 10000 }, contacts: [], campaigns: [] };
-    }
-    const data = fs.readFileSync(DB_PATH, 'utf-8');
-    return JSON.parse(data);
-  } catch (error) {
-    console.error('Error leyendo base de datos:', error);
-    return { onboarding: { completed: false, companyName: '', monthlyVolume: 10000 }, contacts: [], campaigns: [] };
-  }
-};
-
-// Helper: Escribir en la Base de Datos
-const writeDB = (data) => {
-  try {
-    fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
-    return true;
-  } catch (error) {
-    console.error('Error escribiendo en base de datos:', error);
-    return false;
-  }
-};
 
 // Función auxiliar para delay (control del rate limit de SES)
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -103,10 +79,11 @@ app.get('/api/auth/me', async (req, res) => {
   }
 });
 
-// Middleware de Protección
+// Middleware de Protección Multi-Tenant
 const protectRoute = async (req, res, next) => {
   try {
     if (await kindeClient.isAuthenticated(req)) {
+      req.user = await kindeClient.getUserProfile(req);
       return next();
     }
   } catch (e) {}
@@ -116,190 +93,221 @@ const protectRoute = async (req, res, next) => {
 // ================= API ENDPOINTS =================
 
 // 1. Onboarding
-app.get('/api/onboarding', protectRoute, (req, res) => {
-  const db = readDB();
-  res.json(db.onboarding);
+app.get('/api/onboarding', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await sql`SELECT * FROM users WHERE kinde_id = ${userId}`;
+    if (result.length > 0) {
+      res.json({
+        completed: result[0].is_setup_complete,
+        companyName: result[0].company_name,
+        monthlyVolume: result[0].monthly_volume
+      });
+    } else {
+      res.json({ completed: false, companyName: '', monthlyVolume: 10000 });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'DB Error' });
+  }
 });
 
-app.post('/api/onboarding', protectRoute, (req, res) => {
-  const { companyName, monthlyVolume } = req.body;
-  const db = readDB();
-  
-  db.onboarding = {
-    completed: true,
-    companyName: companyName || 'Kônsul User',
-    monthlyVolume: parseInt(monthlyVolume, 10) || 10000
-  };
-  
-  writeDB(db);
-  res.json({ success: true, onboarding: db.onboarding });
+app.post('/api/onboarding', protectRoute, async (req, res) => {
+  try {
+    const { companyName, monthlyVolume } = req.body;
+    const userId = req.user.id;
+    const vol = parseInt(monthlyVolume, 10) || 10000;
+    const comp = companyName || 'Kônsul User';
+    
+    await sql`
+      INSERT INTO users (kinde_id, company_name, monthly_volume, is_setup_complete) 
+      VALUES (${userId}, ${comp}, ${vol}, true)
+      ON CONFLICT (kinde_id) DO UPDATE SET 
+        company_name = EXCLUDED.company_name,
+        monthly_volume = EXCLUDED.monthly_volume,
+        is_setup_complete = EXCLUDED.is_setup_complete
+    `;
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'DB Error' });
+  }
 });
 
 // 2. Contactos
-app.get('/api/contacts', protectRoute, (req, res) => {
-  const db = readDB();
-  res.json(db.contacts);
+app.get('/api/contacts', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const contacts = await sql`SELECT * FROM contacts WHERE kinde_id = ${userId} ORDER BY added_at DESC`;
+    res.json(contacts.map(c => ({
+      id: c.id,
+      name: c.name,
+      email: c.email,
+      tags: c.tags,
+      status: c.status,
+      dateAdded: c.added_at
+    })));
+  } catch (err) {
+    res.status(500).json({ error: 'DB Error' });
+  }
 });
 
-app.post('/api/contacts', protectRoute, (req, res) => {
-  const { name, email, tags } = req.body;
-  
-  if (!email || !isValidEmail(email)) {
-    return res.status(400).json({ success: false, message: 'Correo electrónico no válido.' });
+app.post('/api/contacts', protectRoute, async (req, res) => {
+  try {
+    const { name, email, tags } = req.body;
+    if (!email || !isValidEmail(email)) return res.status(400).json({ success: false, message: 'Correo no válido.' });
+    
+    const userId = req.user.id;
+    const cleanEmail = email.trim().toLowerCase();
+    const contactTags = tags || ['Importados'];
+
+    const existing = await sql`SELECT * FROM contacts WHERE kinde_id = ${userId} AND email = ${cleanEmail}`;
+    
+    if (existing.length > 0) {
+      // Re-suscribir y actualizar
+      const mergedTags = [...new Set([...(existing[0].tags || []), ...contactTags])];
+      const newName = name || existing[0].name;
+      
+      await sql`
+        UPDATE contacts 
+        SET status = 'active', name = ${newName}, tags = ${mergedTags}
+        WHERE id = ${existing[0].id}
+      `;
+      return res.json({ success: true, message: 'Contacto actualizado/re-suscrito.' });
+    }
+
+    const inserted = await sql`
+      INSERT INTO contacts (kinde_id, name, email, tags, status)
+      VALUES (${userId}, ${name || 'Suscriptor'}, ${cleanEmail}, ${contactTags}, 'active')
+      RETURNING *
+    `;
+    
+    res.json({ success: true, contact: inserted[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'DB Error' });
   }
-
-  const db = readDB();
-  
-  // Evitar duplicados
-  const existing = db.contacts.find(c => c.email.toLowerCase() === email.toLowerCase());
-  if (existing) {
-    // Si ya existe pero estaba de baja, lo volvemos a activar si es re-suscripción
-    existing.status = 'active';
-    if (name) existing.name = name;
-    if (tags) existing.tags = [...new Set([...existing.tags, ...tags])];
-    writeDB(db);
-    return res.json({ success: true, contact: existing, message: 'Contacto actualizado/re-suscrito.' });
-  }
-
-  const newContact = {
-    id: 'c_' + Date.now() + Math.random().toString(36).substr(2, 5),
-    name: name || 'Suscriptor',
-    email: email.trim().toLowerCase(),
-    status: 'active',
-    tags: tags || ['Importados'],
-    dateAdded: new Date().toISOString()
-  };
-
-  db.contacts.push(newContact);
-  writeDB(db);
-
-  res.json({ success: true, contact: newContact });
 });
 
-// Carga masiva de contactos
-app.post('/api/contacts/bulk', protectRoute, (req, res) => {
-  const { list } = req.body; // Array de { name, email, tags } o simplemente emails
-  if (!Array.isArray(list)) {
-    return res.status(400).json({ success: false, message: 'La lista debe ser un array.' });
-  }
+app.post('/api/contacts/bulk', protectRoute, async (req, res) => {
+  try {
+    const { list } = req.body;
+    if (!Array.isArray(list)) return res.status(400).json({ success: false, message: 'Debe ser un array.' });
 
-  const db = readDB();
-  let added = 0;
+    const userId = req.user.id;
+    let added = 0;
 
-  list.forEach(item => {
-    let email = typeof item === 'string' ? item : item.email;
-    let name = typeof item === 'string' ? 'Suscriptor' : (item.name || 'Suscriptor');
-    let tags = typeof item === 'string' ? ['Importados'] : (item.tags || ['Importados']);
+    for (const item of list) {
+      let email = typeof item === 'string' ? item : item.email;
+      let name = typeof item === 'string' ? 'Suscriptor' : (item.name || 'Suscriptor');
+      let tags = typeof item === 'string' ? ['Importados'] : (item.tags || ['Importados']);
 
-    if (email && isValidEmail(email)) {
-      email = email.trim().toLowerCase();
-      const existing = db.contacts.find(c => c.email.toLowerCase() === email);
-      if (!existing) {
-        db.contacts.push({
-          id: 'c_' + Date.now() + Math.random().toString(36).substr(2, 5),
-          name,
-          email,
-          status: 'active',
-          tags,
-          dateAdded: new Date().toISOString()
-        });
-        added++;
-      } else if (existing.status === 'unsubscribe') {
-        existing.status = 'active'; // Lo reactivamos
-        added++;
+      if (email && isValidEmail(email)) {
+        email = email.trim().toLowerCase();
+        
+        const existing = await sql`SELECT id, status FROM contacts WHERE kinde_id = ${userId} AND email = ${email}`;
+        
+        if (existing.length === 0) {
+          await sql`
+            INSERT INTO contacts (kinde_id, name, email, tags, status)
+            VALUES (${userId}, ${name}, ${email}, ${tags}, 'active')
+          `;
+          added++;
+        } else if (existing[0].status === 'unsubscribe') {
+          await sql`UPDATE contacts SET status = 'active' WHERE id = ${existing[0].id}`;
+          added++;
+        }
       }
     }
-  });
 
-  writeDB(db);
-  res.json({ success: true, added, total: db.contacts.length });
+    res.json({ success: true, added });
+  } catch (err) {
+    res.status(500).json({ error: 'DB Error' });
+  }
 });
 
-// Eliminar contacto
-app.delete('/api/contacts/:id', protectRoute, (req, res) => {
-  const db = readDB();
-  const initialLength = db.contacts.length;
-  db.contacts = db.contacts.filter(c => c.id !== req.params.id);
-  
-  if (db.contacts.length === initialLength) {
-    return res.status(404).json({ success: false, message: 'Contacto no encontrado.' });
+app.delete('/api/contacts/:id', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await sql`DELETE FROM contacts WHERE kinde_id = ${userId} AND id = ${req.params.id}`;
+    if (result.count === 0) return res.status(404).json({ success: false, message: 'No encontrado.' });
+    res.json({ success: true, message: 'Eliminado correctamente.' });
+  } catch (err) {
+    res.status(500).json({ error: 'DB Error' });
   }
-  
-  writeDB(db);
-  res.json({ success: true, message: 'Contacto eliminado correctamente.' });
 });
 
 // 3. Campañas y Envío
-app.get('/api/campaigns', protectRoute, (req, res) => {
-  const db = readDB();
-  res.json(db.campaigns);
+app.get('/api/campaigns', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const campaigns = await sql`SELECT * FROM campaigns WHERE kinde_id = ${userId} ORDER BY sent_at DESC`;
+    res.json(campaigns.map(c => ({
+      id: c.id,
+      subject: c.subject,
+      body: c.body,
+      targetTags: c.target_tags,
+      totalSent: c.total_sent,
+      status: c.status,
+      sentDate: c.sent_at,
+      opens: 0,
+      clicks: 0
+    })));
+  } catch (err) {
+    res.status(500).json({ error: 'DB Error' });
+  }
 });
 
-// Envío de campaña
 app.post('/api/send-bulk', protectRoute, async (req, res) => {
   try {
     const { subject, body, recipients, limit, targetTags } = req.body;
+    const userId = req.user.id;
 
     if (!subject || !body || !recipients || !Array.isArray(recipients)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Por favor, proporciona un asunto, cuerpo y una lista de destinatarios.'
-      });
+      return res.status(400).json({ success: false, message: 'Faltan datos.' });
     }
 
-    const db = readDB();
-    const cleanRecipients = [...new Set(recipients
-      .map(email => email.trim().toLowerCase())
-      .filter(email => email !== '' && isValidEmail(email)))
-    ];
+    const cleanRecipients = [...new Set(recipients.map(e => e.trim().toLowerCase()).filter(isValidEmail))];
 
-    // Filtrar destinatarios que estén de baja
-    const activeRecipients = cleanRecipients.filter(email => {
-      const contact = db.contacts.find(c => c.email.toLowerCase() === email);
-      return !contact || contact.status !== 'unsubscribe';
-    });
+    // Filter active recipients from DB
+    const activeContacts = await sql`
+      SELECT email FROM contacts 
+      WHERE kinde_id = ${userId} AND status != 'unsubscribe' 
+      AND email = ANY(${cleanRecipients})
+    `;
+    const activeEmails = activeContacts.map(c => c.email);
 
-    if (activeRecipients.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'No hay destinatarios válidos activos para enviar (algunos pueden estar dados de baja).'
-      });
+    if (activeEmails.length === 0) {
+      return res.status(400).json({ success: false, message: 'No hay destinatarios válidos activos.' });
     }
 
     const allowedLimit = parseInt(limit, 10) || 10000;
-    if (activeRecipients.length > allowedLimit) {
-      return res.status(400).json({
-        success: false,
-        message: `El número de destinatarios (${activeRecipients.length}) supera el límite configurado (${allowedLimit} correos).`
-      });
+    if (activeEmails.length > allowedLimit) {
+      return res.status(400).json({ success: false, message: `Supera límite de ${allowedLimit}.` });
     }
 
-    // Configuración de AWS
+    // Configurar AWS SES
     const hasAwsCreds = !!process.env.SES_SENDER_EMAIL;
     let sesClient = null;
     let senderEmail = process.env.SES_SENDER_EMAIL;
 
     if (hasAwsCreds) {
-      sesClient = new SESClient({
-        region: process.env.AWS_REGION || 'us-east-1'
-      });
+      sesClient = new SESClient({ region: process.env.AWS_REGION || 'us-east-1' });
     }
 
-    const campaignId = 'camp_' + Date.now();
     const successes = [];
     const failures = [];
 
-    // Enviar secuencialmente
-    for (let i = 0; i < activeRecipients.length; i++) {
-      const recipient = activeRecipients[i];
+    // Registrar campaña
+    const campaignInsert = await sql`
+      INSERT INTO campaigns (kinde_id, subject, body, target_tags, total_sent, status)
+      VALUES (${userId}, ${subject}, ${body}, ${targetTags || []}, ${activeEmails.length}, 'sending')
+      RETURNING id
+    `;
+    const campaignId = campaignInsert[0].id;
+
+    for (let i = 0; i < activeEmails.length; i++) {
+      const recipient = activeEmails[i];
+      const unsubscribeUrl = `https://${req.get('host')}/unsubscribe/${campaignId}/${encodeURIComponent(recipient)}`;
+      const openTrackingUrl = `https://${req.get('host')}/api/campaigns/${campaignId}/track-open?email=${encodeURIComponent(recipient)}`;
       
-      // Enlaces dinámicos de baja y tracking
-      const unsubscribeUrl = `http://localhost:${PORT}/unsubscribe/${encodeURIComponent(recipient)}`;
-      const openTrackingUrl = `http://localhost:${PORT}/api/campaigns/${campaignId}/track-open?email=${encodeURIComponent(recipient)}`;
-      
-      // Modificar el body para inyectar tracking de apertura y pie de página de baja
-      // Si el cuerpo tiene enlaces href="...", se pueden trackear reescribiendo enlaces en el frontend
-      // o agregando un footer con estilo Kônsul
       const richBody = `
         <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1B2939; padding: 20px; max-width: 600px; margin: 0 auto; background-color: #FAF8F5; border-radius: 16px;">
           ${body}
@@ -324,76 +332,36 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
           });
           await sesClient.send(command);
         } else {
-          await sleep(60); // Simulación con delay
-          if (Math.random() < 0.02) {
-            throw new Error('Entrega rechazada temporalmente por el servidor receptor');
-          }
+          await sleep(60); 
         }
         successes.push(recipient);
       } catch (err) {
         failures.push({ email: recipient, error: err.message });
       }
 
-      if (i < activeRecipients.length - 1) {
-        await sleep(95); // Rate Limiting de seguridad
-      }
+      if (i < activeEmails.length - 1) await sleep(95);
     }
 
-    // Registrar campaña en la base de datos
-    const newCampaign = {
-      id: campaignId,
-      subject,
-      body,
-      sentDate: new Date().toISOString(),
-      totalSent: activeRecipients.length,
-      successCount: successes.length,
-      failedCount: failures.length,
-      opens: 0,
-      openList: [], // Emails que han abierto
-      clicks: 0,
-      status: 'sent'
-    };
-
-    db.campaigns.push(newCampaign);
-    writeDB(db);
+    // Actualizar estado de campaña
+    await sql`UPDATE campaigns SET status = 'sent' WHERE id = ${campaignId}`;
 
     res.json({
       success: true,
       simulation: !hasAwsCreds,
       campaignId,
-      total: activeRecipients.length,
+      total: activeEmails.length,
       sentCount: successes.length,
       failedCount: failures.length,
       failures
     });
 
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: 'Error procesando la campaña masiva.' });
+    res.status(500).json({ success: false, message: 'Error procesando campaña.' });
   }
 });
 
 // 4. Tracking & Unsubscribe
-// Tracking de Aperturas (Píxel transparente de 1x1)
-app.get('/api/campaigns/:id/track-open', (req, res) => {
-  const { id } = req.params;
-  const { email } = req.query;
-  
-  const db = readDB();
-  const campaign = db.campaigns.find(c => c.id === id);
-  
-  if (campaign && email) {
-    if (!campaign.openList) {
-      campaign.openList = [];
-    }
-    if (!campaign.openList.includes(email)) {
-      campaign.openList.push(email);
-      campaign.opens = campaign.openList.length;
-      writeDB(db);
-    }
-  }
-
-  // Retornar píxel transparente de 1x1 GIF
+app.get('/api/campaigns/:id/track-open', async (req, res) => {
   const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
   res.writeHead(200, {
     'Content-Type': 'image/gif',
@@ -403,46 +371,43 @@ app.get('/api/campaigns/:id/track-open', (req, res) => {
   res.end(pixel);
 });
 
-// Ruta pública de Desuscripción (Unsubscribe)
-app.get('/unsubscribe/:email', (req, res) => {
-  const { email } = req.params;
-  const db = readDB();
-  
-  const contact = db.contacts.find(c => c.email.toLowerCase() === decodeURIComponent(email).toLowerCase());
-  
-  if (contact) {
-    contact.status = 'unsubscribe';
-    writeDB(db);
-  }
+// Ruta pública de Desuscripción con Campaign ID para saber el Tenant
+app.get('/unsubscribe/:campaignId/:email', async (req, res) => {
+  try {
+    const { campaignId, email } = req.params;
+    const cleanEmail = decodeURIComponent(email).toLowerCase();
+    
+    // Buscar la campaña para obtener el kinde_id
+    const campaignData = await sql`SELECT kinde_id FROM campaigns WHERE id = ${campaignId}`;
+    
+    if (campaignData.length > 0) {
+      const userId = campaignData[0].kinde_id;
+      await sql`UPDATE contacts SET status = 'unsubscribe' WHERE kinde_id = ${userId} AND email = ${cleanEmail}`;
+    }
 
-  // Responder con página HTML de despedida empática
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Suscripción Cancelada | Kônsul</title>
-      <script src="https://cdn.tailwindcss.com"></script>
-      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
-      <style>
-        body { font-family: 'Outfit', sans-serif; background-color: #FAF8F5; }
-      </style>
-    </head>
-    <body class="min-h-screen flex items-center justify-center p-6 text-[#1B2939]">
-      <div class="max-w-md w-full bg-white border border-[#EAE6DF] rounded-3xl p-8 text-center shadow-sm">
-        <div class="text-4xl mb-4">🍃</div>
-        <h1 class="text-2xl font-bold mb-2">Tu suscripción ha sido cancelada</h1>
-        <p class="text-sm text-[#6E7A8A] mb-6">
-          Lamentamos verte partir. Hemos removido a <strong>${decodeURIComponent(email)}</strong> de nuestra lista de envíos. No recibirás más correos de esta campaña.
-        </p>
-        <div class="text-xs text-[#6E7A8A]">
-          ¿Fue un error? Si deseas volver a suscribirte en el futuro, puedes contactar al administrador del sitio.
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Suscripción Cancelada | Kônsul</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+        <style> body { font-family: 'Outfit', sans-serif; background-color: #FAF8F5; } </style>
+      </head>
+      <body class="min-h-screen flex items-center justify-center p-6 text-[#1B2939]">
+        <div class="max-w-md w-full bg-white border border-[#EAE6DF] rounded-3xl p-8 text-center shadow-sm">
+          <div class="text-4xl mb-4">🍃</div>
+          <h1 class="text-2xl font-bold mb-2">Suscripción cancelada</h1>
+          <p class="text-sm text-[#6E7A8A] mb-6">Hemos removido a <strong>${cleanEmail}</strong> de nuestra lista.</p>
         </div>
-      </div>
-    </body>
-    </html>
-  `);
+      </body>
+      </html>
+    `);
+  } catch (err) {
+    res.status(500).send("Error procesando baja.");
+  }
 });
 
 // Fallback para el frontend (SPA)
@@ -452,7 +417,7 @@ app.get('*', (req, res) => {
 
 if (!process.env.VERCEL) {
   app.listen(PORT, () => {
-    console.log(`🚀 Servidor Kônsul Email Marketing en ejecución en http://localhost:${PORT}`);
+    console.log(`🚀 Servidor Kônsul en http://localhost:${PORT}`);
   });
 }
 
