@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kônsul | Suite de Email Marketing</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Plus Jakarta Sans & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              light: '#F8F9FA',     // Fondo grisáceo muy claro (como la imagen)
+              accent: '#13B497',    // Verde amigable Kônsul exacto (de la imagen)
+              accentHover: '#0f967d',
+              dark: '#1B2939',      // Azul oscuro corporativo Kônsul
+              gray: '#6E7A8A',      // Gris para textos secundarios de la imagen
+              border: '#EAEFF4'     // Borde suave azul-grisáceo de la imagen
+            }
+          },
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'Outfit', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    body {
+      background-color: #F8F9FA;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    
+    /* Overlay de Auth */
+    #auth-overlay {
+      background: linear-gradient(135deg, #F8F9FA 0%, #EAEFF4 100%);
+    }
+
+    /* Range Slider Styling */
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 9999px;
+      background: #EAEFF4;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #13B497;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(19, 180, 151, 0.3);
+      transition: transform 0.1s ease, background-color 0.2s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      background: #0f967d;
+    }
+
+    /* Custom scrollbar */
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #F8F9FA;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #EAEFF4;
+      border-radius: 9999px;
+    }
+
+    .sidebar-active {
+      background-color: #F8F9FA;
+      border-left: 3px solid #13B497;
+      color: #1B2939 !important;
+      font-weight: 700;
+    }
+    
+    .sidebar-active i {
+      color: #13B497 !important;
+    }
+
+    /* ====== Collapsible Sidebar Custom Classes ====== */
+    .sidebar-collapsed {
+      width: 5rem !important; /* w-20 */
+      padding-left: 0.75rem !important;
+      padding-right: 0.75rem !important;
+    }
+
+    .sidebar-collapsed .logo-badge,
+    .sidebar-collapsed .menu-text,
+    .sidebar-collapsed .menu-dot,
+    .sidebar-collapsed .category-title,
+    .sidebar-collapsed .sidebar-footer-content {
+      display: none !important;
+    }
+
+    .sidebar-collapsed #sidebar-logo-text {
+      display: none !important;
+    }
+
+    .sidebar-collapsed .menu-item-btn {
+      justify-content: center !important;
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+    }
+
+    .sidebar-collapsed .menu-item-inner {
+      gap: 0 !important;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col overflow-x-hidden">
+
+  <!-- ================= AUTH OVERLAY ================= -->
+  <div id="auth-overlay" class="fixed inset-0 z-[100] flex flex-col items-center justify-center hidden">
+    <div class="bg-white p-12 rounded-[2rem] shadow-sm border border-brand-border max-w-md w-full mx-4 text-center">
+      <div class="w-20 h-20 bg-brand-light rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">
+        ✉️
+      </div>
+      <h1 class="text-3xl font-bold font-outfit mb-3 text-brand-dark">Kônsul Mailing</h1>
+      <p class="text-brand-gray mb-8 leading-relaxed">
+        Comunícate masivamente con tus clientes de forma cálida, segura y ultra-eficiente.
+      </p>
+      <a href="/api/auth/login" class="inline-flex items-center justify-center gap-2 w-full bg-brand-accent hover:bg-brand-accentHover text-white px-6 py-4 rounded-full font-medium transition-all duration-300 transform hover:scale-[1.02] shadow-sm hover:shadow-md">
+        <i data-lucide="log-in" class="w-5 h-5"></i>
+        <span>Iniciar Sesión con la Suite</span>
+      </a>
+      <p class="text-xs text-brand-gray mt-6 opacity-70">
+        Parte del ecosistema empresarial Kônsul
+      </p>
+    </div>
+  </div>
+
+  <!-- ONBOARDING OVERLAY (Modal) -->
+  <div id="onboarding-overlay" class="fixed inset-0 bg-[#1B2939]/40 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white max-w-lg w-full rounded-[32px] border border-brand-border p-8 shadow-2xl transform transition-all duration-300">
+      <div class="text-center mb-6">
+        <div class="w-16 h-16 rounded-2xl bg-brand-accent/10 text-brand-accent flex items-center justify-center mx-auto mb-4">
+          <i data-lucide="mail-open" class="w-8 h-8"></i>
+        </div>
+        <h2 class="text-3xl font-extrabold tracking-tight text-[#1B2939]">Bienvenido a Kônsul</h2>
+        <p class="text-sm text-brand-gray mt-2 font-medium">
+          Comencemos configurando tus necesidades para habilitar el plan óptimo de envío de correos.
+        </p>
+      </div>
+
+      <form id="onboarding-form" class="flex flex-col gap-5">
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-bold text-brand-dark uppercase tracking-wider">Nombre de tu Empresa / Proyecto</label>
+          <input 
+            type="text" 
+            id="ob-company" 
+            placeholder="Ej: Kônsul Digital" 
+            required 
+            class="w-full px-4 py-3 rounded-2xl border border-brand-border focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none text-sm font-medium"
+          >
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <div class="flex justify-between items-center">
+            <label class="text-xs font-bold text-brand-dark uppercase tracking-wider">Estimado de envíos mensuales</label>
+            <span class="text-sm font-bold text-brand-accent" id="ob-volume-badge">10,000 correos</span>
+          </div>
+          <input 
+            type="range" 
+            id="ob-volume-slider" 
+            min="1000" 
+            max="50000" 
+            step="1000" 
+            value="10000" 
+            class="mt-2"
+          >
+          <div class="flex justify-between text-[10px] text-brand-gray font-bold">
+            <span>1K/mes</span>
+            <span>25K/mes</span>
+            <span>50K/mes</span>
+          </div>
+        </div>
+
+        <div class="bg-brand-light border border-brand-border p-4 rounded-2xl text-xs text-brand-gray font-medium">
+          💡 <strong>Detalle del Ecosistema:</strong> Este módulo de Email Marketing forma parte del ecosistema Kônsul, una suite empresarial de 5 herramientas. Al registrarte tendrás acceso directo sin costos adicionales.
+        </div>
+
+        <button 
+          type="submit" 
+          class="w-full bg-brand-dark text-white font-semibold py-4 rounded-2xl shadow-md hover:bg-black transition-all text-sm mt-2"
+        >
+          Iniciar Experiencia Kônsul
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- CONTAINER -->
+  <div class="flex flex-1 flex-col lg:flex-row min-h-screen">
+    
+    <!-- SIDEBAR (Alineado con el estilo del LeadsHUB de Kônsul) -->
+    <aside id="sidebar" class="relative w-full lg:w-72 bg-white border-r border-brand-border flex flex-col justify-between p-6 z-30 flex-shrink-0 transition-all duration-300">
+      
+      <!-- Collapsible Floating Arrow Button -->
+      <button id="sidebar-toggle" class="absolute top-8 -right-3.5 w-7 h-7 bg-white border border-brand-border rounded-full shadow-md flex items-center justify-center cursor-pointer hover:bg-brand-light transition-all z-40 hidden lg:flex">
+        <i data-lucide="chevron-left" class="w-4 h-4 text-brand-dark transition-transform" id="sidebar-toggle-icon"></i>
+      </button>
+
+      <div class="flex flex-col gap-8">
+        <!-- Logo con Badge -->
+        <div class="flex items-center gap-1.5 justify-center lg:justify-start overflow-hidden">
+          <span class="font-extrabold text-2xl tracking-wide text-[#1B2939] flex-shrink-0">
+            K<span class="text-brand-accent">Ô</span><span id="sidebar-logo-text">NSUL</span>
+          </span>
+          <span class="text-[9px] bg-brand-accent text-white px-2 py-0.5 rounded font-bold uppercase tracking-wider logo-badge flex-shrink-0">Mailing</span>
+        </div>
+
+        <!-- Menú Categorizado -->
+        <div class="flex flex-col gap-6">
+          
+          <!-- Visión General -->
+          <div>
+            <h4 class="text-[10px] font-bold text-brand-gray uppercase tracking-wider mb-2 category-title">Visión General</h4>
+            <nav class="flex flex-col gap-1">
+              <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="sidebar-active menu-item-btn flex items-center justify-between w-full px-4 py-3 rounded-2xl text-xs font-bold text-brand-gray hover:bg-[#F8F9FA] hover:text-brand-dark transition-all">
+                <span class="flex items-center gap-3 menu-item-inner">
+                  <i data-lucide="layout-dashboard" class="w-4 h-4 text-brand-gray flex-shrink-0"></i> 
+                  <span class="menu-text">Dashboard</span>
+                </span>
+                <span class="w-1.5 h-1.5 bg-brand-accent rounded-full menu-dot"></span>
+              </button>
+              
+              <button onclick="switchTab('campaigns')" id="tab-btn-campaigns" class="flex items-center justify-between w-full px-4 py-3 rounded-2xl text-xs font-bold text-brand-gray hover:bg-[#F8F9FA] hover:text-brand-dark transition-all menu-item-btn">
+                <span class="flex items-center gap-3 menu-item-inner">
+                  <i data-lucide="send" class="w-4 h-4 text-brand-gray flex-shrink-0"></i> 
+                  <span class="menu-text">Campañas</span>
+                </span>
+                <span class="text-[9px] bg-brand-accent/15 text-brand-accent font-bold px-2 py-0.5 rounded-full uppercase logo-badge">Nuevo</span>
+              </button>
+            </nav>
+          </div>
+
+          <!-- Inscripciones / Gestión -->
+          <div>
+            <h4 class="text-[10px] font-bold text-brand-gray uppercase tracking-wider mb-2 category-title">Administración</h4>
+            <nav class="flex flex-col gap-1">
+              <button onclick="switchTab('contacts')" id="tab-btn-contacts" class="flex items-center w-full px-4 py-3 rounded-2xl text-xs font-bold text-brand-gray hover:bg-[#F8F9FA] hover:text-brand-dark transition-all menu-item-btn">
+                <span class="flex items-center gap-3 menu-item-inner">
+                  <i data-lucide="users" class="w-4 h-4 text-brand-gray flex-shrink-0"></i> 
+                  <span class="menu-text">Base de Contactos</span>
+                </span>
+              </button>
+              
+              <button onclick="switchTab('forms')" id="tab-btn-forms" class="flex items-center w-full px-4 py-3 rounded-2xl text-xs font-bold text-brand-gray hover:bg-[#F8F9FA] hover:text-brand-dark transition-all menu-item-btn">
+                <span class="flex items-center gap-3 menu-item-inner">
+                  <i data-lucide="file-text" class="w-4 h-4 text-brand-gray flex-shrink-0"></i> 
+                  <span class="menu-text">Captación (Formularios)</span>
+                </span>
+              </button>
+            </nav>
+          </div>
+
+          <!-- Configuración -->
+          <div>
+            <h4 class="text-[10px] font-bold text-brand-gray uppercase tracking-wider mb-2 category-title">Conectividad</h4>
+            <nav class="flex flex-col gap-1">
+              <button onclick="switchTab('settings')" id="tab-btn-settings" class="flex items-center w-full px-4 py-3 rounded-2xl text-xs font-bold text-brand-gray hover:bg-[#F8F9FA] hover:text-brand-dark transition-all menu-item-btn">
+                <span class="flex items-center gap-3 menu-item-inner">
+                  <i data-lucide="settings" class="w-4 h-4 text-brand-gray flex-shrink-0"></i> 
+                  <span class="menu-text">Ajustes AWS SES</span>
+                </span>
+              </button>
+            </nav>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Ayuda y Suite -->
+      <div class="mt-8 pt-6 border-t border-brand-border flex flex-col gap-4 sidebar-footer-content">
+        <div class="bg-brand-light p-4 rounded-[20px] border border-brand-border text-center">
+          <span class="text-xs font-bold text-[#1B2939]">Centro de Ayuda</span>
+          <p class="text-[10px] text-brand-gray mt-1 mb-3">¿Tienes dudas con tus envíos masivos?</p>
+          <button class="w-full bg-brand-accent text-white py-2 rounded-xl text-xs font-bold hover:bg-brand-accentHover transition-all shadow-sm">
+            Ayuda
+          </button>
+        </div>
+        <a href="/api/auth/logout" class="flex items-center justify-center gap-2 w-full text-brand-gray hover:text-red-500 transition-colors text-xs font-bold py-2 mt-2">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+          Cerrar Sesión
+        </a>
+        <div class="text-center text-[10px] font-bold text-brand-gray uppercase tracking-wider">
+          &copy; Kônsul Suite 2026
+        </div>
+      </div>
+    </aside>
+
+    <!-- CONTENT CANVAS -->
+    <main class="flex-1 flex flex-col overflow-x-hidden min-h-screen">
+      
+      <!-- TOPBAR (Estilo del LeadsHUB de Kônsul) -->
+      <header class="bg-white border-b border-brand-border px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <!-- Search and Workspace -->
+        <div class="flex flex-wrap items-center gap-4">
+          <div class="relative">
+            <select class="bg-brand-light border border-brand-border rounded-xl px-3 py-1.5 text-xs font-bold text-brand-dark outline-none cursor-pointer">
+              <option>Mi Workspace</option>
+              <option>Área de Marketing</option>
+            </select>
+          </div>
+          <div class="relative w-64">
+            <span class="absolute inset-y-0 left-3 flex items-center text-brand-gray">
+              <i data-lucide="search" class="w-3.5 h-3.5"></i>
+            </span>
+            <input 
+              type="text" 
+              placeholder="Buscar campaña o correo..." 
+              class="w-full pl-9 pr-4 py-1.5 rounded-xl bg-brand-light border border-brand-border text-xs focus:outline-none focus:border-brand-accent font-medium"
+            >
+          </div>
+        </div>
+
+        <!-- Badges and Profile -->
+        <div class="flex items-center justify-end gap-4">
+          <!-- Límite mensual -->
+          <div class="flex items-center gap-2 bg-brand-light border border-brand-border px-3 py-1.5 rounded-xl text-xs">
+            <i data-lucide="link" class="w-3.5 h-3.5 text-brand-accent"></i>
+            <span class="text-[9px] font-bold text-brand-gray uppercase tracking-wider">Límite mensual:</span>
+            <span class="font-bold text-brand-accent" id="topbar-credits">10,000 unidades</span>
+          </div>
+
+          <!-- Notification Icon -->
+          <button class="w-8 h-8 flex items-center justify-center bg-brand-light border border-brand-border rounded-xl hover:bg-brand-border/40 transition-all">
+            <i data-lucide="bell" class="w-3.5 h-3.5 text-brand-dark"></i>
+          </button>
+
+          <!-- Account profile badge -->
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 bg-brand-dark text-white font-extrabold flex items-center justify-center rounded-xl text-sm">
+              G
+            </div>
+            <div class="hidden md:flex flex-col text-left">
+              <span class="text-xs font-bold text-brand-dark">Mi Cuenta</span>
+              <span class="text-[9px] text-brand-gray font-bold uppercase tracking-wider" id="topbar-date">17 jul 2026</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- MAIN PAGE WRAPPER -->
+      <div class="p-6 md:p-8 flex flex-col gap-6">
+
+        <!-- ================= TAB: DASHBOARD ================= -->
+        <section id="tab-dashboard" class="tab-content flex flex-col gap-6">
+          
+          <!-- Head Title Row -->
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 class="text-3xl font-extrabold tracking-tight text-[#1B2939]" id="page-main-title">Panel Principal</h1>
+              <p class="text-xs font-medium text-brand-gray mt-1">Información estratégica de tus campañas y suscriptores.</p>
+            </div>
+            
+            <!-- Date Filter Widget -->
+            <div class="flex items-center gap-2">
+              <span class="text-[9px] font-bold text-brand-gray uppercase tracking-wider">Filtrar por fecha</span>
+              <button class="flex items-center gap-2 bg-white border border-brand-border px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-brand-light transition-all text-brand-dark">
+                <i data-lucide="calendar" class="w-3.5 h-3.5 text-brand-gray"></i> TODO EL HISTORIAL
+              </button>
+            </div>
+          </div>
+
+          <!-- KPI Cards Grid (Direct adaptation from reference image) -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            
+            <!-- Card 1 -->
+            <div class="bg-white border border-brand-border p-6 rounded-[24px] shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden">
+              <div class="flex justify-between items-center w-full">
+                <div class="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500">
+                  <i data-lucide="send" class="w-4 h-4 text-brand-gray"></i>
+                </div>
+                <div class="text-[9px] bg-emerald-50 text-emerald-600 font-bold px-2 py-0.5 rounded-full border border-emerald-100 uppercase">
+                  ↗ 100%
+                </div>
+              </div>
+              <div class="mt-4">
+                <h3 class="text-3xl font-extrabold text-[#1B2939] tracking-tight" id="kpi-sent">0</h3>
+                <p class="text-[9px] font-extrabold text-brand-gray uppercase tracking-wider mt-1">Total de Correos Enviados</p>
+              </div>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="bg-white border border-brand-border p-6 rounded-[24px] shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden">
+              <div class="flex justify-between items-center w-full">
+                <div class="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500">
+                  <i data-lucide="users" class="w-4 h-4 text-brand-gray"></i>
+                </div>
+                <div class="text-[9px] bg-emerald-50 text-emerald-600 font-bold px-2 py-0.5 rounded-full border border-emerald-100 uppercase">
+                  ↗ 0%
+                </div>
+              </div>
+              <div class="mt-4">
+                <h3 class="text-3xl font-extrabold text-[#1B2939] tracking-tight" id="kpi-contacts">0</h3>
+                <p class="text-[9px] font-extrabold text-brand-gray uppercase tracking-wider mt-1">Contactos Activos</p>
+              </div>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="bg-white border border-brand-border p-6 rounded-[24px] shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden">
+              <div class="flex justify-between items-center w-full">
+                <div class="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500">
+                  <i data-lucide="eye" class="w-4 h-4 text-brand-gray"></i>
+                </div>
+                <div class="text-[9px] bg-emerald-50 text-emerald-600 font-bold px-2 py-0.5 rounded-full border border-emerald-100 uppercase">
+                  ↗ 0%
+                </div>
+              </div>
+              <div class="mt-4">
+                <h3 class="text-3xl font-extrabold text-[#1B2939] tracking-tight" id="kpi-opens">0</h3>
+                <p class="text-[9px] font-extrabold text-brand-gray uppercase tracking-wider mt-1">Aperturas Registradas</p>
+              </div>
+            </div>
+
+            <!-- Card 4 -->
+            <div class="bg-white border border-brand-border p-6 rounded-[24px] shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden">
+              <div class="flex justify-between items-center w-full">
+                <div class="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500">
+                  <i data-lucide="user-x" class="w-4 h-4 text-brand-gray"></i>
+                </div>
+                <div class="text-[9px] bg-emerald-50 text-emerald-600 font-bold px-2 py-0.5 rounded-full border border-emerald-100 uppercase">
+                  ↗ 0%
+                </div>
+              </div>
+              <div class="mt-4">
+                <h3 class="text-3xl font-extrabold text-[#1B2939] tracking-tight" id="kpi-unsubs">0</h3>
+                <p class="text-[9px] font-extrabold text-brand-gray uppercase tracking-wider mt-1">Bajas de Suscripción</p>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Bottom Columns: Activity Curve and Sender Channels -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Curve/Recent Campaigns list (Left 2 columns) -->
+            <div class="lg:col-span-2 bg-white border border-brand-border p-6 rounded-[28px] shadow-sm flex flex-col gap-6">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-base font-extrabold text-[#1B2939]">Envíos Recientes y Actividad</h3>
+                  <p class="text-[11px] text-brand-gray mt-0.5 font-medium">Total de correos distribuidos de forma controlada por hora/día.</p>
+                </div>
+                <div class="flex items-center gap-1.5 bg-brand-light border border-brand-border px-3 py-1.5 rounded-xl text-[10px] font-bold text-brand-gray">
+                  <span>13 jul - 19 jul</span>
+                </div>
+              </div>
+
+              <!-- Graphic Curve Simulation (SVG like reference image) -->
+              <div class="w-full h-32 flex items-end justify-center relative bg-brand-light/35 rounded-2xl border border-brand-border p-2 overflow-hidden">
+                <svg class="w-full h-full" viewBox="0 0 400 100" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="gradient-chart" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#13B497" stop-opacity="0.15" />
+                      <stop offset="100%" stop-color="#13B497" stop-opacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M 0 90 Q 100 80, 180 30 T 320 60 T 400 90 L 400 100 L 0 100 Z" fill="url(#gradient-chart)"></path>
+                  <path d="M 0 90 Q 100 80, 180 30 T 320 60 T 400 90" fill="none" stroke="#13B497" stroke-width="2" stroke-linecap="round"></path>
+                  <circle cx="180" cy="30" r="4.5" fill="#13B497" stroke="#ffffff" stroke-width="1.5"></circle>
+                  <circle cx="320" cy="60" r="4.5" fill="#13B497" stroke="#ffffff" stroke-width="1.5"></circle>
+                </svg>
+              </div>
+
+              <!-- Compact Campaigns list Table -->
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead>
+                    <tr class="border-b border-brand-border text-brand-gray font-bold">
+                      <th class="py-2.5 px-3">Campaña</th>
+                      <th class="py-2.5 px-3">Fecha</th>
+                      <th class="py-2.5 px-3">Enviados</th>
+                      <th class="py-2.5 px-3">Aperturas</th>
+                      <th class="py-2.5 px-3">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dashboard-campaigns-list">
+                    <!-- Dynamic Rows -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Canales de Comunicación (Right 1 column - like reference) -->
+            <div class="bg-white border border-brand-border p-6 rounded-[28px] shadow-sm flex flex-col gap-5">
+              <div>
+                <h3 class="text-base font-extrabold text-[#1B2939]">Canales & Estado</h3>
+                <p class="text-[11px] text-brand-gray mt-0.5 font-medium">Módulos de envío vinculados a SES.</p>
+              </div>
+
+              <div class="flex flex-col gap-3">
+                <!-- AWS SES Channel -->
+                <div class="flex items-center justify-between p-3.5 rounded-2xl border border-brand-border bg-brand-light/40">
+                  <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                      <i data-lucide="cloud" class="w-4 h-4"></i>
+                    </div>
+                    <div class="flex flex-col">
+                      <span class="text-xs font-bold text-[#1B2939]">Amazon SES</span>
+                      <span class="text-[9px] font-bold text-brand-gray" id="dash-sender">Cargando...</span>
+                    </div>
+                  </div>
+                  <span class="text-[9px] bg-emerald-50 text-emerald-700 font-bold border border-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <i data-lucide="check" class="w-2.5 h-2.5"></i> Conectado
+                  </span>
+                </div>
+
+                <!-- Web Capture Forms Channel -->
+                <div class="flex items-center justify-between p-3.5 rounded-2xl border border-brand-border bg-brand-light/40">
+                  <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                      <i data-lucide="file-code" class="w-4 h-4"></i>
+                    </div>
+                    <div class="flex flex-col">
+                      <span class="text-xs font-bold text-[#1B2939]">Formulario Web</span>
+                      <span class="text-[9px] font-bold text-brand-gray">Widget de Suscripción</span>
+                    </div>
+                  </div>
+                  <span class="text-[9px] bg-emerald-50 text-emerald-700 font-bold border border-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <i data-lucide="check" class="w-2.5 h-2.5"></i> Activo
+                  </span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </section>
+
+        <!-- ================= TAB: CONTACTS ================= -->
+        <section id="tab-contacts" class="tab-content hidden flex flex-col gap-6">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 class="text-2xl font-extrabold text-[#1B2939]">Base de Suscriptores</h1>
+              <p class="text-xs text-brand-gray mt-1 font-medium">Organiza a tus destinatarios e importa base de datos.</p>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="openAddContactModal()" class="bg-brand-dark text-white font-semibold px-4 py-2.5 rounded-xl hover:bg-black transition-all text-xs flex items-center gap-1.5 shadow-sm">
+                <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Añadir Contacto
+              </button>
+              <button onclick="openImportBulkModal()" class="bg-white border border-brand-border text-brand-dark font-semibold px-4 py-2.5 rounded-xl hover:bg-brand-light transition-all text-xs flex items-center gap-1.5 shadow-sm">
+                <i data-lucide="upload" class="w-3.5 h-3.5 text-brand-dark"></i> Importar en Bloque
+              </button>
+            </div>
+          </div>
+
+          <!-- Tags Filter Banner -->
+          <div class="flex flex-wrap gap-2 items-center bg-white border border-brand-border p-4 rounded-[20px] shadow-sm">
+            <span class="text-[10px] font-bold text-brand-gray uppercase tracking-wider mr-2">Filtrar Segmento:</span>
+            <div class="flex flex-wrap gap-1.5" id="contacts-tags-filter">
+              <!-- Loaded Dynamically -->
+            </div>
+          </div>
+
+          <!-- Table Container -->
+          <div class="bg-white border border-brand-border rounded-[28px] p-6 shadow-sm flex flex-col">
+            <div class="overflow-y-auto max-h-[450px] custom-scroll">
+              <table class="w-full text-left text-xs relative">
+                <thead>
+                  <tr class="border-b border-brand-border text-brand-gray font-bold sticky top-0 bg-white z-10">
+                    <th class="py-3 px-4">Nombre</th>
+                    <th class="py-3 px-4">Email</th>
+                    <th class="py-3 px-4">Segmentos</th>
+                    <th class="py-3 px-4">Estado</th>
+                    <th class="py-3 px-4 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="contacts-table-body">
+                  <!-- Dynamic Rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= TAB: CAMPAIGNS (CREATOR) ================= -->
+        <section id="tab-campaigns" class="tab-content hidden flex flex-col gap-6">
+          <div>
+            <h1 class="text-2xl font-extrabold text-[#1B2939]">Redacción de Campaña</h1>
+            <p class="text-xs text-brand-gray mt-1 font-medium">Escribe, personaliza y distribuye de forma fluida.</p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Editor columns -->
+            <div class="lg:col-span-2 flex flex-col gap-5 bg-white border border-brand-border rounded-[28px] p-6 md:p-8 shadow-sm">
+              <h2 class="text-xs font-bold text-[#1B2939] uppercase tracking-wider border-b border-brand-border pb-2">Contenido de Envío</h2>
+              
+              <div class="flex flex-col gap-1">
+                <label for="campaign-subject" class="text-xs font-semibold text-[#1B2939]">Asunto</label>
+                <input 
+                  type="text" 
+                  id="campaign-subject" 
+                  placeholder="Ej: Te damos la bienvenida a Kônsul"
+                  class="w-full px-4 py-2.5 rounded-xl border border-brand-border focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none text-xs font-medium"
+                >
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <div class="flex justify-between items-center">
+                  <label for="campaign-body" class="text-xs font-semibold text-[#1B2939]">Mensaje (HTML o Texto)</label>
+                  <button onclick="loadTemplate()" class="text-xs font-bold text-brand-accent hover:underline">Cargar Plantilla</button>
+                </div>
+                <textarea 
+                  id="campaign-body" 
+                  placeholder="Estimado cliente..."
+                  class="w-full min-h-[200px] px-4 py-3 rounded-xl border border-brand-border focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none text-xs font-medium font-sans"
+                ></textarea>
+              </div>
+            </div>
+
+            <!-- Safety limits & Send actions -->
+            <div class="flex flex-col gap-6">
+              
+              <div class="bg-white border border-brand-border rounded-[28px] p-6 shadow-sm flex flex-col gap-4">
+                <h2 class="text-xs font-bold text-[#1B2939] uppercase tracking-wider">Destinatarios</h2>
+                
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-xs font-semibold">Seleccionar segmento</label>
+                  <select id="campaign-segment-select" class="w-full px-3 py-2 rounded-xl border border-brand-border outline-none text-xs font-medium bg-brand-light">
+                    <option value="all">Todos los contactos activos</option>
+                  </select>
+                  <div class="text-[10px] text-brand-gray mt-1 font-medium">
+                    Audiencia estimada: <strong id="campaign-recipients-count">0</strong>
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-1.5 pt-2 border-t border-brand-border">
+                  <div class="flex justify-between items-center">
+                    <label class="text-xs font-semibold">Límite de seguridad</label>
+                    <span class="text-xs font-bold text-brand-accent" id="camp-slider-badge">10,000</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    id="camp-slider" 
+                    min="1000" 
+                    max="10000" 
+                    step="1000" 
+                    value="10000"
+                  >
+                  <p class="text-[9px] text-brand-gray font-medium">
+                    Costo AWS SES estimado: <strong id="camp-cost-est">$1.00 USD</strong>.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Submit button & progress card -->
+              <div class="bg-white border border-brand-border rounded-[28px] p-6 shadow-sm flex flex-col gap-4">
+                <button 
+                  id="camp-send-btn" 
+                  class="w-full bg-brand-accent text-white font-bold py-3.5 rounded-xl shadow-sm hover:bg-brand-accentHover transition-all text-xs flex items-center justify-center gap-2"
+                >
+                  <i data-lucide="send" class="w-3.5 h-3.5"></i> Enviar Campaña
+                </button>
+
+                <div id="camp-alert-limit" class="hidden p-3 bg-rose-50 border border-rose-100 rounded-xl text-[10px] text-rose-700 font-medium">
+                  ⚠️ Destinatarios exceden el límite del slider. Incrementa la barra.
+                </div>
+
+                <!-- Progress area -->
+                <div id="camp-progress-area" class="hidden flex flex-col gap-2 pt-2 border-t border-brand-border">
+                  <div class="flex justify-between items-center text-xs">
+                    <span class="font-bold text-[#1B2939]" id="camp-progress-pct">0%</span>
+                    <span class="text-brand-gray font-bold" id="camp-progress-cnt">0 / 0</span>
+                  </div>
+                  <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div id="camp-progress-bar" class="bg-brand-accent h-full w-0 transition-all duration-200"></div>
+                  </div>
+                  <p id="camp-microcopy" class="text-[9px] italic text-brand-gray font-medium">Preparando motores...</p>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ================= TAB: FORMS ================= -->
+        <section id="tab-forms" class="tab-content hidden flex flex-col gap-6">
+          <div>
+            <h1 class="text-2xl font-extrabold text-[#1B2939]">Captación de Contactos</h1>
+            <p class="text-xs text-brand-gray mt-1 font-medium">Generador de cajas de registro incrustables en tus landing pages.</p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="bg-white border border-brand-border rounded-[28px] p-6 md:p-8 shadow-sm flex flex-col gap-4">
+              <h2 class="text-sm font-bold text-[#1B2939] uppercase tracking-wider border-b border-brand-border pb-2">Diseño del Formulario</h2>
+              
+              <div class="flex flex-col gap-1">
+                <label for="form-title" class="text-xs font-semibold text-[#1B2939]">Título del Formulario</label>
+                <input type="text" id="form-title" value="Únete a nuestra lista de correo" class="w-full px-4 py-2 rounded-xl border border-brand-border text-xs font-medium">
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label for="form-tag" class="text-xs font-semibold text-[#1B2939]">Tag asignado por defecto</label>
+                <input type="text" id="form-tag" value="Suscripción Directa" class="w-full px-4 py-2 rounded-xl border border-brand-border text-xs font-medium">
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label for="form-btn-text" class="text-xs font-semibold text-[#1B2939]">Texto del Botón</label>
+                <input type="text" id="form-btn-text" value="Suscribirme" class="w-full px-4 py-2 rounded-xl border border-brand-border text-xs font-medium">
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label class="text-xs font-semibold text-[#1B2939]">Código HTML de Integración</label>
+                <textarea id="form-embed-code" readonly class="w-full min-h-[120px] p-3 rounded-xl border border-brand-border bg-brand-light font-mono text-[10px] text-brand-gray select-all outline-none"></textarea>
+              </div>
+            </div>
+
+            <!-- Live Form Preview -->
+            <div class="bg-brand-light border border-brand-border rounded-[28px] p-6 md:p-8 flex flex-col justify-center items-center">
+              <span class="text-xs font-bold text-brand-accent uppercase tracking-wider mb-4">Vista Previa Real</span>
+              
+              <div class="w-full max-w-xs bg-white border border-brand-border p-6 rounded-2xl shadow-sm text-center">
+                <h3 id="prev-form-title" class="font-bold text-sm mb-2 text-[#1B2939]">Únete a nuestra lista de correo</h3>
+                <p class="text-[10px] text-brand-gray mb-4 font-medium">Ingresa tus datos para mantenerte informado.</p>
+                
+                <div class="flex flex-col gap-2.5">
+                  <input type="text" placeholder="Tu nombre" disabled class="px-3 py-2 rounded-xl border border-brand-border text-[11px] w-full bg-brand-light font-medium">
+                  <input type="email" placeholder="Tu correo electrónico" disabled class="px-3 py-2 rounded-xl border border-brand-border text-[11px] w-full bg-brand-light font-medium">
+                  <button id="prev-form-btn" class="bg-brand-dark text-white font-semibold py-2 rounded-xl text-[11px] w-full">Suscribirme</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= TAB: SETTINGS ================= -->
+        <section id="tab-settings" class="tab-content hidden flex flex-col gap-6">
+          <div>
+            <h1 class="text-2xl font-extrabold text-[#1B2939]">Ajustes de Amazon SES</h1>
+            <p class="text-xs text-brand-gray mt-1 font-medium">Revisa el estado de conexión del servicio de correo.</p>
+          </div>
+
+          <div class="bg-white border border-brand-border rounded-[28px] p-6 md:p-8 shadow-sm max-w-xl flex flex-col gap-5">
+            <div class="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-100 text-xs" id="settings-status-box">
+              <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>
+              <div>
+                <h3 class="font-bold text-emerald-800 text-xs" id="settings-status-title">Servicio Activo o Simulación Habilitada</h3>
+                <p class="text-[10px] text-emerald-700 mt-0.5 font-medium" id="settings-status-desc">
+                  Tus parámetros de entorno están cargados y listos para interactuar con Amazon SES.
+                </p>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-2">
+              <h3 class="font-bold text-xs text-[#1B2939] uppercase tracking-wider border-b border-brand-border pb-1">Valores del Servidor</h3>
+              <div class="grid grid-cols-2 gap-3 text-[11px] font-mono text-brand-gray bg-brand-light p-4 rounded-xl border border-brand-border">
+                <div>AWS_REGION:</div><div id="cfg-region" class="font-bold text-brand-dark">-</div>
+                <div>SES_SENDER_EMAIL:</div><div id="cfg-sender" class="font-bold text-brand-dark">-</div>
+                <div>AWS_ACCESS_KEY_ID:</div><div id="cfg-access-key" class="font-bold text-brand-dark">-</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ADD SINGLE CONTACT MODAL -->
+  <div id="modal-add-contact" class="fixed inset-0 bg-[#1B2939]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white max-w-md w-full rounded-2xl border border-brand-border p-6 shadow-xl">
+      <h3 class="text-base font-bold mb-4 text-[#1B2939]">Añadir Nuevo Contacto</h3>
+      <form id="add-contact-form" class="flex flex-col gap-3.5">
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-semibold">Nombre Completo</label>
+          <input type="text" id="ac-name" placeholder="Ej: Sofía" required class="w-full px-3 py-2 rounded-xl border border-brand-border text-xs outline-none focus:border-brand-accent font-medium">
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-semibold">Correo Electrónico</label>
+          <input type="email" id="ac-email" placeholder="email@ejemplo.com" required class="w-full px-3 py-2 rounded-xl border border-brand-border text-xs outline-none focus:border-brand-accent font-medium">
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-semibold">Tag / Segmento</label>
+          <input type="text" id="ac-tag" placeholder="Ej: Clientes" class="w-full px-3 py-2 rounded-xl border border-brand-border text-xs outline-none focus:border-brand-accent font-medium">
+        </div>
+        <div class="flex justify-end gap-2 mt-2">
+          <button type="button" onclick="closeModal('modal-add-contact')" class="px-4 py-2 rounded-xl text-xs font-semibold text-brand-gray hover:bg-brand-light">Cancelar</button>
+          <button type="submit" class="bg-brand-accent text-white font-semibold px-4 py-2 rounded-xl text-xs hover:bg-brand-accentHover shadow-sm">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- IMPORT BULK CONTACTS MODAL -->
+  <div id="modal-import-bulk" class="fixed inset-0 bg-[#1B2939]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white max-w-lg w-full rounded-2xl border border-brand-border p-6 shadow-xl">
+      <h3 class="text-base font-bold mb-1 text-[#1B2939]">Importar en Bloque</h3>
+      <p class="text-[11px] text-brand-gray mb-4 font-medium">Pega los correos separados por comas o saltos de línea.</p>
+      
+      <form id="import-bulk-form" class="flex flex-col gap-3.5">
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-semibold">Correos electrónicos</label>
+          <textarea id="ib-list" placeholder="correo1@ejemplo.com&#10;correo2@ejemplo.com, correo3@ejemplo.com" required class="w-full min-h-[120px] px-3 py-2.5 rounded-xl border border-brand-border text-xs font-mono outline-none focus:border-brand-accent"></textarea>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-semibold">Asignar Tag Común</label>
+          <input type="text" id="ib-tag" value="Importados" class="w-full px-3 py-2 rounded-xl border border-brand-border text-xs outline-none focus:border-brand-accent font-medium">
+        </div>
+        <div class="flex justify-end gap-2 mt-2">
+          <button type="button" onclick="closeModal('modal-import-bulk')" class="px-4 py-2 rounded-xl text-xs font-semibold text-brand-gray hover:bg-brand-light">Cancelar</button>
+          <button type="submit" class="bg-brand-accent text-white font-semibold px-4 py-2 rounded-xl text-xs hover:bg-brand-accentHover shadow-sm">Importar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Variables globales
+    let currentOnboardingVolume = 10000;
+    let contacts = [];
+    let campaigns = [];
+    let selectedTag = 'all';
+    let onboardingData = null;
+
+    const microcopies = [
+      "Preparando motores y repasando tu mensaje... 📝",
+      "Abriendo canales seguros con Amazon SES... ☁️",
+      "Entregando tus palabras con todo el cariño... 💌",
+      "Asegurando que cada mensaje llegue a su destino... 🤝",
+      "Manteniendo una tasa de envío suave y controlada... ⛵",
+      "¡Casi listo! Finalizando la entrega... ✨"
+    ];
+    let microcopyInterval = null;
+
+    // Inicializar aplicación al cargar
+    window.addEventListener('DOMContentLoaded', async () => {
+      lucide.createIcons();
+      setupSidebarToggle();
+      
+      const isAuth = await checkAuth();
+      if (!isAuth) return; // Se detiene la ejecución, la pantalla de login se muestra
+
+      await fetchOnboarding();
+      await fetchContacts();
+      await fetchCampaigns();
+      setupEventListeners();
+    });
+
+    // Validar sesión con backend
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/auth/me');
+        const data = await res.json();
+        if (data.authenticated) {
+          document.getElementById('auth-overlay').classList.add('hidden');
+          // Update sidebar username if needed
+          const userObj = data.user;
+          const userElem = document.querySelector('.sidebar-user-name');
+          if (userElem && userObj.given_name) userElem.textContent = userObj.given_name;
+          return true;
+        }
+      } catch (e) {}
+      
+      // Mostrar pantalla de login
+      document.getElementById('auth-overlay').classList.remove('hidden');
+      return false;
+    }
+
+    // Sidebar Toggler Logic: Collapsing into w-20 with centered icons
+    function setupSidebarToggle() {
+      const sidebar = document.getElementById('sidebar');
+      const toggleBtn = document.getElementById('sidebar-toggle');
+      const toggleIcon = document.getElementById('sidebar-toggle-icon');
+      
+      toggleBtn.addEventListener('click', () => {
+        const isCollapsed = sidebar.classList.contains('sidebar-collapsed');
+        
+        if (isCollapsed) {
+          sidebar.classList.remove('sidebar-collapsed');
+          toggleIcon.style.transform = 'rotate(0deg)';
+        } else {
+          sidebar.classList.add('sidebar-collapsed');
+          toggleIcon.style.transform = 'rotate(180deg)';
+        }
+      });
+    }
+
+    // 1. Onboarding API fetch
+    async function fetchOnboarding() {
+      try {
+        const res = await fetch('/api/onboarding');
+        const data = await res.json();
+        onboardingData = data;
+        
+        if (!data.completed) {
+          document.getElementById('onboarding-overlay').classList.remove('hidden');
+        } else {
+          document.getElementById('topbar-credits').textContent = Number(data.monthlyVolume).toLocaleString() + ' unidades';
+          currentOnboardingVolume = data.monthlyVolume;
+          
+          const campSlider = document.getElementById('camp-slider');
+          campSlider.max = currentOnboardingVolume;
+          campSlider.value = currentOnboardingVolume;
+          updateCampSliderBadge(currentOnboardingVolume);
+        }
+      } catch (err) {
+        console.error('Error cargando onboarding:', err);
+      }
+    }
+
+    // 2. Contactos API fetch
+    async function fetchContacts() {
+      try {
+        const res = await fetch('/api/contacts');
+        contacts = await res.json();
+        renderContacts();
+        renderTagsFilter();
+        updateDashboardStats();
+        updateCampaignAudienceCount();
+      } catch (err) {
+        console.error('Error cargando contactos:', err);
+      }
+    }
+
+    // 3. Campañas API fetch
+    async function fetchCampaigns() {
+      try {
+        const res = await fetch('/api/campaigns');
+        campaigns = await res.json();
+        renderCampaigns();
+        updateDashboardStats();
+      } catch (err) {
+        console.error('Error cargando campañas:', err);
+      }
+    }
+
+    // Navegación entre pestañas
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(section => {
+        section.classList.add('hidden');
+      });
+      document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+
+      const pageTitleMap = {
+        'dashboard': 'Panel Principal',
+        'contacts': 'Base de Suscriptores',
+        'campaigns': 'Redacción de Campaña',
+        'forms': 'Captación de Contactos',
+        'settings': 'Ajustes de Amazon SES'
+      };
+
+      document.getElementById('page-main-title').textContent = pageTitleMap[tabId] || 'Panel Principal';
+      
+      const tabButtons = ['dashboard', 'contacts', 'campaigns', 'forms', 'settings'];
+      tabButtons.forEach(btn => {
+        const button = document.getElementById(`tab-btn-${btn}`);
+        if (btn === tabId) {
+          button.className = "sidebar-active menu-item-btn flex items-center justify-between w-full px-4 py-3 rounded-2xl text-xs font-bold text-brand-dark transition-all";
+        } else {
+          button.className = "flex items-center justify-between w-full px-4 py-3 rounded-2xl text-xs font-bold text-brand-gray hover:bg-[#F8F9FA] hover:text-brand-dark transition-all menu-item-btn";
+        }
+      });
+
+      if (tabId === 'settings') {
+        checkSettingsStatus();
+      }
+    }
+
+    // Configurar Event Listeners
+    function setupEventListeners() {
+      const obSlider = document.getElementById('ob-volume-slider');
+      const obBadge = document.getElementById('ob-volume-badge');
+      obSlider.addEventListener('input', (e) => {
+        obBadge.textContent = Number(e.target.value).toLocaleString() + ' correos';
+      });
+
+      document.getElementById('onboarding-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const companyName = document.getElementById('ob-company').value.trim();
+        const monthlyVolume = obSlider.value;
+
+        try {
+          const res = await fetch('/api/onboarding', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ companyName, monthlyVolume })
+          });
+          const data = await res.json();
+          if (data.success) {
+            document.getElementById('onboarding-overlay').classList.add('hidden');
+            await fetchOnboarding();
+          }
+        } catch (err) {
+          alert('Error guardando la configuración de bienvenida.');
+        }
+      });
+
+      document.getElementById('add-contact-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('ac-name').value.trim();
+        const email = document.getElementById('ac-email').value.trim();
+        const tag = document.getElementById('ac-tag').value.trim() || 'Clientes';
+
+        try {
+          const res = await fetch('/api/contacts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email, tags: [tag] })
+          });
+          const data = await res.json();
+          if (data.success) {
+            closeModal('modal-add-contact');
+            document.getElementById('add-contact-form').reset();
+            await fetchContacts();
+          } else {
+            alert(data.message);
+          }
+        } catch (err) {
+          alert('Error de red al guardar el contacto.');
+        }
+      });
+
+      document.getElementById('import-bulk-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const rawList = document.getElementById('ib-list').value;
+        const tag = document.getElementById('ib-tag').value.trim() || 'Importados';
+        
+        const parsed = rawList.split(/[,\n\r\s]+/)
+          .map(e => e.trim())
+          .filter(e => e !== '');
+
+        const payload = parsed.map(email => ({ email, tags: [tag] }));
+
+        try {
+          const res = await fetch('/api/contacts/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ list: payload })
+          });
+          const data = await res.json();
+          if (data.success) {
+            closeModal('modal-import-bulk');
+            document.getElementById('import-bulk-form').reset();
+            await fetchContacts();
+            alert(`¡Importación completada! Se añadieron/reactivaron ${data.added} contactos.`);
+          }
+        } catch (err) {
+          alert('Error de red al importar contactos.');
+        }
+      });
+
+      document.getElementById('campaign-segment-select').addEventListener('change', updateCampaignAudienceCount);
+
+      const campSlider = document.getElementById('camp-slider');
+      campSlider.addEventListener('input', (e) => {
+        updateCampSliderBadge(e.target.value);
+        checkCampaignLimitSafety();
+      });
+
+      document.getElementById('camp-send-btn').addEventListener('click', executeCampaignSend);
+
+      const formTitleInput = document.getElementById('form-title');
+      const formTagInput = document.getElementById('form-tag');
+      const formBtnInput = document.getElementById('form-btn-text');
+
+      const updateFormGenerator = () => {
+        const title = formTitleInput.value.trim() || 'Únete a nuestra lista';
+        const tag = formTagInput.value.trim() || 'Suscripción Directa';
+        const btnText = formBtnInput.value.trim() || 'Suscribirme';
+
+        document.getElementById('prev-form-title').textContent = title;
+        document.getElementById('prev-form-btn').textContent = btnText;
+
+        const serverUrl = window.location.origin;
+        const embedCode = `<!-- Formulario de Suscripción Kônsul -->
+<div style="font-family: sans-serif; max-width: 360px; margin: 0 auto; border: 1px solid #EAE6DF; border-radius: 16px; padding: 24px; text-align: center; background-color: #FFFFFF;">
+  <h3 style="margin-top: 0; margin-bottom: 8px; font-size: 18px; color: #1B2939;">${title}</h3>
+  <p style="font-size: 12px; color: #6E7A8A; margin-bottom: 16px;">Ingresa tus datos para mantenerte informado.</p>
+  <form action="${serverUrl}/api/contacts" method="POST" style="display: flex; flex-direction: column; gap: 10px;">
+    <input type="text" name="name" placeholder="Tu nombre" required style="padding: 10px; border: 1px solid #EAE6DF; border-radius: 8px; font-size: 13px;" />
+    <input type="email" name="email" placeholder="Tu correo electrónico" required style="padding: 10px; border: 1px solid #EAE6DF; border-radius: 8px; font-size: 13px;" />
+    <input type="hidden" name="tags" value="${tag}" />
+    <button type="submit" style="background-color: #1B2939; color: #FFFFFF; font-weight: 600; padding: 10px; border: none; border-radius: 8px; font-size: 13px; cursor: pointer;">${btnText}</button>
+  </form>
+</div>`;
+        document.getElementById('form-embed-code').value = embedCode;
+      };
+
+      formTitleInput.addEventListener('input', updateFormGenerator);
+      formTagInput.addEventListener('input', updateFormGenerator);
+      formBtnInput.addEventListener('input', updateFormGenerator);
+      updateFormGenerator();
+    }
+
+    // UI Renders
+    function renderContacts() {
+      const tbody = document.getElementById('contacts-table-body');
+      tbody.innerHTML = '';
+
+      const filtered = contacts.filter(c => {
+        if (selectedTag === 'all') return true;
+        return c.tags && c.tags.includes(selectedTag);
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-brand-gray text-xs font-semibold">No se encontraron contactos en esta sección.</td></tr>`;
+        return;
+      }
+
+      filtered.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.className = "border-b border-brand-border text-xs font-medium text-brand-dark";
+        
+        const tagsBadges = c.tags.map(t => `<span class="bg-brand-light px-2.5 py-0.5 border border-brand-border/60 rounded-full font-bold text-[9px] text-brand-gray mr-1">${t}</span>`).join('');
+        const statusBadge = c.status === 'active' 
+          ? `<span class="bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-emerald-100">Activo</span>`
+          : `<span class="bg-rose-50 text-rose-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-rose-100 font-mono">Baja</span>`;
+
+        tr.innerHTML = `
+          <td class="py-3.5 px-4 font-bold text-[#1B2939]">${c.name}</td>
+          <td class="py-3.5 px-4 font-mono text-brand-gray">${c.email}</td>
+          <td class="py-3.5 px-4">${tagsBadges}</td>
+          <td class="py-3.5 px-4">${statusBadge}</td>
+          <td class="py-3.5 px-4 text-right">
+            <button onclick="deleteContact('${c.id}')" class="text-rose-500 hover:text-rose-700 font-bold">Eliminar</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderTagsFilter() {
+      const container = document.getElementById('contacts-tags-filter');
+      const allTags = new Set();
+      contacts.forEach(c => {
+        if (c.tags) c.tags.forEach(t => allTags.add(t));
+      });
+
+      container.innerHTML = `<button onclick="filterContactsByTag('all')" class="px-3 py-1 rounded-full text-xs font-bold ${selectedTag === 'all' ? 'bg-brand-dark text-white' : 'bg-brand-light text-brand-gray hover:bg-brand-border' }">Todos</button>`;
+      
+      allTags.forEach(tag => {
+        const isSelected = selectedTag === tag;
+        const btn = document.createElement('button');
+        btn.onclick = () => filterContactsByTag(tag);
+        btn.className = `px-3 py-1 rounded-full text-xs font-bold ${isSelected ? 'bg-brand-dark text-white' : 'bg-brand-light text-brand-gray hover:bg-brand-border'}`;
+        btn.textContent = tag;
+        container.appendChild(btn);
+      });
+
+      const select = document.getElementById('campaign-segment-select');
+      const prevVal = select.value;
+      select.innerHTML = `<option value="all">Todos los contactos activos</option>`;
+      allTags.forEach(tag => {
+        const opt = document.createElement('option');
+        opt.value = tag;
+        opt.textContent = `Segmento: ${tag}`;
+        select.appendChild(opt);
+      });
+      select.value = prevVal;
+    }
+
+    function renderCampaigns() {
+      const tbody = document.getElementById('dashboard-campaigns-list');
+      tbody.innerHTML = '';
+
+      if (campaigns.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-brand-gray text-[11px] font-semibold">No has enviado ninguna campaña de correo todavía.</td></tr>`;
+        return;
+      }
+
+      const sorted = [...campaigns].sort((a, b) => new Date(b.sentDate) - new Date(a.sentDate));
+
+      sorted.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.className = "border-b border-brand-border text-brand-dark font-medium";
+        
+        const dateStr = new Date(c.sentDate).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const openRate = c.successCount > 0 ? Math.round((c.opens / c.successCount) * 100) : 0;
+
+        tr.innerHTML = `
+          <td class="py-3 px-3 font-bold text-[#1B2939]">${c.subject}</td>
+          <td class="py-3 px-3 text-brand-gray font-mono">${dateStr}</td>
+          <td class="py-3 px-3 font-semibold text-brand-accent">${c.successCount} / ${c.totalSent}</td>
+          <td class="py-3 px-3 font-semibold">${c.opens} (${openRate}%)</td>
+          <td class="py-3 px-3"><span class="bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-100 text-[10px]">Enviado</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function updateDashboardStats() {
+      const activeContacts = contacts.filter(c => c.status === 'active').length;
+      document.getElementById('kpi-contacts').textContent = activeContacts.toLocaleString();
+
+      const unsubs = contacts.filter(c => c.status === 'unsubscribe').length;
+      document.getElementById('kpi-unsubs').textContent = unsubs.toLocaleString();
+
+      let totalSent = 0;
+      let totalOpens = 0;
+      campaigns.forEach(c => {
+        totalSent += c.successCount || 0;
+        totalOpens += c.opens || 0;
+      });
+
+      document.getElementById('kpi-sent').textContent = totalSent.toLocaleString();
+      document.getElementById('kpi-opens').textContent = totalOpens.toLocaleString();
+    }
+
+    function updateCampaignAudienceCount() {
+      const select = document.getElementById('campaign-segment-select');
+      const val = select.value;
+      
+      let count = 0;
+      if (val === 'all') {
+        count = contacts.filter(c => c.status === 'active').length;
+      } else {
+        count = contacts.filter(c => c.status === 'active' && c.tags && c.tags.includes(val)).length;
+      }
+
+      document.getElementById('campaign-recipients-count').textContent = count;
+      checkCampaignLimitSafety();
+    }
+
+    function updateCampSliderBadge(value) {
+      document.getElementById('camp-slider-badge').textContent = Number(value).toLocaleString();
+      const cost = (value / 1000) * 0.10;
+      document.getElementById('camp-cost-est').textContent = `$${cost.toFixed(2)} USD`;
+    }
+
+    function checkCampaignLimitSafety() {
+      const sliderVal = parseInt(document.getElementById('camp-slider').value, 10);
+      const estAudience = parseInt(document.getElementById('campaign-recipients-count').textContent, 10);
+      const alertDiv = document.getElementById('camp-alert-limit');
+      const sendBtn = document.getElementById('camp-send-btn');
+
+      if (estAudience > sliderVal) {
+        alertDiv.classList.remove('hidden');
+        sendBtn.disabled = true;
+      } else {
+        alertDiv.classList.add('hidden');
+        sendBtn.disabled = false;
+      }
+    }
+
+    async function executeCampaignSend() {
+      const subject = document.getElementById('campaign-subject').value.trim();
+      const body = document.getElementById('campaign-body').value.trim();
+      const segment = document.getElementById('campaign-segment-select').value;
+      const limit = parseInt(document.getElementById('camp-slider').value, 10);
+
+      if (!subject || !body) {
+        alert('Ingresa el asunto y contenido de la campaña.');
+        return;
+      }
+
+      let targets = [];
+      if (segment === 'all') {
+        targets = contacts.filter(c => c.status === 'active').map(c => c.email);
+      } else {
+        targets = contacts.filter(c => c.status === 'active' && c.tags && c.tags.includes(segment)).map(c => c.email);
+      }
+
+      if (targets.length === 0) {
+        alert('No hay destinatarios activos en el segmento seleccionado.');
+        return;
+      }
+
+      const sendBtn = document.getElementById('camp-send-btn');
+      const progressArea = document.getElementById('camp-progress-area');
+      const progressBar = document.getElementById('camp-progress-bar');
+      const progressPct = document.getElementById('camp-progress-pct');
+      const progressCnt = document.getElementById('camp-progress-cnt');
+      const microcopyText = document.getElementById('camp-microcopy');
+
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = "⏳ Enviando correos masivos...";
+      progressArea.classList.remove('hidden');
+      
+      progressBar.style.width = '0%';
+      progressPct.textContent = '0%';
+      progressCnt.textContent = `0 / ${targets.length}`;
+
+      let microIndex = 0;
+      microcopyText.textContent = microcopies[0];
+      microcopyInterval = setInterval(() => {
+        microIndex = (microIndex + 1) % microcopies.length;
+        microcopyText.textContent = microcopies[microIndex];
+      }, 3500);
+
+      try {
+        const response = await fetch('/api/send-bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subject,
+            body,
+            recipients: targets,
+            limit,
+            targetTags: segment === 'all' ? [] : [segment]
+          })
+        });
+
+        const data = await response.json();
+        clearInterval(microcopyInterval);
+
+        if (data.success) {
+          progressBar.style.width = '100%';
+          progressPct.textContent = '100%';
+          progressCnt.textContent = `${data.sentCount} / ${data.total}`;
+          microcopyText.textContent = data.simulation ? "✨ ¡Simulación completada de forma correcta!" : "✓ ¡Entrega finalizada con éxito!";
+
+          setTimeout(async () => {
+            document.getElementById('campaign-subject').value = '';
+            document.getElementById('campaign-body').value = '';
+            progressArea.classList.add('hidden');
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = "<i data-lucide='send' class='w-3.5 h-3.5'></i> Enviar Campaña";
+            lucide.createIcons();
+            
+            await fetchCampaigns();
+            await fetchContacts();
+            switchTab('dashboard');
+          }, 2500);
+
+        } else {
+          alert('Error: ' + data.message);
+          clearInterval(microcopyInterval);
+          progressArea.classList.add('hidden');
+          sendBtn.disabled = false;
+          sendBtn.innerHTML = "<i data-lucide='send' class='w-3.5 h-3.5'></i> Enviar Campaña";
+          lucide.createIcons();
+        }
+      } catch (err) {
+        clearInterval(microcopyInterval);
+        alert('Error de conexión con el servidor.');
+        progressArea.classList.add('hidden');
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = "<i data-lucide='send' class='w-3.5 h-3.5'></i> Enviar Campaña";
+        lucide.createIcons();
+      }
+    }
+
+    async function checkSettingsStatus() {
+      try {
+        const region = "us-east-1 (Por defecto)";
+        document.getElementById('cfg-region').textContent = region;
+        document.getElementById('cfg-sender').textContent = "Configurado en archivo .env";
+        document.getElementById('cfg-access-key').textContent = "Configurado en archivo .env";
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  </script>
+</body>
+</html>
