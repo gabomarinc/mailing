@@ -874,8 +874,11 @@
         }
       } catch (e) {}
       
-      // Mostrar pantalla de login
+      // Mostrar overlay por un segundo mientras redirige (para que no quede en blanco)
       document.getElementById('auth-overlay').classList.remove('hidden');
+      
+      // Redirección automática silenciosa al SSO
+      window.location.href = '/api/auth/login';
       return false;
     }
 
