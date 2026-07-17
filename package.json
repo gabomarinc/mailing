@@ -22,6 +22,7 @@
     "@aws-sdk/client-ses": "^3.600.0",
     "@kinde-oss/kinde-nodejs-sdk": "^1.2.4",
     "@neondatabase/serverless": "^0.9.4",
+    "connect-pg-simple": "^9.0.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",

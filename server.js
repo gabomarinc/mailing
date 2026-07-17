@@ -2,16 +2,19 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const session = require('express-session');
+const pgSession = require('connect-pg-simple')(session);
 const { KindeClient, GrantType } = require('@kinde-oss/kinde-nodejs-sdk');
 const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
-const { neon } = require('@neondatabase/serverless');
+const { neon, Pool } = require('@neondatabase/serverless');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Configurar base de datos Neon
-const sql = neon(process.env.DATABASE_URL || 'postgresql://user:pass@ep-host.neon.tech/db?sslmode=require');
+const dbUrl = process.env.DATABASE_URL || 'postgresql://user:pass@ep-host.neon.tech/db?sslmode=require';
+const sql = neon(dbUrl);
+const pool = new Pool({ connectionString: dbUrl });
 
 // Middleware
 app.use(cors());
@@ -21,10 +24,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Session Middleware
 app.set('trust proxy', 1); // Trust Vercel's proxy for secure cookies
 app.use(session({
+  store: new pgSession({
+    pool: pool,
+    tableName: 'session'
+  }),
   secret: process.env.SESSION_SECRET || 'konsul-super-secret-key-123',
   resave: false,
-  saveUninitialized: true,
-  cookie: { secure: process.env.VERCEL ? true : false }
+  saveUninitialized: false, // Better false for authenticated sessions
+  cookie: { maxAge: 30 * 24 * 60 * 60 * 1000, secure: process.env.VERCEL ? true : false } // 30 days
 }));
 
 // Configurar Cliente Kinde
@@ -447,6 +454,24 @@ app.get('/api/setup-db', async (req, res) => {
     `;
     await sql`CREATE INDEX IF NOT EXISTS idx_contacts_kinde_id ON contacts(kinde_id);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_campaigns_kinde_id ON campaigns(kinde_id);`;
+    
+    // Tabla de sesiones para connect-pg-simple
+    await sql`
+      CREATE TABLE IF NOT EXISTS "session" (
+        "sid" varchar NOT NULL COLLATE "default",
+        "sess" json NOT NULL,
+        "expire" timestamp(6) NOT NULL
+      );
+    `;
+    await sql`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'session_pkey') THEN
+          ALTER TABLE "session" ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE;
+        END IF;
+      END $$;
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");`;
     
     res.json({ success: true, message: '¡Tablas creadas exitosamente en Neon!' });
   } catch (error) {
