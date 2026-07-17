@@ -410,6 +410,50 @@ app.get('/unsubscribe/:campaignId/:email', async (req, res) => {
   }
 });
 
+// Ruta secreta temporal para crear tablas en Neon
+app.get('/api/setup-db', async (req, res) => {
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS users (
+          kinde_id VARCHAR(255) PRIMARY KEY,
+          company_name VARCHAR(255),
+          monthly_volume INTEGER,
+          is_setup_complete BOOLEAN DEFAULT false
+      );
+    `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS contacts (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          kinde_id VARCHAR(255) NOT NULL REFERENCES users(kinde_id) ON DELETE CASCADE,
+          name VARCHAR(255) NOT NULL,
+          email VARCHAR(255) NOT NULL,
+          tags TEXT[],
+          status VARCHAR(50) DEFAULT 'active',
+          added_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS campaigns (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          kinde_id VARCHAR(255) NOT NULL REFERENCES users(kinde_id) ON DELETE CASCADE,
+          subject VARCHAR(255) NOT NULL,
+          body TEXT NOT NULL,
+          target_tags TEXT[],
+          total_sent INTEGER DEFAULT 0,
+          status VARCHAR(50) DEFAULT 'sent',
+          sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_contacts_kinde_id ON contacts(kinde_id);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_campaigns_kinde_id ON campaigns(kinde_id);`;
+    
+    res.json({ success: true, message: '¡Tablas creadas exitosamente en Neon!' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Fallback para el frontend (SPA)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
