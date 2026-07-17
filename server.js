@@ -5,7 +5,8 @@ const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
 const { KindeClient, GrantType } = require('@kinde-oss/kinde-nodejs-sdk');
 const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
-const { neon, Pool } = require('@neondatabase/serverless');
+const { neon } = require('@neondatabase/serverless');
+const { Pool } = require('pg');
 require('dotenv').config();
 
 const app = express();
