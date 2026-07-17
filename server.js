@@ -21,6 +21,65 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Ruta secreta temporal para crear tablas en Neon (ANTES del session middleware)
+app.get('/api/setup-db', async (req, res) => {
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS users (
+          kinde_id VARCHAR(255) PRIMARY KEY,
+          company_name VARCHAR(255),
+          monthly_volume INTEGER,
+          is_setup_complete BOOLEAN DEFAULT false
+      );
+    `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS contacts (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          kinde_id VARCHAR(255) NOT NULL REFERENCES users(kinde_id) ON DELETE CASCADE,
+          name VARCHAR(255) NOT NULL,
+          email VARCHAR(255) NOT NULL,
+          tags TEXT[],
+          status VARCHAR(50) DEFAULT 'active',
+          added_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS campaigns (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          kinde_id VARCHAR(255) NOT NULL REFERENCES users(kinde_id) ON DELETE CASCADE,
+          subject VARCHAR(255) NOT NULL,
+          body TEXT NOT NULL,
+          target_tags TEXT[],
+          total_sent INTEGER DEFAULT 0,
+          status VARCHAR(50) DEFAULT 'sent',
+          sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_contacts_kinde_id ON contacts(kinde_id);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_campaigns_kinde_id ON campaigns(kinde_id);`;
+    
+    // Tabla de sesiones para connect-pg-simple
+    await sql`
+      CREATE TABLE IF NOT EXISTS "session" (
+        "sid" varchar NOT NULL COLLATE "default",
+        "sess" json NOT NULL,
+        "expire" timestamp(6) NOT NULL
+      );
+    `;
+    // PostgreSQL constraints no tienen "IF NOT EXISTS" para alterar constraints fácilmente, 
+    // pero si la tabla se acaba de crear, podemos tratar de agregarlo. Para ser seguros, capturamos el error si ya existe.
+    try {
+      await sql`ALTER TABLE "session" ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE;`;
+    } catch(e) {}
+    await sql`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");`;
+    
+    res.json({ success: true, message: '¡Tablas creadas exitosamente en Neon!' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Session Middleware
 app.set('trust proxy', 1); // Trust Vercel's proxy for secure cookies
 app.use(session({
@@ -415,68 +474,6 @@ app.get('/unsubscribe/:campaignId/:email', async (req, res) => {
     `);
   } catch (err) {
     res.status(500).send("Error procesando baja.");
-  }
-});
-
-// Ruta secreta temporal para crear tablas en Neon
-app.get('/api/setup-db', async (req, res) => {
-  try {
-    await sql`
-      CREATE TABLE IF NOT EXISTS users (
-          kinde_id VARCHAR(255) PRIMARY KEY,
-          company_name VARCHAR(255),
-          monthly_volume INTEGER,
-          is_setup_complete BOOLEAN DEFAULT false
-      );
-    `;
-    await sql`
-      CREATE TABLE IF NOT EXISTS contacts (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          kinde_id VARCHAR(255) NOT NULL REFERENCES users(kinde_id) ON DELETE CASCADE,
-          name VARCHAR(255) NOT NULL,
-          email VARCHAR(255) NOT NULL,
-          tags TEXT[],
-          status VARCHAR(50) DEFAULT 'active',
-          added_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-    `;
-    await sql`
-      CREATE TABLE IF NOT EXISTS campaigns (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          kinde_id VARCHAR(255) NOT NULL REFERENCES users(kinde_id) ON DELETE CASCADE,
-          subject VARCHAR(255) NOT NULL,
-          body TEXT NOT NULL,
-          target_tags TEXT[],
-          total_sent INTEGER DEFAULT 0,
-          status VARCHAR(50) DEFAULT 'sent',
-          sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-    `;
-    await sql`CREATE INDEX IF NOT EXISTS idx_contacts_kinde_id ON contacts(kinde_id);`;
-    await sql`CREATE INDEX IF NOT EXISTS idx_campaigns_kinde_id ON campaigns(kinde_id);`;
-    
-    // Tabla de sesiones para connect-pg-simple
-    await sql`
-      CREATE TABLE IF NOT EXISTS "session" (
-        "sid" varchar NOT NULL COLLATE "default",
-        "sess" json NOT NULL,
-        "expire" timestamp(6) NOT NULL
-      );
-    `;
-    await sql`
-      DO $$
-      BEGIN
-        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'session_pkey') THEN
-          ALTER TABLE "session" ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE;
-        END IF;
-      END $$;
-    `;
-    await sql`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");`;
-    
-    res.json({ success: true, message: '¡Tablas creadas exitosamente en Neon!' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, error: error.message });
   }
 });
 
