@@ -19,6 +19,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Session Middleware
+app.set('trust proxy', 1); // Trust Vercel's proxy for secure cookies
 app.use(session({
   secret: process.env.SESSION_SECRET || 'konsul-super-secret-key-123',
   resave: false,
