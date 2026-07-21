@@ -158,6 +158,7 @@ app.get('/api/setup-db', async (req, res) => {
           added_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `;
+    await sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS custom_fields JSONB DEFAULT '{}'::jsonb;`;
     await sql`
       CREATE TABLE IF NOT EXISTS campaigns (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
