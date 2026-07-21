@@ -3,7 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
+const { SESClient, SendEmailCommand, VerifyDomainIdentityCommand, VerifyDomainDkimCommand, GetIdentityVerificationAttributesCommand, GetIdentityDkimAttributesCommand } = require('@aws-sdk/client-ses');
 const { neon } = require('@neondatabase/serverless');
 const { Pool } = require('pg');
 require('dotenv').config();
@@ -62,6 +62,35 @@ async function initDB() {
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS domains (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          kinde_id VARCHAR(255) NOT NULL REFERENCES users(kinde_id) ON DELETE CASCADE,
+          domain_name VARCHAR(255) NOT NULL,
+          dkim_tokens TEXT[],
+          verification_status VARCHAR(50) DEFAULT 'Pending',
+          dkim_status VARCHAR(50) DEFAULT 'Pending',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS dedicated_ips (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          kinde_id VARCHAR(255) NOT NULL REFERENCES users(kinde_id) ON DELETE CASCADE,
+          ip_address VARCHAR(50),
+          status VARCHAR(50) DEFAULT 'requested',
+          requested_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          assigned_at TIMESTAMP WITH TIME ZONE
+      );
+    `;
+    
+    // Add columns if they don't exist
+    try {
+      await sql`ALTER TABLE users ADD COLUMN hourly_limit INTEGER DEFAULT 1000`;
+    } catch(e) { /* Column might exist */ }
+    try {
+      await sql`ALTER TABLE users ADD COLUMN warmup_mode BOOLEAN DEFAULT false`;
+    } catch(e) { /* Column might exist */ }
     await sql`CREATE INDEX IF NOT EXISTS idx_contacts_kinde_id ON contacts(kinde_id);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_campaigns_kinde_id ON campaigns(kinde_id);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_senders_kinde_id ON senders(kinde_id);`;
@@ -466,6 +495,128 @@ app.delete('/api/senders/:id', protectRoute, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+// ======================== DOMAINS ========================
+const sesClient = new SESClient({ region: process.env.AWS_REGION || 'us-east-1' });
+
+app.get('/api/domains', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const domains = await sql`SELECT * FROM domains WHERE kinde_id = ${userId} ORDER BY created_at DESC`;
+    
+    // Check status in AWS SES for pending domains
+    const updatedDomains = [];
+    for (let dom of domains) {
+      if (dom.verification_status !== 'Success' || dom.dkim_status !== 'Success') {
+        try {
+          const vCmd = new GetIdentityVerificationAttributesCommand({ Identities: [dom.domain_name] });
+          const vRes = await sesClient.send(vCmd);
+          const vStatus = vRes.VerificationAttributes?.[dom.domain_name]?.VerificationStatus || dom.verification_status;
+          
+          const dCmd = new GetIdentityDkimAttributesCommand({ Identities: [dom.domain_name] });
+          const dRes = await sesClient.send(dCmd);
+          const dStatus = dRes.DkimAttributes?.[dom.domain_name]?.DkimVerificationStatus || dom.dkim_status;
+          
+          if (vStatus !== dom.verification_status || dStatus !== dom.dkim_status) {
+            const updated = await sql`UPDATE domains SET verification_status = ${vStatus}, dkim_status = ${dStatus} WHERE id = ${dom.id} RETURNING *`;
+            updatedDomains.push(updated[0]);
+            continue;
+          }
+        } catch(e) {
+          console.error("SES status check failed for", dom.domain_name, e);
+        }
+      }
+      updatedDomains.push(dom);
+    }
+    res.json(updatedDomains);
+  } catch (err) {
+    res.status(500).json({ error: 'DB Error' });
+  }
+});
+
+app.post('/api/domains', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { domain_name } = req.body;
+    
+    if (!domain_name) return res.status(400).json({ success: false, message: 'Falta nombre de dominio' });
+    
+    const vCmd = new VerifyDomainIdentityCommand({ Domain: domain_name });
+    await sesClient.send(vCmd);
+    
+    const dCmd = new VerifyDomainDkimCommand({ Domain: domain_name });
+    const dRes = await sesClient.send(dCmd);
+    const tokens = dRes.DkimTokens || [];
+    
+    const inserted = await sql`
+      INSERT INTO domains (kinde_id, domain_name, dkim_tokens)
+      VALUES (${userId}, ${domain_name}, ${tokens})
+      RETURNING *
+    `;
+    res.json({ success: true, domain: inserted[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'SES/DB Error' });
+  }
+});
+
+app.delete('/api/domains/:id', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    await sql`DELETE FROM domains WHERE id = ${id} AND kinde_id = ${userId}`;
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+// ======================== DEDICATED IPs ========================
+app.get('/api/ips', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const ips = await sql`SELECT * FROM dedicated_ips WHERE kinde_id = ${userId} ORDER BY requested_at DESC`;
+    res.json(ips);
+  } catch (err) {
+    res.status(500).json({ error: 'DB Error' });
+  }
+});
+
+app.post('/api/ips', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const inserted = await sql`
+      INSERT INTO dedicated_ips (kinde_id)
+      VALUES (${userId})
+      RETURNING *
+    `;
+    res.json({ success: true, ip: inserted[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+// ======================== CADENCE ========================
+app.get('/api/settings/cadence', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await sql`SELECT hourly_limit, warmup_mode FROM users WHERE kinde_id = ${userId}`;
+    res.json(result[0] || { hourly_limit: 1000, warmup_mode: false });
+  } catch (err) {
+    res.status(500).json({ error: 'DB Error' });
+  }
+});
+
+app.post('/api/settings/cadence', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { hourly_limit, warmup_mode } = req.body;
+    await sql`UPDATE users SET hourly_limit = ${hourly_limit}, warmup_mode = ${warmup_mode} WHERE kinde_id = ${userId}`;
+    res.json({ success: true });
+  } catch (err) {
     res.status(500).json({ success: false, error: 'DB Error' });
   }
 });

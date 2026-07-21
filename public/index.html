@@ -884,10 +884,10 @@
             <div class="flex items-center gap-2">
               <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3">SECCIÓN:</span>
               <div class="flex flex-wrap gap-1.5" id="senders-tabs-filter">
-                <button class="bg-[#1c2938] text-white font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all shadow-sm">Remitentes</button>
-                <button class="bg-slate-50 text-slate-400 hover:text-slate-600 font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all">Dominios</button>
-                <button class="bg-slate-50 text-slate-400 hover:text-slate-600 font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all">IP dedicadas</button>
-                <button class="bg-slate-50 text-slate-400 hover:text-slate-600 font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all">Cadencia</button>
+                <button id="btn-sub-senders" onclick="switchSubTab('senders')" class="bg-[#1c2938] text-white font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all shadow-sm">Remitentes</button>
+                <button id="btn-sub-domains" onclick="switchSubTab('domains')" class="bg-slate-50 text-slate-400 hover:text-slate-600 font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all">Dominios</button>
+                <button id="btn-sub-ips" onclick="switchSubTab('ips')" class="hidden bg-slate-50 text-slate-400 hover:text-slate-600 font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all">IP dedicadas</button>
+                <button id="btn-sub-cadence" onclick="switchSubTab('cadence')" class="bg-slate-50 text-slate-400 hover:text-slate-600 font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all">Cadencia</button>
               </div>
             </div>
             <div class="relative w-full md:w-64">
@@ -908,24 +908,117 @@
             <p>Todos tus dominios de remitente cumplen con <a href="#" class="underline font-bold text-emerald-900">nuevos requisitos de Google, Yahoo y Microsoft para los remitentes</a>. Puedes utilizar cualquiera de ellos para enviar campañas de email.</p>
           </div>
 
-          <!-- Table Container (Matches Contacts layout) -->
-          <div class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm flex flex-col">
-            <div class="overflow-y-auto max-h-[480px] custom-scroll">
-              <table class="w-full text-left text-xs relative">
-                <thead>
-                  <tr class="border-b border-slate-100 text-slate-400 font-bold uppercase text-[10px] tracking-widest sticky top-0 bg-white z-10">
-                    <th class="py-3 px-4">Nombre</th>
-                    <th class="py-3 px-4">Email</th>
-                    <th class="py-3 px-4">Firma DKIM</th>
-                    <th class="py-3 px-4">DMARC</th>
-                    <th class="py-3 px-4">Estado</th>
-                    <th class="py-3 px-4 text-right">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody id="senders-table-body">
+          <!-- ================= SUB-TAB: SENDERS ================= -->
+          <div id="sub-senders">
+            <div class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm flex flex-col">
+              <div class="overflow-y-auto max-h-[480px] custom-scroll">
+                <table class="w-full text-left text-xs relative">
+                  <thead>
+                    <tr class="border-b border-slate-100 text-slate-400 font-bold uppercase text-[10px] tracking-widest sticky top-0 bg-white z-10">
+                      <th class="py-3 px-4">Nombre</th>
+                      <th class="py-3 px-4">Email</th>
+                      <th class="py-3 px-4">Firma DKIM</th>
+                      <th class="py-3 px-4">DMARC</th>
+                      <th class="py-3 px-4">Estado</th>
+                      <th class="py-3 px-4 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="senders-table-body">
+                    <!-- Loaded Dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- ================= SUB-TAB: DOMAINS ================= -->
+          <div id="sub-domains" class="hidden">
+            <div class="flex justify-between items-center mb-6">
+              <p class="text-xs text-brand-gray font-medium max-w-2xl">
+                Autentica tu dominio mediante registros DKIM en tu proveedor DNS para mejorar la entregabilidad, evitar la carpeta de spam y demostrar a los servidores que eres un remitente legítimo.
+              </p>
+              <button onclick="openModal('modal-add-domain')" class="bg-brand-dark text-white font-bold px-5 py-2.5 rounded-xl hover:bg-brand-accent transition-all text-xs flex items-center gap-2 shadow-sm">
+                <i data-lucide="shield" class="w-4 h-4"></i> Autenticar Dominio
+              </button>
+            </div>
+            
+            <div class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm flex flex-col">
+              <div class="overflow-y-auto max-h-[480px] custom-scroll">
+                <table class="w-full text-left text-xs relative">
+                  <thead>
+                    <tr class="border-b border-slate-100 text-slate-400 font-bold uppercase text-[10px] tracking-widest sticky top-0 bg-white z-10">
+                      <th class="py-3 px-4">Dominio</th>
+                      <th class="py-3 px-4">Verificación de Identidad</th>
+                      <th class="py-3 px-4">Firma DKIM</th>
+                      <th class="py-3 px-4 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="domains-table-body">
+                    <!-- Loaded Dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- ================= SUB-TAB: DEDICATED IPS ================= -->
+          <div id="sub-ips" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+              <div>
+                <p class="text-xs text-brand-gray font-medium mb-4 leading-relaxed">
+                  Las IPs dedicadas aseguran que tu reputación de envío no se vea afectada por otros usuarios. Ideal para volúmenes altos (más de 100,000 envíos mensuales). 
+                  Una vez solicitada, revisaremos tu caso y te la asignaremos para usarla inmediatamente.
+                </p>
+                <button id="btn-request-ip" onclick="requestDedicatedIp()" class="bg-brand-dark text-white font-bold px-6 py-3 rounded-2xl hover:bg-brand-accent transition-all text-xs flex items-center gap-2 shadow-lg">
+                  <i data-lucide="server" class="w-4 h-4"></i> Solicitar IP Dedicada
+                </button>
+              </div>
+              <div class="bg-slate-50 border border-slate-100 p-6 rounded-3xl">
+                <h3 class="text-sm font-bold text-brand-dark mb-2">Tus IPs Dedicadas</h3>
+                <div id="ips-list-container" class="flex flex-col gap-2 mt-4">
                   <!-- Loaded Dynamically -->
-                </tbody>
-              </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ================= SUB-TAB: CADENCE ================= -->
+          <div id="sub-cadence" class="hidden">
+            <div class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm max-w-3xl">
+              <h3 class="text-lg font-black text-brand-dark mb-4">Configuración de Envío Seguro</h3>
+              <p class="text-xs text-brand-gray font-medium mb-6">
+                Establece la velocidad de envío de tus correos. Si acabas de adquirir una IP dedicada o tienes un dominio nuevo, asegúrate de activar el Modo Warmup para calentar tu reputación lentamente frente a Gmail, Outlook, etc.
+              </p>
+
+              <form id="cadence-form" class="flex flex-col gap-6">
+                <div class="flex flex-col gap-2">
+                  <label class="text-xs font-bold text-brand-dark flex justify-between">
+                    <span>Límite de Envíos por Hora</span>
+                    <span id="cadence-limit-val" class="text-brand-accent">1000 envíos/h</span>
+                  </label>
+                  <input type="range" id="cadence-limit-slider" min="100" max="20000" step="100" value="1000" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-brand-accent">
+                </div>
+
+                <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <div class="flex flex-col">
+                    <span class="text-xs font-bold text-brand-dark flex items-center gap-2">
+                      <i data-lucide="thermometer" class="w-4 h-4 text-orange-500"></i>
+                      Modo Warmup (Calentamiento)
+                    </span>
+                    <span class="text-[10px] text-brand-gray mt-1">Incrementa el límite gradualmente día tras día automáticamente.</span>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="cadence-warmup-toggle" class="sr-only peer">
+                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-accent"></div>
+                  </label>
+                </div>
+
+                <div class="pt-4 border-t border-brand-border">
+                  <button type="submit" class="bg-brand-dark text-white font-bold px-6 py-3 rounded-2xl hover:bg-black transition-all text-xs flex items-center gap-2">
+                    <i data-lucide="save" class="w-4 h-4"></i> Guardar Configuración
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </section>
@@ -955,6 +1048,42 @@
           <button type="button" onclick="closeModal('modal-add-sender')" class="px-5 py-2.5 rounded-xl text-xs font-semibold text-brand-gray hover:bg-brand-light flex-1 border border-brand-border">Cancelar</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ADD DOMAIN MODAL -->
+  <div id="modal-add-domain" class="fixed inset-0 bg-[#1B2939]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white max-w-2xl w-full rounded-[2rem] border border-brand-border p-8 shadow-2xl transform transition-all duration-300 max-h-[90vh] overflow-y-auto custom-scroll">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-extrabold text-[#1B2939]">Autenticar Dominio</h2>
+        <button onclick="closeModal('modal-add-domain')" class="text-brand-gray hover:text-[#1B2939] transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      
+      <div id="domain-step-1">
+        <p class="text-xs text-brand-gray mb-4">Ingresa el dominio desde el cual enviarás correos (ej: midominio.com). Generaremos los registros DNS necesarios para autenticarlo con AWS SES.</p>
+        <form id="add-domain-form" class="flex flex-col gap-5">
+          <div class="flex flex-col gap-1">
+            <label class="text-xs font-bold text-brand-dark">Nombre de Dominio</label>
+            <input type="text" id="ad-domain" placeholder="Ej: clicandhome.com" required class="w-full px-4 py-3 rounded-xl border border-brand-border focus:border-brand-accent outline-none text-xs font-medium">
+          </div>
+          <div class="flex items-center gap-3 mt-4">
+            <button type="submit" id="btn-submit-domain" class="bg-[#1c2938] hover:bg-black text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm flex-1">Generar Registros DNS</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="domain-step-2" class="hidden flex flex-col gap-4 mt-2">
+        <div class="bg-blue-50/50 border border-blue-100 p-4 rounded-xl">
+          <h3 class="text-sm font-bold text-brand-dark mb-1">Paso Importante</h3>
+          <p class="text-xs text-brand-gray">Inicia sesión en tu proveedor de dominio (GoDaddy, Cloudflare, etc.) y agrega los siguientes registros <b>CNAME</b>. Puede tardar hasta 48h en propagarse (usualmente 15 min).</p>
+        </div>
+        
+        <div id="dkim-records-container" class="flex flex-col gap-3 mt-2">
+          <!-- Dynamically inserted records -->
+        </div>
+
+        <button onclick="closeModal('modal-add-domain'); fetchDomains();" class="mt-4 bg-[#1c2938] hover:bg-black text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm w-full">He guardado los registros en mi DNS</button>
+      </div>
     </div>
   </div>
 
@@ -1696,7 +1825,291 @@
       } catch (err) {
         console.error(err);
       }
-    }    function renderSenders() {
+    }
+    
+    // ==========================================
+    // SECCIÓN: REMITENTES, DOMINIOS, IP Y CADENCIA
+    // ==========================================
+
+    function switchSubTab(tab) {
+      // Hide all sub-tabs
+      document.getElementById('sub-senders').classList.add('hidden');
+      document.getElementById('sub-domains').classList.add('hidden');
+      document.getElementById('sub-ips').classList.add('hidden');
+      document.getElementById('sub-cadence').classList.add('hidden');
+      
+      // Reset buttons styles
+      const btns = ['senders', 'domains', 'ips', 'cadence'];
+      btns.forEach(b => {
+        const btn = document.getElementById(`btn-sub-${b}`);
+        if(btn) {
+          btn.className = 'bg-slate-50 text-slate-400 hover:text-slate-600 font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all';
+        }
+      });
+      
+      // Show selected and activate style
+      document.getElementById(`sub-${tab}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`btn-sub-${tab}`);
+      if(activeBtn) {
+         activeBtn.className = 'bg-[#1c2938] text-white font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all shadow-sm';
+      }
+
+      // Load data if needed
+      if(tab === 'domains') fetchDomains();
+      if(tab === 'ips') fetchIps();
+      if(tab === 'cadence') fetchCadence();
+    }
+    
+    // --- DOMAINS LOGIC ---
+    async function fetchDomains() {
+      try {
+        const res = await fetch('/api/domains', {
+          headers: { 'Authorization': `Bearer ${sessionToken}` }
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        domains = data;
+        renderDomains();
+      } catch (err) {
+        console.error("Error cargando dominios", err);
+      }
+    }
+
+    function renderDomains() {
+      const tbody = document.getElementById('domains-table-body');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      
+      if (domains.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-brand-gray text-xs font-semibold">No se encontraron dominios autenticados.</td></tr>`;
+        return;
+      }
+
+      domains.forEach(d => {
+        const tr = document.createElement('tr');
+        tr.className = "border-b border-brand-border text-xs font-medium text-brand-dark";
+        
+        const isVerified = d.verification_status === 'Success';
+        const isDkim = d.dkim_status === 'Success';
+        
+        const vBadge = isVerified 
+          ? `<span class="bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-emerald-100 flex items-center gap-1.5 w-fit"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600"></i> Verificado</span>`
+          : `<span class="bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-amber-100 flex items-center gap-1.5 w-fit"><i data-lucide="clock" class="w-3.5 h-3.5 text-amber-600"></i> Pendiente</span>`;
+          
+        const dBadge = isDkim 
+          ? `<span class="bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-emerald-100 flex items-center gap-1.5 w-fit"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600"></i> Verificado</span>`
+          : `<span class="bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-amber-100 flex items-center gap-1.5 w-fit"><i data-lucide="clock" class="w-3.5 h-3.5 text-amber-600"></i> Pendiente</span>`;
+
+        tr.innerHTML = `
+          <td class="py-3.5 px-4 font-bold text-[#1B2939]">${d.domain_name}</td>
+          <td class="py-3.5 px-4">${vBadge}</td>
+          <td class="py-3.5 px-4">${dBadge}</td>
+          <td class="py-3.5 px-4 text-right">
+            <button onclick="deleteDomain('${d.id}')" class="text-rose-400 hover:text-rose-600 bg-rose-50 hover:bg-rose-100 p-1.5 rounded-lg transition-colors inline-block" title="Eliminar">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      lucide.createIcons();
+    }
+
+    document.getElementById('add-domain-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const domain_name = document.getElementById('ad-domain').value;
+      const btn = document.getElementById('btn-submit-domain');
+      btn.textContent = 'Generando...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/domains', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionToken}`
+          },
+          body: JSON.stringify({ domain_name })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          // Show step 2 with DKIM tokens
+          document.getElementById('domain-step-1').classList.add('hidden');
+          document.getElementById('domain-step-2').classList.remove('hidden');
+          
+          const container = document.getElementById('dkim-records-container');
+          container.innerHTML = '';
+          const tokens = data.domain.dkim_tokens;
+          
+          // AWS SES CNAME logic
+          tokens.forEach(token => {
+            const row = document.createElement('div');
+            row.className = "flex flex-col gap-2 p-3 bg-slate-50 border border-slate-100 rounded-xl mb-2";
+            row.innerHTML = `
+              <div class="flex items-center justify-between gap-4">
+                <div class="flex flex-col w-1/3">
+                  <span class="text-[10px] font-bold text-brand-gray uppercase">TIPO</span>
+                  <span class="text-xs font-mono font-bold text-brand-dark">CNAME</span>
+                </div>
+                <div class="flex flex-col w-2/3">
+                  <span class="text-[10px] font-bold text-brand-gray uppercase">NOMBRE (HOST)</span>
+                  <input type="text" readonly value="${token}._domainkey" class="text-xs font-mono bg-white border border-slate-200 rounded p-1 w-full outline-none focus:border-brand-accent cursor-text">
+                </div>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-[10px] font-bold text-brand-gray uppercase">VALOR (APUNTA A)</span>
+                <input type="text" readonly value="${token}.dkim.amazonses.com" class="text-xs font-mono bg-white border border-slate-200 rounded p-1 w-full outline-none focus:border-brand-accent cursor-text">
+              </div>
+            `;
+            container.appendChild(row);
+          });
+          
+        } else {
+          alert('Error al agregar dominio: ' + data.message);
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Error conectando con el servidor');
+      } finally {
+        btn.textContent = 'Generar Registros DNS';
+        btn.disabled = false;
+      }
+    });
+
+    async function deleteDomain(id) {
+      if(!confirm('¿Estás seguro de eliminar este dominio? Dejará de usarse para enviar correos.')) return;
+      try {
+        const res = await fetch(\`/api/domains/\${id}\`, {
+          method: 'DELETE',
+          headers: { 'Authorization': \`Bearer \${sessionToken}\` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          fetchDomains();
+        }
+      } catch (err) {
+        console.error("Error al borrar dominio", err);
+      }
+    }
+
+    // --- IPS LOGIC ---
+    async function fetchIps() {
+      try {
+        const res = await fetch('/api/ips', {
+          headers: { 'Authorization': `Bearer ${sessionToken}` }
+        });
+        ips = await res.json();
+        renderIps();
+      } catch (err) {
+        console.error("Error cargando ips", err);
+      }
+    }
+
+    function renderIps() {
+      const container = document.getElementById('ips-list-container');
+      if (!container) return;
+      container.innerHTML = '';
+      
+      if (!ips || ips.length === 0) {
+        container.innerHTML = \`
+          <div class="p-4 bg-white border border-slate-200 rounded-2xl flex flex-col items-center justify-center text-center gap-2">
+            <i data-lucide="server-off" class="w-8 h-8 text-slate-300"></i>
+            <span class="text-xs font-medium text-brand-gray">No tienes IPs dedicadas solicitadas.</span>
+          </div>\`;
+        lucide.createIcons();
+        return;
+      }
+
+      ips.forEach(ip => {
+        const div = document.createElement('div');
+        div.className = "p-4 bg-white border border-slate-200 rounded-2xl flex justify-between items-center";
+        
+        const badge = ip.status === 'requested' 
+          ? \`<span class="bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-amber-100 flex items-center gap-1">En Revisión</span>\`
+          : \`<span class="bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-emerald-100 flex items-center gap-1">\${ip.ip_address} (Activa)</span>\`;
+          
+        div.innerHTML = \`
+          <div class="flex flex-col">
+            <span class="text-xs font-bold text-brand-dark">Solicitud #\${ip.id.substring(0,8)}</span>
+            <span class="text-[10px] text-brand-gray">\${new Date(ip.requested_at).toLocaleDateString()}</span>
+          </div>
+          <div>\${badge}</div>
+        \`;
+        container.appendChild(div);
+      });
+    }
+
+    async function requestDedicatedIp() {
+      if(!confirm('¿Deseas solicitar una IP dedicada? Revisaremos tu cuenta y la activaremos en breve.')) return;
+      try {
+        const res = await fetch('/api/ips', {
+          method: 'POST',
+          headers: { 'Authorization': \`Bearer \${sessionToken}\` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('¡Solicitud enviada! Pronto te asignaremos tu IP.');
+          fetchIps();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // --- CADENCE LOGIC ---
+    async function fetchCadence() {
+      try {
+        const res = await fetch('/api/settings/cadence', {
+          headers: { 'Authorization': \`Bearer \${sessionToken}\` }
+        });
+        const data = await res.json();
+        
+        const slider = document.getElementById('cadence-limit-slider');
+        const valLabel = document.getElementById('cadence-limit-val');
+        const toggle = document.getElementById('cadence-warmup-toggle');
+        
+        if (slider) {
+          slider.value = data.hourly_limit;
+          valLabel.textContent = \`\${data.hourly_limit} envíos/h\`;
+          
+          slider.oninput = function() {
+            valLabel.textContent = \`\${this.value} envíos/h\`;
+          }
+        }
+        if (toggle) {
+          toggle.checked = data.warmup_mode;
+        }
+      } catch (err) {
+        console.error("Error cargando cadencia", err);
+      }
+    }
+
+    document.getElementById('cadence-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const limit = document.getElementById('cadence-limit-slider').value;
+      const warmup = document.getElementById('cadence-warmup-toggle').checked;
+      
+      try {
+        const res = await fetch('/api/settings/cadence', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': \`Bearer \${sessionToken}\`
+          },
+          body: JSON.stringify({ hourly_limit: limit, warmup_mode: warmup })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('Configuración guardada correctamente.');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Error guardando cadencia');
+      }
+    });
+
+    function renderSenders() {
       const tbody = document.getElementById('senders-table-body');
       if (!tbody) return;
       tbody.innerHTML = '';
