@@ -412,7 +412,7 @@ app.post('/api/contacts', protectRoute, async (req, res) => {
       await sql`
         UPDATE contacts 
         SET status = 'active', name = ${newName}, tags = ${mergedTags},
-            custom_fields = custom_fields || ${sql.json(custom_fields || {})}
+            custom_fields = custom_fields || ${JSON.stringify(custom_fields || {})}::jsonb
         WHERE id = ${existing[0].id}
       `;
       return res.json({ success: true, message: 'Contacto actualizado/re-suscrito.' });
@@ -420,7 +420,7 @@ app.post('/api/contacts', protectRoute, async (req, res) => {
 
     const inserted = await sql`
       INSERT INTO contacts (kinde_id, name, email, tags, custom_fields, status)
-      VALUES (${userId}, ${name || 'Suscriptor'}, ${cleanEmail}, ${contactTags}, ${sql.json(custom_fields || {})}, 'active')
+      VALUES (${userId}, ${name || 'Suscriptor'}, ${cleanEmail}, ${contactTags}, ${JSON.stringify(custom_fields || {})}::jsonb, 'active')
       RETURNING *
     `;
     
@@ -454,7 +454,7 @@ app.post('/api/contacts/bulk', protectRoute, async (req, res) => {
         if (existing.length === 0) {
           await sql`
             INSERT INTO contacts (kinde_id, name, email, tags, custom_fields, status)
-            VALUES (${userId}, ${name}, ${email}, ${tags}, ${sql.json(custom_fields)}, 'active')
+            VALUES (${userId}, ${name}, ${email}, ${tags}, ${JSON.stringify(custom_fields)}::jsonb, 'active')
           `;
           added++;
         } else {
@@ -462,7 +462,7 @@ app.post('/api/contacts/bulk', protectRoute, async (req, res) => {
           await sql`
             UPDATE contacts 
             SET 
-              custom_fields = custom_fields || ${sql.json(custom_fields)},
+              custom_fields = custom_fields || ${JSON.stringify(custom_fields)}::jsonb,
               status = CASE WHEN status = 'unsubscribe' THEN 'active' ELSE status END
             WHERE id = ${existing[0].id}
           `;
