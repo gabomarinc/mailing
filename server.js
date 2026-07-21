@@ -16,6 +16,12 @@ const dbUrl = process.env.DATABASE_URL || 'postgresql://user:pass@ep-host.neon.t
 const sql = neon(dbUrl);
 const pool = new Pool({ connectionString: dbUrl });
 
+// Utilidades
+function isValidEmail(email) {
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return re.test(String(email).toLowerCase());
+}
+
 // Inicializar tablas en Neon
 async function initDB() {
   try {
