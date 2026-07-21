@@ -111,8 +111,12 @@ app.get('/api/auth/login', (req, res) => {
 app.get('/api/auth/kinde_callback', async (req, res) => {
   const { code } = req.query;
   try {
+    const baseUrl = KINDE_SITE_URL.replace(/\/$/, '');
+    const issuerUrl = KINDE_ISSUER_URL.replace(/\/$/, '');
+    const redirectUri = `${baseUrl}/api/auth/kinde_callback`;
+
     // 1. Intercambiar code por access_token
-    const tokenResponse = await fetch(`${KINDE_ISSUER_URL}/oauth2/token`, {
+    const tokenResponse = await fetch(`${issuerUrl}/oauth2/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -120,25 +124,37 @@ app.get('/api/auth/kinde_callback', async (req, res) => {
         client_id: KINDE_CLIENT_ID,
         client_secret: KINDE_CLIENT_SECRET,
         code: code,
-        redirect_uri: `${KINDE_SITE_URL}/api/auth/kinde_callback`
+        redirect_uri: redirectUri
       })
     });
     const tokenData = await tokenResponse.json();
-    if (!tokenData.access_token) throw new Error('No access token received from Kinde');
+    if (!tokenData.access_token) {
+      console.error("Error from Kinde token endpoint:", tokenData);
+      throw new Error(`Kinde Auth Error: ${tokenData.error_description || tokenData.error || 'Unknown'}`);
+    }
 
     // 2. Obtener perfil del usuario
-    const profileResponse = await fetch(`${KINDE_ISSUER_URL}/oauth2/v2/user_profile`, {
+    const profileResponse = await fetch(`${issuerUrl}/oauth2/v2/user_profile`, {
       headers: { Authorization: `Bearer ${tokenData.access_token}` }
     });
     const profile = await profileResponse.json();
+    if (!profile.id) {
+      console.error("Error fetching Kinde profile:", profile);
+      throw new Error("Could not fetch user profile from Kinde");
+    }
 
     // 3. Crear usuario en Neon DB local
     const name = profile.given_name || 'Kônsul User';
-    await sql`
-      INSERT INTO users (kinde_id, company_name, monthly_volume, is_setup_complete) 
-      VALUES (${profile.id}, ${name}, 10000, true)
-      ON CONFLICT (kinde_id) DO NOTHING
-    `;
+    try {
+      await sql`
+        INSERT INTO users (kinde_id, company_name, monthly_volume, is_setup_complete) 
+        VALUES (${profile.id}, ${name}, 10000, true)
+        ON CONFLICT (kinde_id) DO NOTHING
+      `;
+    } catch (dbErr) {
+      console.error("Error insertando usuario en Neon DB. ¿Se ejecutó /api/setup-db?", dbErr);
+      throw new Error("Database insert failed. Run /api/setup-db first.");
+    }
 
     // 4. Firmar JWT propio
     const token = jwt.sign({ 
@@ -148,10 +164,11 @@ app.get('/api/auth/kinde_callback', async (req, res) => {
     }, JWT_SECRET, { expiresIn: '30d' });
 
     // 5. Redirigir al frontend con el token
-    res.redirect(`${KINDE_SITE_URL}/?token=${encodeURIComponent(token)}`);
+    res.redirect(`${baseUrl}/?token=${encodeURIComponent(token)}`);
   } catch (err) {
     console.error("Error en Kinde Callback Manual:", err);
-    res.redirect('/?error=auth_failed');
+    // Para depurar, enviamos el mensaje de error codificado al frontend
+    res.redirect(`/?error=auth_failed&msg=${encodeURIComponent(err.message)}`);
   }
 });
 
