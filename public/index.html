@@ -1698,17 +1698,6 @@
           }
         });
       }
-          const data = await res.json();
-          if (data.success) {
-            closeModal('modal-import-bulk');
-            document.getElementById('import-bulk-form').reset();
-            await fetchContacts();
-            showToast(`¡Importación completada! Se añadieron/reactivaron ${data.added} contactos.`, 'success');
-          }
-        } catch (err) {
-          showToast('Error de red al importar contactos.', 'error');
-        }
-      });
 
       document.getElementById('campaign-segment-select').addEventListener('change', updateCampaignAudienceCount);
 
