@@ -1980,9 +1980,9 @@
     async function deleteDomain(id) {
       if(!confirm('¿Estás seguro de eliminar este dominio? Dejará de usarse para enviar correos.')) return;
       try {
-        const res = await fetch(\`/api/domains/\${id}\`, {
+        const res = await fetch(`/api/domains/${id}`, {
           method: 'DELETE',
-          headers: { 'Authorization': \`Bearer \${sessionToken}\` }
+          headers: { 'Authorization': `Bearer ${sessionToken}` }
         });
         const data = await res.json();
         if (data.success) {
@@ -2012,11 +2012,11 @@
       container.innerHTML = '';
       
       if (!ips || ips.length === 0) {
-        container.innerHTML = \`
+        container.innerHTML = `
           <div class="p-4 bg-white border border-slate-200 rounded-2xl flex flex-col items-center justify-center text-center gap-2">
             <i data-lucide="server-off" class="w-8 h-8 text-slate-300"></i>
             <span class="text-xs font-medium text-brand-gray">No tienes IPs dedicadas solicitadas.</span>
-          </div>\`;
+          </div>`;
         lucide.createIcons();
         return;
       }
@@ -2026,16 +2026,16 @@
         div.className = "p-4 bg-white border border-slate-200 rounded-2xl flex justify-between items-center";
         
         const badge = ip.status === 'requested' 
-          ? \`<span class="bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-amber-100 flex items-center gap-1">En Revisión</span>\`
-          : \`<span class="bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-emerald-100 flex items-center gap-1">\${ip.ip_address} (Activa)</span>\`;
+          ? `<span class="bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-amber-100 flex items-center gap-1">En Revisión</span>`
+          : `<span class="bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-emerald-100 flex items-center gap-1">${ip.ip_address} (Activa)</span>`;
           
-        div.innerHTML = \`
+        div.innerHTML = `
           <div class="flex flex-col">
-            <span class="text-xs font-bold text-brand-dark">Solicitud #\${ip.id.substring(0,8)}</span>
-            <span class="text-[10px] text-brand-gray">\${new Date(ip.requested_at).toLocaleDateString()}</span>
+            <span class="text-xs font-bold text-brand-dark">Solicitud #${ip.id.substring(0,8)}</span>
+            <span class="text-[10px] text-brand-gray">${new Date(ip.requested_at).toLocaleDateString()}</span>
           </div>
-          <div>\${badge}</div>
-        \`;
+          <div>${badge}</div>
+        `;
         container.appendChild(div);
       });
     }
@@ -2045,7 +2045,7 @@
       try {
         const res = await fetch('/api/ips', {
           method: 'POST',
-          headers: { 'Authorization': \`Bearer \${sessionToken}\` }
+          headers: { 'Authorization': `Bearer ${sessionToken}` }
         });
         const data = await res.json();
         if (data.success) {
@@ -2061,7 +2061,7 @@
     async function fetchCadence() {
       try {
         const res = await fetch('/api/settings/cadence', {
-          headers: { 'Authorization': \`Bearer \${sessionToken}\` }
+          headers: { 'Authorization': `Bearer ${sessionToken}` }
         });
         const data = await res.json();
         
@@ -2071,10 +2071,10 @@
         
         if (slider) {
           slider.value = data.hourly_limit;
-          valLabel.textContent = \`\${data.hourly_limit} envíos/h\`;
+          valLabel.textContent = `${data.hourly_limit} envíos/h`;
           
           slider.oninput = function() {
-            valLabel.textContent = \`\${this.value} envíos/h\`;
+            valLabel.textContent = `${this.value} envíos/h`;
           }
         }
         if (toggle) {
@@ -2095,7 +2095,7 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': \`Bearer \${sessionToken}\`
+            'Authorization': `Bearer ${sessionToken}`
           },
           body: JSON.stringify({ hourly_limit: limit, warmup_mode: warmup })
         });
