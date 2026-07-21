@@ -129,23 +129,31 @@
 </head>
 <body class="min-h-screen flex flex-col overflow-x-hidden">
 
-  <!-- ================= AUTH OVERLAY ================= -->
-  <div id="auth-overlay" class="fixed inset-0 z-[100] flex flex-col items-center justify-center hidden">
-    <div class="bg-white p-12 rounded-[2rem] shadow-sm border border-brand-border max-w-md w-full mx-4 text-center">
-      <div class="w-20 h-20 bg-brand-light rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">
-        ✉️
+  <!-- ================= AUTH & LOADING OVERLAY ================= -->
+  <div id="auth-overlay" class="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center p-4">
+    <div id="auth-loading-card" class="bg-white p-10 rounded-[2.5rem] shadow-xl border border-brand-border max-w-md w-full text-center flex flex-col items-center">
+      <div class="w-16 h-16 bg-brand-light text-brand-accent rounded-full flex items-center justify-center mb-6 animate-pulse">
+        <i data-lucide="loader-2" class="w-8 h-8 animate-spin"></i>
       </div>
-      <h1 class="text-3xl font-bold font-outfit mb-3 text-brand-dark">Kônsul Mailing</h1>
-      <p class="text-brand-gray mb-8 leading-relaxed">
-        Comunícate masivamente con tus clientes de forma cálida, segura y ultra-eficiente.
+      <h1 class="text-2xl font-bold font-outfit mb-2 text-brand-dark">Kônsul Mailing</h1>
+      <p id="auth-status-text" class="text-brand-gray text-sm leading-relaxed mb-2">
+        Verificando sesión con la Suite Kônsul...
       </p>
-      <a href="/api/auth/login" class="inline-flex items-center justify-center gap-2 w-full bg-brand-accent hover:bg-brand-accentHover text-white px-6 py-4 rounded-full font-medium transition-all duration-300 transform hover:scale-[1.02] shadow-sm hover:shadow-md">
-        <i data-lucide="log-in" class="w-5 h-5"></i>
-        <span>Iniciar Sesión con la Suite</span>
+    </div>
+
+    <!-- Error Card (Oculto por defecto, se muestra si hay falla de auth en Vercel) -->
+    <div id="auth-error-card" class="bg-white p-10 rounded-[2.5rem] shadow-xl border border-red-100 max-w-md w-full text-center hidden flex-col items-center">
+      <div class="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-6">
+        <i data-lucide="shield-alert" class="w-8 h-8"></i>
+      </div>
+      <h1 class="text-2xl font-bold font-outfit mb-2 text-brand-dark">Error de Autenticación</h1>
+      <p class="text-brand-gray text-sm leading-relaxed mb-6">
+        No se pudo completar el inicio de sesión con la Suite. Por favor verifica que las variables de entorno (<code class="bg-gray-100 px-1.5 py-0.5 rounded text-xs">DATABASE_URL</code> y <code class="bg-gray-100 px-1.5 py-0.5 rounded text-xs">KINDE_*</code>) estén bien configuradas en Vercel.
+      </p>
+      <a href="/api/auth/login" class="inline-flex items-center justify-center gap-2 w-full bg-brand-accent hover:bg-brand-accentHover text-white px-6 py-3.5 rounded-full font-medium transition-all duration-300 shadow-sm hover:shadow-md">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        <span>Reintentar Conexión</span>
       </a>
-      <p class="text-xs text-brand-gray mt-6 opacity-70">
-        Parte del ecosistema empresarial Kônsul
-      </p>
     </div>
   </div>
 
@@ -861,6 +869,18 @@
 
     // Validar sesión con backend
     async function checkAuth() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const hasAuthError = urlParams.get('error') === 'auth_failed';
+
+      // Si hay un error explícito de autenticación, mostrar tarjeta de error y no entrar en bucle
+      if (hasAuthError) {
+        document.getElementById('auth-loading-card').classList.add('hidden');
+        document.getElementById('auth-error-card').classList.remove('hidden');
+        document.getElementById('auth-error-card').classList.add('flex');
+        document.getElementById('auth-overlay').classList.remove('hidden');
+        return false;
+      }
+
       try {
         const res = await fetch('/api/auth/me');
         const data = await res.json();
@@ -872,12 +892,13 @@
           if (userElem && userObj.given_name) userElem.textContent = userObj.given_name;
           return true;
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('Error verificando sesión:', e);
+      }
       
-      // Mostrar overlay por un segundo mientras redirige (para que no quede en blanco)
-      document.getElementById('auth-overlay').classList.remove('hidden');
-      
-      // Redirección automática silenciosa al SSO
+      // Si no hay sesión activa y no hay error previo, redirigir a la Suite
+      const statusText = document.getElementById('auth-status-text');
+      if (statusText) statusText.textContent = 'Redirigiendo a la Suite Kônsul...';
       window.location.href = '/api/auth/login';
       return false;
     }

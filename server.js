@@ -91,7 +91,11 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'konsul-super-secret-key-123',
   resave: false,
   saveUninitialized: false, // Better false for authenticated sessions
-  cookie: { maxAge: 30 * 24 * 60 * 60 * 1000, secure: process.env.VERCEL ? true : false } // 30 days
+  cookie: {
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+    secure: process.env.VERCEL ? true : false,
+    sameSite: 'lax'
+  }
 }));
 
 // Configurar Cliente Kinde
@@ -116,14 +120,28 @@ const isValidEmail = (email) => {
 
 // ================= AUTH (KINDE SSO) =================
 app.get('/api/auth/login', async (req, res) => {
-  const prompt = req.query.prompt;
-  const loginUrl = await kindeClient.login(req, prompt ? { prompt } : {});
-  res.redirect(loginUrl);
+  try {
+    const prompt = req.query.prompt;
+    const loginUrl = await kindeClient.login(req, prompt ? { prompt } : {});
+    res.redirect(loginUrl);
+  } catch (err) {
+    console.error("Error en login Kinde:", err);
+    res.redirect('/?error=auth_failed');
+  }
 });
 
 app.get('/api/auth/kinde_callback', async (req, res) => {
   try {
     await kindeClient.getToken(req);
+    // En Serverless (Vercel), se debe esperar explícitamente a que req.session.save() complete la inserción en DB
+    if (req.session) {
+      await new Promise((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) return reject(err);
+          resolve();
+        });
+      });
+    }
     res.redirect('/');
   } catch (err) {
     console.error("Error en Kinde Callback:", err);
@@ -132,8 +150,15 @@ app.get('/api/auth/kinde_callback', async (req, res) => {
 });
 
 app.get('/api/auth/logout', async (req, res) => {
-  const logoutUrl = await kindeClient.logout(req);
-  res.redirect(logoutUrl);
+  try {
+    const logoutUrl = await kindeClient.logout(req);
+    if (req.session) {
+      await new Promise((resolve) => req.session.destroy(() => resolve()));
+    }
+    res.redirect(logoutUrl);
+  } catch (err) {
+    res.redirect('/');
+  }
 });
 
 app.get('/api/auth/me', async (req, res) => {
