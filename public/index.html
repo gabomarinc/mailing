@@ -231,9 +231,7 @@
       <div class="flex flex-col gap-8">
         <!-- Logo con Badge -->
         <div class="flex items-center gap-1.5 justify-center lg:justify-start overflow-hidden">
-          <span class="font-extrabold text-2xl tracking-wide text-[#1B2939] flex-shrink-0">
-            K<span class="text-brand-accent">Ô</span><span id="sidebar-logo-text">NSUL</span>
-          </span>
+          <img src="https://konsul.digital/images/Konsul-logo-general.png" alt="Kônsul Logo" class="h-6 object-contain flex-shrink-0" id="sidebar-logo-img">
           <span class="text-[9px] bg-brand-accent text-white px-2 py-0.5 rounded font-bold uppercase tracking-wider logo-badge flex-shrink-0">Mailing</span>
         </div>
 
@@ -277,19 +275,6 @@
                 <span class="flex items-center gap-3 menu-item-inner">
                   <i data-lucide="file-text" class="w-4 h-4 text-brand-gray flex-shrink-0"></i> 
                   <span class="menu-text">Captación (Formularios)</span>
-                </span>
-              </button>
-            </nav>
-          </div>
-
-          <!-- Configuración -->
-          <div>
-            <h4 class="text-[10px] font-bold text-brand-gray uppercase tracking-wider mb-2 category-title">Conectividad</h4>
-            <nav class="flex flex-col gap-1">
-              <button onclick="switchTab('settings')" id="tab-btn-settings" class="flex items-center w-full px-4 py-3 rounded-2xl text-xs font-bold text-brand-gray hover:bg-[#F8F9FA] hover:text-brand-dark transition-all menu-item-btn">
-                <span class="flex items-center gap-3 menu-item-inner">
-                  <i data-lucide="settings" class="w-4 h-4 text-brand-gray flex-shrink-0"></i> 
-                  <span class="menu-text">Ajustes AWS SES</span>
                 </span>
               </button>
             </nav>
@@ -754,34 +739,6 @@
           </div>
         </section>
 
-        <!-- ================= TAB: SETTINGS ================= -->
-        <section id="tab-settings" class="tab-content hidden flex flex-col gap-6">
-          <div>
-            <h1 class="text-2xl font-extrabold text-[#1B2939]">Ajustes de Amazon SES</h1>
-            <p class="text-xs text-brand-gray mt-1 font-medium">Revisa el estado de conexión del servicio de correo.</p>
-          </div>
-
-          <div class="bg-white border border-brand-border rounded-[28px] p-6 md:p-8 shadow-sm max-w-xl flex flex-col gap-5">
-            <div class="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-100 text-xs" id="settings-status-box">
-              <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>
-              <div>
-                <h3 class="font-bold text-emerald-800 text-xs" id="settings-status-title">Servicio Activo o Simulación Habilitada</h3>
-                <p class="text-[10px] text-emerald-700 mt-0.5 font-medium" id="settings-status-desc">
-                  Tus parámetros de entorno están cargados y listos para interactuar con Amazon SES.
-                </p>
-              </div>
-            </div>
-
-            <div class="flex flex-col gap-2">
-              <h3 class="font-bold text-xs text-[#1B2939] uppercase tracking-wider border-b border-brand-border pb-1">Valores del Servidor</h3>
-              <div class="grid grid-cols-2 gap-3 text-[11px] font-mono text-brand-gray bg-brand-light p-4 rounded-xl border border-brand-border">
-                <div>AWS_REGION:</div><div id="cfg-region" class="font-bold text-brand-dark">-</div>
-                <div>SES_SENDER_EMAIL:</div><div id="cfg-sender" class="font-bold text-brand-dark">-</div>
-                <div>AWS_ACCESS_KEY_ID:</div><div id="cfg-access-key" class="font-bold text-brand-dark">-</div>
-              </div>
-            </div>
-          </div>
-        </section>
 
       </div>
     </main>
@@ -1037,8 +994,7 @@
         'dashboard': 'Panel Principal',
         'contacts': 'Base de Suscriptores',
         'campaigns': 'Redacción de Campaña',
-        'forms': 'Captación de Contactos',
-        'settings': 'Ajustes de Amazon SES'
+        'forms': 'Captación de Contactos'
       };
 
       document.getElementById('page-main-title').textContent = pageTitleMap[tabId] || 'Panel Principal';
