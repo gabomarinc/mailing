@@ -1071,18 +1071,7 @@
         </form>
       </div>
 
-      <div id="domain-step-2" class="hidden flex flex-col gap-4 mt-2">
-        <div class="bg-blue-50/50 border border-blue-100 p-4 rounded-xl">
-          <h3 class="text-sm font-bold text-brand-dark mb-1">Paso Importante</h3>
-          <p class="text-xs text-brand-gray">Inicia sesión en tu proveedor de dominio (GoDaddy, Cloudflare, etc.) y agrega los siguientes registros <b>CNAME</b>. Puede tardar hasta 48h en propagarse (usualmente 15 min).</p>
-        </div>
-        
-        <div id="dkim-records-container" class="flex flex-col gap-3 mt-2">
-          <!-- Dynamically inserted records -->
-        </div>
-
-        <button onclick="closeModal('modal-add-domain'); fetchDomains();" class="mt-4 bg-[#1c2938] hover:bg-black text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm w-full">He guardado los registros en mi DNS</button>
-      </div>
+      <div id="domain-step-2" class="hidden"></div>
     </div>
   </div>
 
@@ -1826,6 +1815,18 @@
       }
     }
     
+    function copyToClipboard(text, btn) {
+      navigator.clipboard.writeText(text).then(() => {
+        const originalIcon = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 text-emerald-500"></i>';
+        lucide.createIcons();
+        setTimeout(() => {
+          btn.innerHTML = originalIcon;
+          lucide.createIcons();
+        }, 2000);
+      });
+    }
+
     // ==========================================
     // SECCIÓN: REMITENTES, DOMINIOS, IP Y CADENCIA
     // ==========================================
@@ -1917,6 +1918,61 @@
           </td>
         `;
         tbody.appendChild(tr);
+
+        if (!isVerified || !isDkim) {
+          const detailTr = document.createElement('tr');
+          detailTr.className = "border-b border-brand-border bg-slate-50/50";
+          
+          let tokensHtml = '';
+          if (d.dkim_tokens && d.dkim_tokens.length > 0) {
+            d.dkim_tokens.forEach(token => {
+              const name = `${token}._domainkey`;
+              const value = `${token}.dkim.amazonses.com`;
+              tokensHtml += `
+                <div class="flex flex-col md:flex-row gap-4 p-3 bg-white border border-slate-200 rounded-xl mb-2 items-center shadow-sm">
+                  <div class="flex-shrink-0 w-24">
+                    <span class="text-[10px] font-bold text-brand-gray uppercase">TIPO</span><br/>
+                    <span class="text-xs font-mono font-bold text-[#1c2938] bg-slate-100 px-2 py-1 rounded">CNAME</span>
+                  </div>
+                  <div class="flex-1 flex flex-col relative w-full">
+                    <span class="text-[10px] font-bold text-brand-gray uppercase">NOMBRE (HOST)</span>
+                    <div class="flex items-center gap-2 mt-1">
+                      <input type="text" readonly value="${name}" class="text-xs font-mono bg-slate-50 border border-slate-200 rounded p-1.5 w-full outline-none text-[#1c2938]">
+                      <button type="button" onclick="copyToClipboard('${name}', this)" class="text-brand-gray hover:text-[#27bea5] p-1.5 rounded transition-colors" title="Copiar"><i data-lucide="copy" class="w-4 h-4"></i></button>
+                    </div>
+                  </div>
+                  <div class="flex-1 flex flex-col relative w-full">
+                    <span class="text-[10px] font-bold text-brand-gray uppercase">VALOR (APUNTA A)</span>
+                    <div class="flex items-center gap-2 mt-1">
+                      <input type="text" readonly value="${value}" class="text-xs font-mono bg-slate-50 border border-slate-200 rounded p-1.5 w-full outline-none text-[#1c2938]">
+                      <button type="button" onclick="copyToClipboard('${value}', this)" class="text-brand-gray hover:text-[#27bea5] p-1.5 rounded transition-colors" title="Copiar"><i data-lucide="copy" class="w-4 h-4"></i></button>
+                    </div>
+                  </div>
+                </div>
+              `;
+            });
+          }
+          
+          detailTr.innerHTML = `
+            <td colspan="4" class="p-5">
+              <div class="p-6 bg-[#f4f7fb] border border-blue-100/50 rounded-[2rem] shadow-sm">
+                <div class="flex items-start gap-4 mb-5">
+                  <div class="bg-blue-100 p-2 rounded-xl">
+                    <i data-lucide="info" class="w-5 h-5 text-blue-600"></i>
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-[#1B2939]">Acción Requerida: Configura tus registros DNS</h4>
+                    <p class="text-xs text-brand-gray mt-1 max-w-3xl">Copia y pega los siguientes registros en la configuración DNS de tu proveedor de dominio (GoDaddy, Cloudflare, etc.). AWS SES verificará esto automáticamente, lo cual puede tardar hasta 48 horas (generalmente toma 15 minutos).</p>
+                  </div>
+                </div>
+                <div class="pl-0 md:pl-12">
+                  ${tokensHtml}
+                </div>
+              </div>
+            </td>
+          `;
+          tbody.appendChild(detailTr);
+        }
       });
       lucide.createIcons();
     }
@@ -1940,37 +1996,9 @@
         const data = await res.json();
         
         if (data.success) {
-          // Show step 2 with DKIM tokens
-          document.getElementById('domain-step-1').classList.add('hidden');
-          document.getElementById('domain-step-2').classList.remove('hidden');
-          
-          const container = document.getElementById('dkim-records-container');
-          container.innerHTML = '';
-          const tokens = data.domain.dkim_tokens;
-          
-          // AWS SES CNAME logic
-          tokens.forEach(token => {
-            const row = document.createElement('div');
-            row.className = "flex flex-col gap-2 p-3 bg-slate-50 border border-slate-100 rounded-xl mb-2";
-            row.innerHTML = `
-              <div class="flex items-center justify-between gap-4">
-                <div class="flex flex-col w-1/3">
-                  <span class="text-[10px] font-bold text-brand-gray uppercase">TIPO</span>
-                  <span class="text-xs font-mono font-bold text-brand-dark">CNAME</span>
-                </div>
-                <div class="flex flex-col w-2/3">
-                  <span class="text-[10px] font-bold text-brand-gray uppercase">NOMBRE (HOST)</span>
-                  <input type="text" readonly value="${token}._domainkey" class="text-xs font-mono bg-white border border-slate-200 rounded p-1 w-full outline-none focus:border-brand-accent cursor-text">
-                </div>
-              </div>
-              <div class="flex flex-col">
-                <span class="text-[10px] font-bold text-brand-gray uppercase">VALOR (APUNTA A)</span>
-                <input type="text" readonly value="${token}.dkim.amazonses.com" class="text-xs font-mono bg-white border border-slate-200 rounded p-1 w-full outline-none focus:border-brand-accent cursor-text">
-              </div>
-            `;
-            container.appendChild(row);
-          });
-          
+          document.getElementById('ad-domain').value = '';
+          closeModal('modal-add-domain');
+          fetchDomains();
         } else {
           alert('Error al agregar dominio: ' + data.message);
         }
