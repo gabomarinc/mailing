@@ -1912,16 +1912,24 @@
           <td class="py-3.5 px-4">${vBadge}</td>
           <td class="py-3.5 px-4">${dBadge}</td>
           <td class="py-3.5 px-4 text-right">
-            <button onclick="deleteDomain('${d.id}')" class="text-rose-400 hover:text-rose-600 bg-rose-50 hover:bg-rose-100 p-1.5 rounded-lg transition-colors inline-block" title="Eliminar">
-              <i data-lucide="trash-2" class="w-4 h-4"></i>
-            </button>
+            <div class="flex items-center justify-end gap-2">
+              ${(!isVerified || !isDkim) ? `
+              <button onclick="document.getElementById('dns-details-${d.id}').classList.toggle('hidden')" class="text-[#27bea5] hover:text-[#1c2938] bg-[#27bea5]/10 hover:bg-[#27bea5]/20 px-3 py-1.5 rounded-lg transition-colors inline-block text-[10px] font-bold tracking-wide uppercase" title="Ver registros DNS">
+                <i data-lucide="server" class="w-3.5 h-3.5 inline-block mr-1 mb-0.5"></i>DNS
+              </button>
+              ` : ''}
+              <button onclick="deleteDomain('${d.id}')" class="text-rose-400 hover:text-rose-600 bg-rose-50 hover:bg-rose-100 p-1.5 rounded-lg transition-colors inline-block" title="Eliminar">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
           </td>
         `;
         tbody.appendChild(tr);
 
         if (!isVerified || !isDkim) {
           const detailTr = document.createElement('tr');
-          detailTr.className = "border-b border-brand-border bg-slate-50/50";
+          detailTr.id = `dns-details-${d.id}`;
+          detailTr.className = "border-b border-brand-border bg-slate-50/50 hidden transition-all";
           
           let tokensHtml = '';
           if (d.dkim_tokens && d.dkim_tokens.length > 0) {
