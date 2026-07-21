@@ -34,6 +34,7 @@ async function initDB() {
           name VARCHAR(255) NOT NULL,
           email VARCHAR(255) NOT NULL,
           tags TEXT[],
+          custom_fields JSONB DEFAULT '{}'::jsonb,
           status VARCHAR(50) DEFAULT 'active',
           added_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
@@ -95,19 +96,32 @@ async function initDB() {
     await sql`CREATE INDEX IF NOT EXISTS idx_campaigns_kinde_id ON campaigns(kinde_id);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_senders_kinde_id ON senders(kinde_id);`;
     
-    // Tabla de sesiones para connect-pg-simple
     await sql`
       CREATE TABLE IF NOT EXISTS "session" (
         "sid" varchar NOT NULL COLLATE "default",
         "sess" json NOT NULL,
         "expire" timestamp(6) NOT NULL
-      );
+      ) WITH (OIDS=FALSE);
     `;
-    try {
-      await sql`ALTER TABLE "session" ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE;`;
-    } catch(e) {}
-    await sql`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");`;
-    console.log("Neon DB tables verified/created successfully.");
+    await sql`
+      DO $$
+      BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'session_pkey') THEN
+              ALTER TABLE "session" ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE;
+          END IF;
+      END
+      $$;
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+    `;
+
+    // MIGRATION: ADD custom_fields if not exists
+    await sql`
+      ALTER TABLE contacts ADD COLUMN IF NOT EXISTS custom_fields JSONB DEFAULT '{}'::jsonb;
+    `;
+
+    console.log('Tablas inicializadas/verificadas en Neon');
   } catch (err) {
     console.error("Error al inicializar la base de datos:", err);
   }
@@ -139,6 +153,7 @@ app.get('/api/setup-db', async (req, res) => {
           name VARCHAR(255) NOT NULL,
           email VARCHAR(255) NOT NULL,
           tags TEXT[],
+          custom_fields JSONB DEFAULT '{}'::jsonb,
           status VARCHAR(50) DEFAULT 'active',
           added_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
@@ -373,7 +388,7 @@ app.get('/api/contacts', protectRoute, async (req, res) => {
 
 app.post('/api/contacts', protectRoute, async (req, res) => {
   try {
-    const { name, email, tags } = req.body;
+    const { name, email, tags, custom_fields } = req.body;
     if (!email || !isValidEmail(email)) return res.status(400).json({ success: false, message: 'Correo no válido.' });
     
     const userId = req.user.id;
@@ -389,15 +404,16 @@ app.post('/api/contacts', protectRoute, async (req, res) => {
       
       await sql`
         UPDATE contacts 
-        SET status = 'active', name = ${newName}, tags = ${mergedTags}
+        SET status = 'active', name = ${newName}, tags = ${mergedTags},
+            custom_fields = custom_fields || ${custom_fields || {}}::jsonb
         WHERE id = ${existing[0].id}
       `;
       return res.json({ success: true, message: 'Contacto actualizado/re-suscrito.' });
     }
 
     const inserted = await sql`
-      INSERT INTO contacts (kinde_id, name, email, tags, status)
-      VALUES (${userId}, ${name || 'Suscriptor'}, ${cleanEmail}, ${contactTags}, 'active')
+      INSERT INTO contacts (kinde_id, name, email, tags, custom_fields, status)
+      VALUES (${userId}, ${name || 'Suscriptor'}, ${cleanEmail}, ${contactTags}, ${custom_fields || {}}, 'active')
       RETURNING *
     `;
     
@@ -420,6 +436,8 @@ app.post('/api/contacts/bulk', protectRoute, async (req, res) => {
       let name = typeof item === 'string' ? 'Suscriptor' : (item.name || 'Suscriptor');
       let tags = typeof item === 'string' ? ['Importados'] : (item.tags || ['Importados']);
 
+      let custom_fields = typeof item === 'string' ? {} : (item.custom_fields || {});
+
       if (email && isValidEmail(email)) {
         email = email.trim().toLowerCase();
         
@@ -427,12 +445,19 @@ app.post('/api/contacts/bulk', protectRoute, async (req, res) => {
         
         if (existing.length === 0) {
           await sql`
-            INSERT INTO contacts (kinde_id, name, email, tags, status)
-            VALUES (${userId}, ${name}, ${email}, ${tags}, 'active')
+            INSERT INTO contacts (kinde_id, name, email, tags, custom_fields, status)
+            VALUES (${userId}, ${name}, ${email}, ${tags}, ${custom_fields}, 'active')
           `;
           added++;
-        } else if (existing[0].status === 'unsubscribe') {
-          await sql`UPDATE contacts SET status = 'active' WHERE id = ${existing[0].id}`;
+        } else {
+          // Si el contacto ya existe, actualizamos sus custom_fields de forma segura
+          await sql`
+            UPDATE contacts 
+            SET 
+              custom_fields = custom_fields || ${custom_fields}::jsonb,
+              status = CASE WHEN status = 'unsubscribe' THEN 'active' ELSE status END
+            WHERE id = ${existing[0].id}
+          `;
           added++;
         }
       }

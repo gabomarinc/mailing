@@ -1632,7 +1632,8 @@
         const appFields = [
           { id: '', name: '-- Ignorar --' },
           { id: 'email', name: 'Email (Obligatorio)' },
-          { id: 'name', name: 'Nombre Completo' }
+          { id: 'name', name: 'Nombre Completo' },
+          { id: 'custom', name: '✨ Crear Campo Personalizado' }
         ];
 
         let selectOptionsHtml = '';
@@ -1659,10 +1660,11 @@
                 <i data-lucide="hash" class="w-3.5 h-3.5 text-slate-400"></i> ${header}
               </div>
             </td>
-            <td class="py-4 px-4">
-              <select id="map-col-${idx}" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#27bea5] font-medium bg-white">
+            <td class="py-4 px-4 flex flex-col gap-2">
+              <select id="map-col-${idx}" onchange="toggleCustomFieldInput(${idx})" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#27bea5] font-medium bg-white">
                 ${selectOptionsHtml}
               </select>
+              <input type="text" id="map-custom-${idx}" value="${header}" placeholder="Nombre del campo" class="hidden w-full px-3 py-2 rounded-lg border border-[#27bea5] text-xs outline-none focus:ring-2 focus:ring-[#27bea5]/20 font-medium bg-[#27bea5]/5">
             </td>
             <td class="py-4 px-4 text-xs text-brand-gray font-mono truncate max-w-[200px]" title="${exampleText}">
               ${exampleText}
@@ -1674,6 +1676,16 @@
             document.getElementById(`map-col-${idx}`).value = bestMatchId;
           }
         });
+
+        window.toggleCustomFieldInput = function(idx) {
+          const select = document.getElementById(`map-col-${idx}`);
+          const input = document.getElementById(`map-custom-${idx}`);
+          if (select.value === 'custom') {
+            input.classList.remove('hidden');
+          } else {
+            input.classList.add('hidden');
+          }
+        };
         
         // Ensure icons are created for newly injected HTML
         lucide.createIcons();
@@ -1684,11 +1696,16 @@
         btnStartImport.addEventListener('click', async () => {
           let emailCol = null;
           let nameCol = null;
+          let customMappings = [];
 
           importHeaders.forEach((header, idx) => {
             const selectVal = document.getElementById(`map-col-${idx}`).value;
             if (selectVal === 'email') emailCol = header;
-            if (selectVal === 'name') nameCol = header;
+            else if (selectVal === 'name') nameCol = header;
+            else if (selectVal === 'custom') {
+              const customName = document.getElementById(`map-custom-${idx}`).value.trim() || header;
+              customMappings.push({ header: header, customName: customName });
+            }
           });
 
           const tag = document.getElementById('import-tag').value.trim() || 'Importados';
@@ -1706,10 +1723,16 @@
           const payload = importData
             .filter(row => row[emailCol] && row[emailCol].toString().trim() !== '')
             .map(row => {
+              let custom_fields = {};
+              customMappings.forEach(mapping => {
+                custom_fields[mapping.customName] = row[mapping.header] ? row[mapping.header].toString().trim() : '';
+              });
+
               return {
                 email: row[emailCol].toString().trim(),
                 name: nameCol && row[nameCol] ? row[nameCol].toString().trim() : 'Suscriptor',
-                tags: [tag]
+                tags: [tag],
+                custom_fields: custom_fields
               };
             });
 
