@@ -6,10 +6,8 @@
   <title>Kônsul | Suite de Email Marketing</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Google Fonts: Plus Jakarta Sans & Outfit -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Satoshi Fontshare CDN -->
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@900,700,500,400,300&display=swap" rel="stylesheet">
   <!-- Lucide Icons CDN -->
   <script src="https://unpkg.com/lucide@latest"></script>
   
@@ -19,16 +17,16 @@
         extend: {
           colors: {
             brand: {
-              light: '#F8F9FA',
-              accent: '#13B497',
-              accentHover: '#0f967d',
-              dark: '#1B2939',
+              light: '#F8FAFC',
+              accent: '#27bea5',
+              accentHover: '#20a08a',
+              dark: '#1c2938',
               gray: '#6E7A8A',
               border: '#EAEFF4'
             }
           },
           fontFamily: {
-            sans: ['Plus Jakarta Sans', 'Outfit', 'system-ui', 'sans-serif'],
+            sans: ['Satoshi', 'system-ui', 'sans-serif'],
           }
         }
       }
@@ -37,8 +35,8 @@
   
   <style>
     body {
-      background-color: #F8F9FA;
-      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #F8FAFC;
+      font-family: 'Satoshi', sans-serif;
     }
     
     /* Overlay de Auth */
@@ -127,7 +125,11 @@
     }
   </style>
 </head>
-<body class="min-h-screen flex flex-col overflow-x-hidden">
+<body class="min-h-screen flex flex-col overflow-x-hidden relative">
+
+  <!-- Ambient Blur Spots (Emotional Design Glows) -->
+  <div class="fixed top-0 right-0 w-[500px] h-[500px] bg-[#27bea5] rounded-full blur-[140px] opacity-10 pointer-events-none -translate-y-1/2 translate-x-1/3 z-0"></div>
+  <div class="fixed bottom-0 left-0 w-[400px] h-[400px] bg-blue-600 rounded-full blur-[120px] opacity-10 pointer-events-none translate-y-1/3 -translate-x-1/3 z-0"></div>
 
   <!-- ================= AUTH & LOADING OVERLAY ================= -->
   <div id="auth-overlay" class="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center p-4">
@@ -380,66 +382,66 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             
             <!-- Card 1 -->
-            <div class="bg-white border border-brand-border p-6 rounded-[24px] shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden">
+            <div class="bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm hover:shadow-xl hover:border-[#27bea5]/30 hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between min-h-[150px] relative overflow-hidden">
               <div class="flex justify-between items-center w-full">
-                <div class="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500">
-                  <i data-lucide="send" class="w-4 h-4 text-brand-gray"></i>
+                <div class="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-[#27bea5]/10 group-hover:text-[#27bea5] transition-colors">
+                  <i data-lucide="send" class="w-5 h-5"></i>
                 </div>
-                <div class="text-[9px] bg-emerald-50 text-emerald-600 font-bold px-2 py-0.5 rounded-full border border-emerald-100 uppercase">
+                <div class="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-2.5 py-1 rounded-lg border border-emerald-100 uppercase tracking-widest">
                   ↗ 100%
                 </div>
               </div>
               <div class="mt-4">
-                <h3 class="text-3xl font-extrabold text-[#1B2939] tracking-tight" id="kpi-sent">0</h3>
-                <p class="text-[9px] font-extrabold text-brand-gray uppercase tracking-wider mt-1">Total de Correos Enviados</p>
+                <h3 class="text-4xl lg:text-5xl font-black text-[#1c2938] tracking-tight" id="kpi-sent">0</h3>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Total de Correos Enviados</p>
               </div>
             </div>
 
             <!-- Card 2 -->
-            <div class="bg-white border border-brand-border p-6 rounded-[24px] shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden">
+            <div class="bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm hover:shadow-xl hover:border-[#27bea5]/30 hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between min-h-[150px] relative overflow-hidden">
               <div class="flex justify-between items-center w-full">
-                <div class="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500">
-                  <i data-lucide="users" class="w-4 h-4 text-brand-gray"></i>
+                <div class="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-[#27bea5]/10 group-hover:text-[#27bea5] transition-colors">
+                  <i data-lucide="users" class="w-5 h-5"></i>
                 </div>
-                <div class="text-[9px] bg-emerald-50 text-emerald-600 font-bold px-2 py-0.5 rounded-full border border-emerald-100 uppercase">
+                <div class="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-2.5 py-1 rounded-lg border border-emerald-100 uppercase tracking-widest">
                   ↗ 0%
                 </div>
               </div>
               <div class="mt-4">
-                <h3 class="text-3xl font-extrabold text-[#1B2939] tracking-tight" id="kpi-contacts">0</h3>
-                <p class="text-[9px] font-extrabold text-brand-gray uppercase tracking-wider mt-1">Contactos Activos</p>
+                <h3 class="text-4xl lg:text-5xl font-black text-[#1c2938] tracking-tight" id="kpi-contacts">0</h3>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Contactos Activos</p>
               </div>
             </div>
 
             <!-- Card 3 -->
-            <div class="bg-white border border-brand-border p-6 rounded-[24px] shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden">
+            <div class="bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm hover:shadow-xl hover:border-[#27bea5]/30 hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between min-h-[150px] relative overflow-hidden">
               <div class="flex justify-between items-center w-full">
-                <div class="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500">
-                  <i data-lucide="eye" class="w-4 h-4 text-brand-gray"></i>
+                <div class="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-[#27bea5]/10 group-hover:text-[#27bea5] transition-colors">
+                  <i data-lucide="eye" class="w-5 h-5"></i>
                 </div>
-                <div class="text-[9px] bg-emerald-50 text-emerald-600 font-bold px-2 py-0.5 rounded-full border border-emerald-100 uppercase">
+                <div class="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-2.5 py-1 rounded-lg border border-emerald-100 uppercase tracking-widest">
                   ↗ 0%
                 </div>
               </div>
               <div class="mt-4">
-                <h3 class="text-3xl font-extrabold text-[#1B2939] tracking-tight" id="kpi-opens">0</h3>
-                <p class="text-[9px] font-extrabold text-brand-gray uppercase tracking-wider mt-1">Aperturas Registradas</p>
+                <h3 class="text-4xl lg:text-5xl font-black text-[#1c2938] tracking-tight" id="kpi-opens">0</h3>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Aperturas Registradas</p>
               </div>
             </div>
 
             <!-- Card 4 -->
-            <div class="bg-white border border-brand-border p-6 rounded-[24px] shadow-sm flex flex-col justify-between min-h-[140px] relative overflow-hidden">
+            <div class="bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm hover:shadow-xl hover:border-[#27bea5]/30 hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between min-h-[150px] relative overflow-hidden">
               <div class="flex justify-between items-center w-full">
-                <div class="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500">
-                  <i data-lucide="user-x" class="w-4 h-4 text-brand-gray"></i>
+                <div class="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-[#27bea5]/10 group-hover:text-[#27bea5] transition-colors">
+                  <i data-lucide="user-x" class="w-5 h-5"></i>
                 </div>
-                <div class="text-[9px] bg-emerald-50 text-emerald-600 font-bold px-2 py-0.5 rounded-full border border-emerald-100 uppercase">
+                <div class="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-2.5 py-1 rounded-lg border border-emerald-100 uppercase tracking-widest">
                   ↗ 0%
                 </div>
               </div>
               <div class="mt-4">
-                <h3 class="text-3xl font-extrabold text-[#1B2939] tracking-tight" id="kpi-unsubs">0</h3>
-                <p class="text-[9px] font-extrabold text-brand-gray uppercase tracking-wider mt-1">Bajas de Suscripción</p>
+                <h3 class="text-4xl lg:text-5xl font-black text-[#1c2938] tracking-tight" id="kpi-unsubs">0</h3>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Bajas de Suscripción</p>
               </div>
             </div>
 
@@ -449,7 +451,7 @@
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             <!-- Curve/Recent Campaigns list (Left 2 columns) -->
-            <div class="lg:col-span-2 bg-white border border-brand-border p-6 rounded-[28px] shadow-sm flex flex-col gap-6">
+            <div class="lg:col-span-2 bg-white border border-slate-100 p-8 rounded-[2.5rem] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col gap-6">
               <div class="flex items-center justify-between">
                 <div>
                   <h3 class="text-base font-extrabold text-[#1B2939]">Envíos Recientes y Actividad</h3>
@@ -495,42 +497,43 @@
               </div>
             </div>
 
-            <!-- Canales de Comunicación (Right 1 column - like reference) -->
-            <div class="bg-white border border-brand-border p-6 rounded-[28px] shadow-sm flex flex-col gap-5">
+            <!-- Canales de Comunicación (Right 1 column - dark hero card style) -->
+            <div class="bg-[#1c2938] text-white p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden flex flex-col gap-5">
+              <div class="absolute top-0 right-0 w-24 h-24 bg-[#27bea5] rounded-full blur-[40px] opacity-20 pointer-events-none"></div>
               <div>
-                <h3 class="text-base font-extrabold text-[#1B2939]">Canales & Estado</h3>
-                <p class="text-[11px] text-brand-gray mt-0.5 font-medium">Módulos de envío vinculados a SES.</p>
+                <h3 class="text-base font-black text-white">Canales & Estado</h3>
+                <p class="text-[11px] text-slate-300 mt-0.5 font-medium">Módulos de envío vinculados a SES.</p>
               </div>
 
-              <div class="flex flex-col gap-3">
+              <div class="flex flex-col gap-3 relative z-10">
                 <!-- AWS SES Channel -->
-                <div class="flex items-center justify-between p-3.5 rounded-2xl border border-brand-border bg-brand-light/40">
+                <div class="flex items-center justify-between p-3.5 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm">
                   <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <div class="w-9 h-9 rounded-xl bg-[#27bea5]/20 text-[#27bea5] flex items-center justify-center">
                       <i data-lucide="cloud" class="w-4 h-4"></i>
                     </div>
                     <div class="flex flex-col">
-                      <span class="text-xs font-bold text-[#1B2939]">Amazon SES</span>
-                      <span class="text-[9px] font-bold text-brand-gray" id="dash-sender">Cargando...</span>
+                      <span class="text-xs font-bold text-white">Amazon SES</span>
+                      <span class="text-[9px] font-bold text-slate-400" id="dash-sender">Cargando...</span>
                     </div>
                   </div>
-                  <span class="text-[9px] bg-emerald-50 text-emerald-700 font-bold border border-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <span class="text-[9px] bg-[#27bea5]/20 text-[#27bea5] font-bold border border-[#27bea5]/30 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <i data-lucide="check" class="w-2.5 h-2.5"></i> Conectado
                   </span>
                 </div>
 
                 <!-- Web Capture Forms Channel -->
-                <div class="flex items-center justify-between p-3.5 rounded-2xl border border-brand-border bg-brand-light/40">
+                <div class="flex items-center justify-between p-3.5 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm">
                   <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <div class="w-9 h-9 rounded-xl bg-[#27bea5]/20 text-[#27bea5] flex items-center justify-center">
                       <i data-lucide="file-code" class="w-4 h-4"></i>
                     </div>
                     <div class="flex flex-col">
-                      <span class="text-xs font-bold text-[#1B2939]">Formulario Web</span>
-                      <span class="text-[9px] font-bold text-brand-gray">Widget de Suscripción</span>
+                      <span class="text-xs font-bold text-white">Formulario Web</span>
+                      <span class="text-[9px] font-bold text-slate-400">Widget de Suscripción</span>
                     </div>
                   </div>
-                  <span class="text-[9px] bg-emerald-50 text-emerald-700 font-bold border border-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <span class="text-[9px] bg-[#27bea5]/20 text-[#27bea5] font-bold border border-[#27bea5]/30 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <i data-lucide="check" class="w-2.5 h-2.5"></i> Activo
                   </span>
                 </div>
