@@ -81,6 +81,15 @@ app.get('/api/setup-db', async (req, res) => {
   }
 });
 
+// Configuración de caché para evitar que Vercel Edge Cache responda con 401 cacheados
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+  next();
+});
+
 // Session Middleware
 app.set('trust proxy', 1); // Trust Vercel's proxy for secure cookies
 app.use(session({
@@ -90,10 +99,10 @@ app.use(session({
   }),
   secret: process.env.SESSION_SECRET || 'konsul-super-secret-key-123',
   resave: false,
-  saveUninitialized: false, // Better false for authenticated sessions
+  saveUninitialized: false, 
   cookie: {
     maxAge: 30 * 24 * 60 * 60 * 1000,
-    secure: process.env.VERCEL ? true : false,
+    secure: 'auto', // 'auto' es más seguro que forzar true/false en distintos entornos
     sameSite: 'lax'
   }
 }));

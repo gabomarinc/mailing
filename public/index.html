@@ -869,6 +869,18 @@
 
     // Validar sesión con backend
     async function checkAuth() {
+      // Protección de bucle infinito desde el cliente
+      let retries = parseInt(sessionStorage.getItem('authRetries') || '0');
+      if (retries > 3) {
+        document.getElementById('auth-loading-card').classList.add('hidden');
+        document.getElementById('auth-error-card').classList.remove('hidden');
+        document.getElementById('auth-error-card').classList.add('flex');
+        document.getElementById('auth-overlay').classList.remove('hidden');
+        // Mostrar mensaje específico
+        document.querySelector('#auth-error-card p').textContent = "Demasiados intentos de redirección. Por favor, asegúrate de que las cookies estén habilitadas y que tu sesión sea válida.";
+        return false;
+      }
+      
       const urlParams = new URLSearchParams(window.location.search);
       const hasAuthError = urlParams.get('error') === 'auth_failed';
 
@@ -882,9 +894,17 @@
       }
 
       try {
-        const res = await fetch('/api/auth/me');
+        const res = await fetch('/api/auth/me', {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          },
+          credentials: 'include'
+        });
         const data = await res.json();
         if (data.authenticated) {
+          sessionStorage.removeItem('authRetries');
           document.getElementById('auth-overlay').classList.add('hidden');
           // Update sidebar username if needed
           const userObj = data.user;
@@ -897,6 +917,7 @@
       }
       
       // Si no hay sesión activa y no hay error previo, redirigir a la Suite
+      sessionStorage.setItem('authRetries', (retries + 1).toString());
       const statusText = document.getElementById('auth-status-text');
       if (statusText) statusText.textContent = 'Redirigiendo a la Suite Kônsul...';
       window.location.href = '/api/auth/login';
