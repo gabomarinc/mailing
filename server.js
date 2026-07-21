@@ -55,8 +55,21 @@ app.get('/api/setup-db', async (req, res) => {
           sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS senders (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          kinde_id VARCHAR(255) NOT NULL REFERENCES users(kinde_id) ON DELETE CASCADE,
+          name VARCHAR(255) NOT NULL,
+          email VARCHAR(255) NOT NULL,
+          is_verified BOOLEAN DEFAULT true,
+          dkim_status BOOLEAN DEFAULT true,
+          dmarc_status BOOLEAN DEFAULT true,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
     await sql`CREATE INDEX IF NOT EXISTS idx_contacts_kinde_id ON contacts(kinde_id);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_campaigns_kinde_id ON campaigns(kinde_id);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_senders_kinde_id ON senders(kinde_id);`;
     
     // Tabla de sesiones para connect-pg-simple
     await sql`
@@ -339,6 +352,38 @@ app.delete('/api/contacts/:id', protectRoute, async (req, res) => {
     res.json({ success: true, message: 'Eliminado correctamente.' });
   } catch (err) {
     res.status(500).json({ error: 'DB Error' });
+  }
+});
+
+// Remitentes (Senders)
+app.get('/api/senders', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const senders = await sql`SELECT * FROM senders WHERE kinde_id = ${userId} ORDER BY created_at DESC`;
+    res.json(senders);
+  } catch (err) {
+    res.status(500).json({ error: 'DB Error' });
+  }
+});
+
+app.post('/api/senders', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { name, email } = req.body;
+    
+    if (!name || !email) {
+      return res.status(400).json({ success: false, message: 'Faltan campos' });
+    }
+
+    const inserted = await sql`
+      INSERT INTO senders (kinde_id, name, email)
+      VALUES (${userId}, ${name}, ${email})
+      RETURNING *
+    `;
+    res.json({ success: true, sender: inserted[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'DB Error' });
   }
 });
 

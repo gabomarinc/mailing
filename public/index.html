@@ -279,6 +279,13 @@
                   <span class="menu-text">Captación (Formularios)</span>
                 </span>
               </button>
+              
+              <button onclick="switchTab('senders')" id="tab-btn-senders" class="flex items-center w-full px-4 py-3 rounded-2xl text-xs font-bold text-brand-gray hover:bg-[#F8F9FA] hover:text-brand-dark transition-all menu-item-btn mt-1">
+                <span class="flex items-center gap-3 menu-item-inner">
+                  <i data-lucide="at-sign" class="w-4 h-4 text-brand-gray flex-shrink-0"></i> 
+                  <span class="menu-text">Remitentes & Dominios</span>
+                </span>
+              </button>
             </nav>
           </div>
 
@@ -702,12 +709,9 @@
                   </div>
                   <div class="space-y-2">
                     <label for="campaign-sender-email" class="text-xs font-bold text-[#1c2938]">Email del Remitente</label>
-                    <input 
-                      type="email" 
-                      id="campaign-sender-email" 
-                      placeholder="Ej: hola@konsul.digital"
-                      class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all"
-                    >
+                    <select id="campaign-sender-email" onchange="handleSenderSelect(this)" class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all cursor-pointer">
+                      <option value="">Cargando remitentes...</option>
+                    </select>
                   </div>
                 </div>
 
@@ -861,9 +865,78 @@
           </div>
         </section>
 
+        <!-- ================= TAB: SENDERS ================= -->
+        <section id="tab-senders" class="tab-content hidden flex flex-col gap-6">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 class="text-3xl font-black text-[#1B2939]">Remitentes, dominios y direcciones IP dedicadas</h1>
+            </div>
+            <div>
+              <button onclick="openModal('modal-add-sender')" class="bg-[#1c2938] text-white font-bold px-5 py-3 rounded-2xl hover:bg-black transition-all text-xs flex items-center gap-2 shadow-lg shadow-slate-200">
+                <i data-lucide="plus" class="w-4 h-4"></i> Agregar remitente
+              </button>
+            </div>
+          </div>
+
+          <!-- Pestañas Internas (Simuladas visualmente) -->
+          <div class="flex gap-6 border-b border-brand-border px-2 text-xs font-bold text-brand-gray">
+            <button class="pb-3 border-b-2 border-[#27bea5] text-[#1B2939]">Remitentes</button>
+            <button class="pb-3 border-b-2 border-transparent hover:text-[#1B2939]">Dominios</button>
+            <button class="pb-3 border-b-2 border-transparent hover:text-[#1B2939]">IP dedicadas</button>
+            <button class="pb-3 border-b-2 border-transparent hover:text-[#1B2939]">Cadencia de envío</button>
+          </div>
+
+          <div>
+            <h2 class="text-xl font-extrabold text-[#1B2939] mb-2">Remitentes</h2>
+            <p class="text-xs text-brand-gray font-medium leading-relaxed max-w-4xl">
+              Un remitente es el nombre y la dirección de email que ayudan al destinatario a reconocer tu marca y sentirse seguro al abrir tus emails. Para utilizar un remitente, debe estar verificado. Para una mejor entregabilidad del email, el dominio de tu remitente también debe estar autenticado.
+            </p>
+          </div>
+
+          <!-- Alerta de requisitos -->
+          <div class="bg-emerald-50/70 border border-emerald-100 p-4 rounded-2xl flex gap-3 text-xs text-emerald-800 font-medium">
+            <i data-lucide="check-circle" class="w-5 h-5 text-emerald-500 flex-shrink-0"></i>
+            <p>Todos tus dominios de remitente cumplen con <a href="#" class="underline font-bold text-emerald-900">nuevos requisitos de Google, Yahoo y Microsoft para los remitentes</a>. Puedes utilizar cualquiera de ellos para enviar campañas de email.</p>
+          </div>
+
+          <!-- Buscador -->
+          <div class="relative max-w-xs">
+            <i data-lucide="search" class="w-4 h-4 text-brand-gray absolute left-3.5 top-2.5"></i>
+            <input type="text" placeholder="Buscar remitente por nombre o email" class="w-full pl-10 pr-4 py-2 bg-white border border-brand-border rounded-full text-xs font-bold text-[#1B2939] outline-none focus:border-[#27bea5] focus:ring-1 focus:ring-[#27bea5] transition-all">
+          </div>
+
+          <!-- Lista de Remitentes -->
+          <div class="flex flex-col gap-4" id="senders-list-container">
+            <!-- Renderizado dinámico -->
+          </div>
+        </section>
 
       </div>
     </main>
+  </div>
+
+  <!-- ADD SENDER MODAL -->
+  <div id="modal-add-sender" class="fixed inset-0 bg-[#1B2939]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white max-w-md w-full rounded-[2rem] border border-brand-border p-8 shadow-2xl transform transition-all duration-300">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-extrabold text-[#1B2939]">Agregar nuevo remitente</h2>
+        <button onclick="closeModal('modal-add-sender')" class="text-brand-gray hover:text-[#1B2939] transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="add-sender-form" class="flex flex-col gap-5">
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-bold text-brand-dark">Nombre del remitente</label>
+          <input type="text" id="as-name" placeholder="Ej: Prospero Lasso" required class="w-full px-4 py-3 rounded-xl border border-brand-border focus:border-brand-accent outline-none text-xs font-medium">
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-bold text-brand-dark">Email del remitente</label>
+          <input type="email" id="as-email" placeholder="Ej: plasso@clicandhome.com" required class="w-full px-4 py-3 rounded-xl border border-brand-border focus:border-brand-accent outline-none text-xs font-medium">
+        </div>
+        <div class="flex items-center gap-3 mt-4">
+          <button type="submit" class="bg-[#1c2938] hover:bg-black text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm flex-1">Guardar</button>
+          <button type="button" onclick="closeModal('modal-add-sender')" class="px-5 py-2.5 rounded-xl text-xs font-semibold text-brand-gray hover:bg-brand-light flex-1 border border-brand-border">Cancelar</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- ADD SINGLE CONTACT MODAL -->
@@ -919,6 +992,7 @@
     let currentOnboardingVolume = 10000;
     let contacts = [];
     let campaigns = [];
+    let senders = [];
     let selectedTag = 'all';
     let onboardingData = null;
 
@@ -978,6 +1052,7 @@
       await fetchOnboarding();
       await fetchContacts();
       await fetchCampaigns();
+      await fetchSenders();
       setupEventListeners();
     });
 
@@ -1105,6 +1180,18 @@
       }
     }
 
+    // 4. Senders API fetch
+    async function fetchSenders() {
+      try {
+        const res = await fetch('/api/senders');
+        senders = await res.json();
+        renderSenders();
+        populateSenderSelects();
+      } catch (err) {
+        console.error('Error cargando remitentes:', err);
+      }
+    }
+
     // Navegación entre pestañas
     function switchTab(tabId) {
       document.querySelectorAll('.tab-content').forEach(section => {
@@ -1121,7 +1208,7 @@
 
       document.getElementById('page-main-title').textContent = pageTitleMap[tabId] || 'Panel Principal';
       
-      const tabButtons = ['dashboard', 'contacts', 'campaigns', 'forms', 'settings'];
+      const tabButtons = ['dashboard', 'contacts', 'campaigns', 'forms', 'senders', 'settings'];
       tabButtons.forEach(btn => {
         const button = document.getElementById(`tab-btn-${btn}`);
         if (btn === tabId) {
@@ -1162,6 +1249,37 @@
           }
         } catch (err) {
           alert('Error guardando la configuración de bienvenida.');
+        }
+      });
+
+      document.getElementById('add-sender-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('as-name').value.trim();
+        const email = document.getElementById('as-email').value.trim();
+
+        try {
+          const res = await fetch('/api/senders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email })
+          });
+          const data = await res.json();
+          if (data.success) {
+            closeModal('modal-add-sender');
+            document.getElementById('add-sender-form').reset();
+            await fetchSenders();
+            
+            // Si estábamos configurando una campaña, seleccionar el nuevo automáticamente
+            const select = document.getElementById('campaign-sender-email');
+            if(select) {
+              select.value = data.sender.email;
+              document.getElementById('campaign-sender-name').value = data.sender.name;
+            }
+          } else {
+            alert(data.message || 'Error guardando el remitente');
+          }
+        } catch (err) {
+          alert('Error de red al guardar el remitente.');
         }
       });
 
@@ -1522,6 +1640,91 @@
         document.getElementById('cfg-access-key').textContent = "Configurado en archivo .env";
       } catch (err) {
         console.error(err);
+      }
+    }    function renderSenders() {
+      const container = document.getElementById('senders-list-container');
+      container.innerHTML = '';
+      
+      if (senders.length === 0) {
+        container.innerHTML = '<p class="text-xs text-brand-gray">No tienes remitentes configurados.</p>';
+        return;
+      }
+
+      senders.forEach(s => {
+        const div = document.createElement('div');
+        div.className = "bg-white border border-brand-border rounded-2xl p-6 shadow-sm flex flex-col gap-4";
+        
+        const isVerified = s.is_verified;
+        const badge = isVerified 
+          ? `<span class="flex items-center gap-1 text-[10px] text-emerald-600 font-bold"><i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Verificado</span>`
+          : `<span class="flex items-center gap-1 text-[10px] text-amber-600 font-bold"><i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> Pendiente</span>`;
+
+        div.innerHTML = `
+          <div class="flex items-center justify-between pb-4 border-b border-brand-border">
+            <div class="flex items-center gap-4">
+              <span class="text-xs font-bold text-[#1B2939]">${s.name} <span class="font-normal text-brand-gray">&lt;${s.email}&gt;</span></span>
+              ${badge}
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="px-4 py-1.5 rounded-full border border-brand-border text-[10px] font-bold text-brand-dark hover:bg-brand-light transition-all">Editar</button>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-2">
+            <div class="flex flex-col gap-1">
+              <span class="text-[9px] font-bold text-brand-gray uppercase tracking-wider">Dirección IP</span>
+              <span class="text-xs font-semibold text-[#1B2939] flex items-center gap-1">IP compartida <i data-lucide="help-circle" class="w-3 h-3 text-slate-400"></i></span>
+            </div>
+            <div class="flex flex-col gap-1">
+              <span class="text-[9px] font-bold text-brand-gray uppercase tracking-wider">Firma DKIM</span>
+              <span class="text-xs font-semibold text-[#1B2939] flex items-center gap-1.5">${s.email.split('@')[1]} <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-500"></i></span>
+            </div>
+            <div class="flex flex-col gap-1">
+              <span class="text-[9px] font-bold text-brand-gray uppercase tracking-wider">DMARC</span>
+              <span class="text-xs font-semibold text-[#1B2939] flex items-center gap-1.5">DMARC está configurado <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-500"></i></span>
+            </div>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+      lucide.createIcons();
+    }
+
+    function populateSenderSelects() {
+      const select = document.getElementById('campaign-sender-email');
+      if (!select) return;
+      
+      const prevVal = select.value;
+      select.innerHTML = '<option value="">Selecciona un remitente...</option>';
+      
+      senders.forEach(s => {
+        if(s.is_verified) {
+          const opt = document.createElement('option');
+          opt.value = s.email;
+          opt.textContent = `${s.name} <${s.email}>`;
+          opt.dataset.name = s.name;
+          select.appendChild(opt);
+        }
+      });
+      
+      const addOpt = document.createElement('option');
+      addOpt.value = "add_new";
+      addOpt.textContent = "+ Agregar nuevo remitente";
+      addOpt.className = "font-bold text-[#27bea5]";
+      select.appendChild(addOpt);
+      
+      if (prevVal) select.value = prevVal;
+    }
+
+    function handleSenderSelect(selectElem) {
+      if (selectElem.value === "add_new") {
+        selectElem.value = ""; // reset
+        openModal('modal-add-sender');
+      } else {
+        // Auto fill sender name if selected
+        const option = selectElem.options[selectElem.selectedIndex];
+        if (option && option.dataset.name) {
+          document.getElementById('campaign-sender-name').value = option.dataset.name;
+        }
       }
     }
   </script>
