@@ -1141,8 +1141,8 @@
           <table class="w-full text-left">
             <thead class="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th class="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-1/3">Campo App</th>
-                <th class="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-1/3">Columna Archivo</th>
+                <th class="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-1/3">Columna del Archivo</th>
+                <th class="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-1/3">Asignar a Campo App</th>
                 <th class="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-1/3">Ejemplo del Archivo</th>
               </tr>
             </thead>
@@ -1630,67 +1630,71 @@
         tbody.innerHTML = '';
 
         const appFields = [
-          { id: 'email', name: 'Email (Obligatorio)', required: true },
-          { id: 'name', name: 'Nombre Completo', required: false }
+          { id: '', name: '-- Ignorar --' },
+          { id: 'email', name: 'Email (Obligatorio)' },
+          { id: 'name', name: 'Nombre Completo' }
         ];
 
-        let selectOptionsHtml = '<option value="">-- No asignar --</option>';
-        importHeaders.forEach(header => {
-          selectOptionsHtml += `<option value="${header}">${header}</option>`;
+        let selectOptionsHtml = '';
+        appFields.forEach(field => {
+          selectOptionsHtml += `<option value="${field.id}">${field.name}</option>`;
         });
 
-        appFields.forEach(field => {
+        importHeaders.forEach((header, idx) => {
           const tr = document.createElement('tr');
           tr.className = "border-b border-slate-100 last:border-0";
           
-          // Try to auto-match
-          const lowerHeaders = importHeaders.map(h => h.toLowerCase().trim());
-          let bestMatchIdx = -1;
-          if (field.id === 'email') bestMatchIdx = lowerHeaders.findIndex(h => h.includes('email') || h.includes('correo') || h.includes('e-mail'));
-          if (field.id === 'name') bestMatchIdx = lowerHeaders.findIndex(h => h.includes('name') || h.includes('nombre'));
+          // Auto-match
+          const lowerHeader = header.toLowerCase().trim();
+          let bestMatchId = '';
+          if (lowerHeader.includes('email') || lowerHeader.includes('correo') || lowerHeader.includes('e-mail')) bestMatchId = 'email';
+          else if (lowerHeader.includes('name') || lowerHeader.includes('nombre')) bestMatchId = 'name';
           
-          const exampleText = bestMatchIdx !== -1 ? (importData[0][importHeaders[bestMatchIdx]] || '-') : '-';
+          let exampleText = importData[0][header];
+          if (exampleText === undefined || exampleText === null) exampleText = '-';
 
           tr.innerHTML = `
-            <td class="py-4 px-4 text-xs font-bold text-[#1c2938] flex items-center gap-1">
-              ${field.name} ${field.required ? '<span class="text-rose-500">*</span>' : ''}
+            <td class="py-4 px-4 text-xs font-bold text-[#1c2938]">
+              <div class="flex items-center gap-2">
+                <i data-lucide="hash" class="w-3.5 h-3.5 text-slate-400"></i> ${header}
+              </div>
             </td>
             <td class="py-4 px-4">
-              <select id="map-${field.id}" onchange="updateExampleText('${field.id}', this.value)" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#27bea5] font-medium bg-white">
+              <select id="map-col-${idx}" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#27bea5] font-medium bg-white">
                 ${selectOptionsHtml}
               </select>
             </td>
-            <td class="py-4 px-4 text-xs text-brand-gray font-mono" id="example-${field.id}">
+            <td class="py-4 px-4 text-xs text-brand-gray font-mono truncate max-w-[200px]" title="${exampleText}">
               ${exampleText}
             </td>
           `;
           tbody.appendChild(tr);
 
-          if (bestMatchIdx !== -1) {
-            document.getElementById(`map-${field.id}`).value = importHeaders[bestMatchIdx];
+          if (bestMatchId !== '') {
+            document.getElementById(`map-col-${idx}`).value = bestMatchId;
           }
         });
         
-        // Define global update function for the onchange
-        window.updateExampleText = function(fieldId, colName) {
-          const exampleEl = document.getElementById(`example-${fieldId}`);
-          if (!colName) {
-            exampleEl.textContent = '-';
-          } else {
-            exampleEl.textContent = importData[0][colName] || '-';
-          }
-        };
+        // Ensure icons are created for newly injected HTML
+        lucide.createIcons();
       }
 
       const btnStartImport = document.getElementById('btn-start-import');
       if (btnStartImport) {
         btnStartImport.addEventListener('click', async () => {
-          const emailCol = document.getElementById('map-email').value;
-          const nameCol = document.getElementById('map-name').value;
+          let emailCol = null;
+          let nameCol = null;
+
+          importHeaders.forEach((header, idx) => {
+            const selectVal = document.getElementById(`map-col-${idx}`).value;
+            if (selectVal === 'email') emailCol = header;
+            if (selectVal === 'name') nameCol = header;
+          });
+
           const tag = document.getElementById('import-tag').value.trim() || 'Importados';
 
           if (!emailCol) {
-            showToast('Debes asignar una columna al campo "Email".', 'error');
+            showToast('Debes asignar al menos una columna al campo "Email (Obligatorio)".', 'error');
             return;
           }
 
