@@ -421,7 +421,7 @@ app.post('/api/contacts', protectRoute, async (req, res) => {
     res.json({ success: true, contact: inserted[0] });
   } catch (err) {
     console.error('Error insertando contacto:', err);
-    res.status(500).json({ error: 'DB Error' });
+    res.status(500).json({ error: 'DB Error', message: err.message || String(err) });
   }
 });
 
@@ -468,7 +468,7 @@ app.post('/api/contacts/bulk', protectRoute, async (req, res) => {
     res.json({ success: true, added });
   } catch (err) {
     console.error('Error en bulk insert:', err);
-    res.status(500).json({ error: 'DB Error' });
+    res.status(500).json({ error: 'DB Error', message: err.message || String(err), stack: err.stack });
   }
 });
 
