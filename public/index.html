@@ -1416,7 +1416,7 @@
             await fetchOnboarding();
           }
         } catch (err) {
-          alert('Error guardando la configuración de bienvenida.');
+          showToast('Error guardando la configuración de bienvenida.', 'error');
         }
       });
 
@@ -1444,10 +1444,10 @@
               document.getElementById('campaign-sender-name').value = data.sender.name;
             }
           } else {
-            alert(data.message || 'Error guardando el remitente');
+            showToast(data.message || 'Error guardando el remitente', 'error');
           }
         } catch (err) {
-          alert('Error de red al guardar el remitente.');
+          showToast('Error de red al guardar el remitente.', 'error');
         }
       });
 
@@ -1469,10 +1469,10 @@
             document.getElementById('add-contact-form').reset();
             await fetchContacts();
           } else {
-            alert(data.message);
+            showToast(data.message, 'info');
           }
         } catch (err) {
-          alert('Error de red al guardar el contacto.');
+          showToast('Error de red al guardar el contacto.', 'error');
         }
       });
 
@@ -1498,10 +1498,10 @@
             closeModal('modal-import-bulk');
             document.getElementById('import-bulk-form').reset();
             await fetchContacts();
-            alert(`¡Importación completada! Se añadieron/reactivaron ${data.added} contactos.`);
+            showToast(`¡Importación completada! Se añadieron/reactivaron ${data.added} contactos.`, 'success');
           }
         } catch (err) {
-          alert('Error de red al importar contactos.');
+          showToast('Error de red al importar contactos.', 'error');
         }
       });
 
@@ -1713,7 +1713,7 @@
       const limit = 10000;
 
       if (!campaignName || !senderName || !senderEmail || !subject || !body) {
-        alert('Ingresa todos los campos requeridos de la campaña (Nombre, Remitente, Email, Asunto y Contenido).');
+        showToast('Ingresa todos los campos requeridos de la campaña (Nombre, Remitente, Email, Asunto y Contenido, 'error').');
         return;
       }
 
@@ -1725,7 +1725,7 @@
       }
 
       if (targets.length === 0) {
-        alert('No hay destinatarios activos en el segmento seleccionado.');
+        showToast('No hay destinatarios activos en el segmento seleccionado.', 'error');
         return;
       }
 
@@ -1787,7 +1787,7 @@
           }, 2500);
 
         } else {
-          alert('Error: ' + data.message);
+          showToast('Error: ' + data.message, 'error');
           clearInterval(microcopyInterval);
           progressArea.classList.add('hidden');
           sendBtn.disabled = false;
@@ -1796,7 +1796,7 @@
         }
       } catch (err) {
         clearInterval(microcopyInterval);
-        alert('Error de conexión con el servidor.');
+        showToast('Error de conexión con el servidor.', 'error');
         progressArea.classList.add('hidden');
         sendBtn.disabled = false;
         sendBtn.innerHTML = "<i data-lucide='send' class='w-3.5 h-3.5'></i> Enviar Campaña";
@@ -1828,6 +1828,72 @@
     }
 
     // ==========================================
+    
+    // ==========================================
+    // NOTIFICACIONES Y CONFIRMACIONES CUSTOM
+    // ==========================================
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const toast = document.createElement('div');
+      
+      let icon = 'info';
+      let color = 'bg-blue-500';
+      if (type === 'success') { icon = 'check-circle'; color = 'bg-[#27bea5]'; }
+      if (type === 'error') { icon = 'alert-circle'; color = 'bg-rose-500'; }
+      if (type === 'warning') { icon = 'alert-triangle'; color = 'bg-amber-500'; }
+
+      toast.className = `flex items-center gap-3 bg-white border border-slate-100 shadow-2xl rounded-2xl p-4 transform translate-y-10 opacity-0 transition-all duration-300 pointer-events-auto min-w-[300px]`;
+      toast.innerHTML = `
+        <div class="${color} text-white p-2 rounded-full shadow-sm">
+          <i data-lucide="${icon}" class="w-4 h-4"></i>
+        </div>
+        <span class="text-xs font-bold text-brand-dark flex-1 leading-relaxed">${message}</span>
+      `;
+      container.appendChild(toast);
+      lucide.createIcons();
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-10', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('translate-y-10', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    function showConfirm(message) {
+      return new Promise((resolve) => {
+        const modal = document.getElementById('modal-confirm');
+        const msgEl = document.getElementById('confirm-msg');
+        const btnCancel = document.getElementById('btn-confirm-cancel');
+        const btnOk = document.getElementById('btn-confirm-ok');
+
+        msgEl.textContent = message;
+        
+        modal.classList.remove('hidden');
+        requestAnimationFrame(() => {
+          modal.classList.remove('opacity-0');
+          modal.children[0].classList.remove('scale-95');
+        });
+
+        const cleanup = () => {
+          modal.classList.add('opacity-0');
+          modal.children[0].classList.add('scale-95');
+          setTimeout(() => modal.classList.add('hidden'), 300);
+          btnCancel.removeEventListener('click', onCancel);
+          btnOk.removeEventListener('click', onOk);
+        };
+
+        const onCancel = () => { cleanup(); resolve(false); };
+        const onOk = () => { cleanup(); resolve(true); };
+
+        btnCancel.addEventListener('click', onCancel);
+        btnOk.addEventListener('click', onOk);
+      });
+    }
+
     // SECCIÓN: REMITENTES, DOMINIOS, IP Y CADENCIA
     // ==========================================
 
@@ -2008,11 +2074,11 @@
           closeModal('modal-add-domain');
           fetchDomains();
         } else {
-          alert('Error al agregar dominio: ' + data.message);
+          showToast('Error al agregar dominio: ' + data.message, 'error');
         }
       } catch (err) {
         console.error(err);
-        alert('Error conectando con el servidor');
+        showToast('Error conectando con el servidor', 'error');
       } finally {
         btn.textContent = 'Generar Registros DNS';
         btn.disabled = false;
@@ -2020,7 +2086,7 @@
     });
 
     async function deleteDomain(id) {
-      if(!confirm('¿Estás seguro de eliminar este dominio? Dejará de usarse para enviar correos.')) return;
+      if (!(await showConfirm('¿Estás seguro de eliminar este dominio? Dejará de usarse para enviar correos.'))) return;
       try {
         const res = await fetch(`/api/domains/${id}`, {
           method: 'DELETE',
@@ -2083,7 +2149,7 @@
     }
 
     async function requestDedicatedIp() {
-      if(!confirm('¿Deseas solicitar una IP dedicada? Revisaremos tu cuenta y la activaremos en breve.')) return;
+      if (!(await showConfirm('¿Deseas solicitar una IP dedicada? Revisaremos tu cuenta y la activaremos en breve.'))) return;
       try {
         const res = await fetch('/api/ips', {
           method: 'POST',
@@ -2091,7 +2157,7 @@
         });
         const data = await res.json();
         if (data.success) {
-          alert('¡Solicitud enviada! Pronto te asignaremos tu IP.');
+          showToast('¡Solicitud enviada! Pronto te asignaremos tu IP.', 'success');
           fetchIps();
         }
       } catch (err) {
@@ -2143,11 +2209,11 @@
         });
         const data = await res.json();
         if (data.success) {
-          alert('Configuración guardada correctamente.');
+          showToast('Configuración guardada correctamente.', 'success');
         }
       } catch (err) {
         console.error(err);
-        alert('Error guardando cadencia');
+        showToast('Error guardando cadencia', 'error');
       }
     });
 
@@ -2202,17 +2268,17 @@
     }
 
     async function deleteSender(id) {
-      if (!confirm('¿Estás seguro de eliminar este remitente?')) return;
+      if (!(await showConfirm('¿Estás seguro de eliminar este remitente?'))) return;
       try {
         const res = await fetch(`/api/senders/${id}`, { method: 'DELETE' });
         const data = await res.json();
         if (data.success) {
           await fetchSenders();
         } else {
-          alert('Error al eliminar el remitente.');
+          showToast('Error al eliminar el remitente.', 'error');
         }
       } catch (err) {
-        alert('Error de red.');
+        showToast('Error de red.', 'error');
       }
     }
 
@@ -2255,5 +2321,26 @@
       }
     }
   </script>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Custom Confirm Modal -->
+  <div id="modal-confirm" class="fixed inset-0 bg-[#1B2939]/40 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 hidden transition-opacity duration-300 opacity-0">
+    <div class="bg-white max-w-sm w-full rounded-[2rem] border border-brand-border p-6 shadow-2xl transform scale-95 transition-transform duration-300">
+      <div class="flex items-center gap-3 mb-4 text-rose-500">
+        <div class="bg-rose-50 p-2.5 rounded-full border border-rose-100">
+          <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+        </div>
+        <h3 class="text-base font-extrabold text-[#1B2939]">Confirmar Acción</h3>
+      </div>
+      <p id="confirm-msg" class="text-xs text-brand-gray mb-6 font-medium leading-relaxed">¿Estás seguro de continuar?</p>
+      <div class="flex gap-3 justify-end mt-2">
+        <button id="btn-confirm-cancel" class="px-5 py-2.5 text-xs font-bold text-slate-500 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-xl transition-all">Cancelar</button>
+        <button id="btn-confirm-ok" class="px-5 py-2.5 text-xs font-bold text-white bg-rose-500 hover:bg-rose-600 rounded-xl transition-all shadow-sm">Sí, continuar</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
