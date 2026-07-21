@@ -98,10 +98,12 @@ const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'kons
 
 app.get('/api/auth/login', (req, res) => {
   const state = crypto.randomBytes(16).toString('hex');
+  const baseUrl = KINDE_SITE_URL.replace(/\/$/, '');
+  
   const authUrl = `${KINDE_ISSUER_URL}/oauth2/auth?` + new URLSearchParams({
     client_id: KINDE_CLIENT_ID,
     response_type: 'code',
-    redirect_uri: `${KINDE_SITE_URL}/api/auth/kinde_callback`,
+    redirect_uri: `${baseUrl}/api/auth/kinde_callback`,
     scope: 'openid profile email',
     state: state
   });
