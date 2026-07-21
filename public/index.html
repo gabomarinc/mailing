@@ -9,7 +9,13 @@
   <!-- Satoshi Fontshare CDN -->
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@900,700,500,400,300&display=swap" rel="stylesheet">
   <!-- Lucide Icons CDN -->
+
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- PapaParse CDN for CSV -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <!-- SheetJS CDN for Excel -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
   
   <script>
     tailwind.config = {
@@ -1476,23 +1482,222 @@
         }
       });
 
-      document.getElementById('import-bulk-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const rawList = document.getElementById('ib-list').value;
-        const tag = document.getElementById('ib-tag').value.trim() || 'Importados';
+      let importFile = null;
+      let importHeaders = [];
+      let importData = [];
+
+      function resetImport() {
+        importFile = null;
+        importHeaders = [];
+        importData = [];
+        document.getElementById('import-file-input').value = '';
+        document.getElementById('import-phase-1').classList.remove('hidden');
+        document.getElementById('import-phase-2').classList.add('hidden');
+        document.getElementById('import-phase-3').classList.add('hidden');
+        const dropZone = document.getElementById('drop-zone');
+        if (dropZone) dropZone.classList.remove('bg-blue-50/50', 'border-[#27bea5]');
+      }
+
+      function handleFileSelect(file) {
+        if (!file) return;
+        if (file.size > 10 * 1024 * 1024) {
+          showToast('El archivo no debe exceder los 10MB.', 'error');
+          return;
+        }
+
+        importFile = file;
+        const ext = file.name.split('.').pop().toLowerCase();
         
-        const parsed = rawList.split(/[,\n\r\s]+/)
-          .map(e => e.trim())
-          .filter(e => e !== '');
-
-        const payload = parsed.map(email => ({ email, tags: [tag] }));
-
-        try {
-          const res = await fetch('/api/contacts/bulk', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ list: payload })
+        if (ext === 'csv') {
+          Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+              if (results.meta.fields && results.meta.fields.length > 0) {
+                importHeaders = results.meta.fields;
+                importData = results.data;
+                renderMappingInterface();
+              } else {
+                showToast('No se pudieron detectar columnas en el CSV.', 'error');
+              }
+            },
+            error: function() {
+              showToast('Error al leer el archivo CSV.', 'error');
+            }
           });
+        } else if (ext === 'xlsx' || ext === 'xls') {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet, {defval: ''});
+            
+            if (json.length > 0) {
+              importHeaders = Object.keys(json[0]);
+              importData = json;
+              renderMappingInterface();
+            } else {
+              showToast('El archivo Excel está vacío o es inválido.', 'error');
+            }
+          };
+          reader.readAsArrayBuffer(file);
+        } else {
+          showToast('Formato de archivo no soportado. Usa CSV o Excel.', 'error');
+        }
+      }
+
+      const fileInput = document.getElementById('import-file-input');
+      if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+          handleFileSelect(e.target.files[0]);
+        });
+      }
+      
+      const dropZone = document.getElementById('drop-zone');
+      if (dropZone) {
+        dropZone.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          dropZone.classList.add('bg-blue-50/50', 'border-[#27bea5]');
+        });
+        dropZone.addEventListener('dragleave', (e) => {
+          e.preventDefault();
+          dropZone.classList.remove('bg-blue-50/50', 'border-[#27bea5]');
+        });
+        dropZone.addEventListener('drop', (e) => {
+          e.preventDefault();
+          dropZone.classList.remove('bg-blue-50/50', 'border-[#27bea5]');
+          if (e.dataTransfer.files.length > 0) {
+            handleFileSelect(e.dataTransfer.files[0]);
+          }
+        });
+      }
+
+      function renderMappingInterface() {
+        document.getElementById('import-phase-1').classList.add('hidden');
+        document.getElementById('import-phase-2').classList.remove('hidden');
+
+        const tbody = document.getElementById('mapping-table-body');
+        tbody.innerHTML = '';
+
+        const appFields = [
+          { id: 'email', name: 'Email (Obligatorio)', required: true },
+          { id: 'name', name: 'Nombre Completo', required: false }
+        ];
+
+        let selectOptionsHtml = '<option value="">-- No asignar --</option>';
+        importHeaders.forEach(header => {
+          selectOptionsHtml += `<option value="${header}">${header}</option>`;
+        });
+
+        appFields.forEach(field => {
+          const tr = document.createElement('tr');
+          tr.className = "border-b border-slate-100 last:border-0";
+          
+          // Try to auto-match
+          const lowerHeaders = importHeaders.map(h => h.toLowerCase().trim());
+          let bestMatchIdx = -1;
+          if (field.id === 'email') bestMatchIdx = lowerHeaders.findIndex(h => h.includes('email') || h.includes('correo') || h.includes('e-mail'));
+          if (field.id === 'name') bestMatchIdx = lowerHeaders.findIndex(h => h.includes('name') || h.includes('nombre'));
+          
+          const exampleText = bestMatchIdx !== -1 ? (importData[0][importHeaders[bestMatchIdx]] || '-') : '-';
+
+          tr.innerHTML = `
+            <td class="py-4 px-4 text-xs font-bold text-[#1c2938] flex items-center gap-1">
+              ${field.name} ${field.required ? '<span class="text-rose-500">*</span>' : ''}
+            </td>
+            <td class="py-4 px-4">
+              <select id="map-${field.id}" onchange="updateExampleText('${field.id}', this.value)" class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs outline-none focus:border-[#27bea5] font-medium bg-white">
+                ${selectOptionsHtml}
+              </select>
+            </td>
+            <td class="py-4 px-4 text-xs text-brand-gray font-mono" id="example-${field.id}">
+              ${exampleText}
+            </td>
+          `;
+          tbody.appendChild(tr);
+
+          if (bestMatchIdx !== -1) {
+            document.getElementById(`map-${field.id}`).value = importHeaders[bestMatchIdx];
+          }
+        });
+        
+        // Define global update function for the onchange
+        window.updateExampleText = function(fieldId, colName) {
+          const exampleEl = document.getElementById(`example-${fieldId}`);
+          if (!colName) {
+            exampleEl.textContent = '-';
+          } else {
+            exampleEl.textContent = importData[0][colName] || '-';
+          }
+        };
+      }
+
+      const btnStartImport = document.getElementById('btn-start-import');
+      if (btnStartImport) {
+        btnStartImport.addEventListener('click', async () => {
+          const emailCol = document.getElementById('map-email').value;
+          const nameCol = document.getElementById('map-name').value;
+          const tag = document.getElementById('import-tag').value.trim() || 'Importados';
+
+          if (!emailCol) {
+            showToast('Debes asignar una columna al campo "Email".', 'error');
+            return;
+          }
+
+          document.getElementById('import-phase-2').classList.add('hidden');
+          document.getElementById('import-phase-3').classList.remove('hidden');
+          document.getElementById('import-progress-bar').style.width = '10%';
+          document.getElementById('import-progress-text').textContent = 'Preparando datos...';
+
+          const payload = importData
+            .filter(row => row[emailCol] && row[emailCol].toString().trim() !== '')
+            .map(row => {
+              return {
+                email: row[emailCol].toString().trim(),
+                name: nameCol && row[nameCol] ? row[nameCol].toString().trim() : 'Suscriptor',
+                tags: [tag]
+              };
+            });
+
+          if (payload.length === 0) {
+            showToast('No se encontraron correos válidos en el archivo.', 'error');
+            resetImport();
+            return;
+          }
+
+          document.getElementById('import-progress-bar').style.width = '30%';
+          document.getElementById('import-progress-text').textContent = `Enviando ${payload.length} contactos...`;
+
+          try {
+            const res = await fetch('/api/contacts/bulk', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ list: payload })
+            });
+            const data = await res.json();
+            
+            document.getElementById('import-progress-bar').style.width = '100%';
+            document.getElementById('import-progress-text').textContent = '¡Completado!';
+            
+            if (data.success) {
+              setTimeout(() => {
+                closeModal('modal-import-bulk');
+                resetImport();
+                fetchContacts();
+                showToast(`¡Importación completada! Se añadieron/reactivaron ${data.added} contactos.`, 'success');
+              }, 600);
+            } else {
+              showToast('Error del servidor: ' + (data.message || ''), 'error');
+              resetImport();
+            }
+          } catch (err) {
+            showToast('Error de red al importar contactos.', 'error');
+            resetImport();
+          }
+        });
+      }
           const data = await res.json();
           if (data.success) {
             closeModal('modal-import-bulk');
