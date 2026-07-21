@@ -414,7 +414,7 @@ app.post('/api/contacts', protectRoute, async (req, res) => {
 
     const inserted = await sql`
       INSERT INTO contacts (kinde_id, name, email, tags, custom_fields, status)
-      VALUES (${userId}, ${name || 'Suscriptor'}, ${cleanEmail}, ${contactTags}, ${JSON.stringify(custom_fields || {})}, 'active')
+      VALUES (${userId}, ${name || 'Suscriptor'}, ${cleanEmail}, ${contactTags}, ${JSON.stringify(custom_fields || {})}::jsonb, 'active')
       RETURNING *
     `;
     
@@ -448,7 +448,7 @@ app.post('/api/contacts/bulk', protectRoute, async (req, res) => {
         if (existing.length === 0) {
           await sql`
             INSERT INTO contacts (kinde_id, name, email, tags, custom_fields, status)
-            VALUES (${userId}, ${name}, ${email}, ${tags}, ${JSON.stringify(custom_fields)}, 'active')
+            VALUES (${userId}, ${name}, ${email}, ${tags}, ${JSON.stringify(custom_fields)}::jsonb, 'active')
           `;
           added++;
         } else {
