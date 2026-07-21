@@ -1,9 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const session = require('express-session');
-const pgSession = require('connect-pg-simple')(session);
-const { KindeClient, GrantType } = require('@kinde-oss/kinde-nodejs-sdk');
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
 const { neon } = require('@neondatabase/serverless');
 const { Pool } = require('pg');
@@ -90,127 +89,95 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
-// Session Middleware
-app.set('trust proxy', 1); // Trust Vercel's proxy for secure cookies
-app.use(session({
-  store: new pgSession({
-    pool: pool,
-    tableName: 'session'
-  }),
-  secret: process.env.SESSION_SECRET || 'konsul-super-secret-key-123',
-  resave: false,
-  saveUninitialized: false, 
-  cookie: {
-    maxAge: 30 * 24 * 60 * 60 * 1000,
-    secure: 'auto', // 'auto' es más seguro que forzar true/false en distintos entornos
-    sameSite: 'lax'
-  }
-}));
+// ================= AUTH (KINDE SSO MANUAL JWT) =================
+const KINDE_ISSUER_URL = process.env.KINDE_ISSUER_URL || '';
+const KINDE_CLIENT_ID = process.env.KINDE_CLIENT_ID || '';
+const KINDE_CLIENT_SECRET = process.env.KINDE_CLIENT_SECRET || '';
+const KINDE_SITE_URL = process.env.KINDE_SITE_URL || 'http://localhost:3000';
+const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'konsul-super-secret-key-123';
 
-// Configurar Cliente Kinde
-const options = {
-  domain: process.env.KINDE_ISSUER_URL || '',
-  clientId: process.env.KINDE_CLIENT_ID || '',
-  clientSecret: process.env.KINDE_CLIENT_SECRET || '',
-  redirectUri: (process.env.KINDE_SITE_URL || 'http://localhost:3000') + '/api/auth/kinde_callback',
-  logoutRedirectUri: process.env.KINDE_POST_LOGOUT_REDIRECT_URL || process.env.KINDE_SITE_URL || 'http://localhost:3000',
-  grantType: GrantType.AUTHORIZATION_CODE
-};
-const kindeClient = new KindeClient(options);
-
-// Función auxiliar para delay (control del rate limit de SES)
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// Helper para validar email
-const isValidEmail = (email) => {
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return re.test(String(email).toLowerCase().trim());
-};
-
-// ================= AUTH (KINDE SSO) =================
-app.get('/api/auth/login', async (req, res) => {
-  try {
-    const prompt = req.query.prompt;
-    const loginUrl = await kindeClient.login(req, prompt ? { prompt } : {});
-    res.redirect(loginUrl);
-  } catch (err) {
-    console.error("Error en login Kinde:", err);
-    res.redirect('/?error=auth_failed');
-  }
+app.get('/api/auth/login', (req, res) => {
+  const state = crypto.randomBytes(16).toString('hex');
+  const authUrl = `${KINDE_ISSUER_URL}/oauth2/auth?` + new URLSearchParams({
+    client_id: KINDE_CLIENT_ID,
+    response_type: 'code',
+    redirect_uri: `${KINDE_SITE_URL}/api/auth/kinde_callback`,
+    scope: 'openid profile email',
+    state: state
+  });
+  res.redirect(authUrl);
 });
 
 app.get('/api/auth/kinde_callback', async (req, res) => {
+  const { code } = req.query;
   try {
-    await kindeClient.getToken(req);
-    
-    // Crear el usuario en la BD de Mailing si no existe (solicitud del usuario)
-    try {
-      const isAuth = await kindeClient.isAuthenticated(req);
-      if (isAuth) {
-        const user = await kindeClient.getUserProfile(req);
-        if (user && user.id) {
-          const name = user.given_name || 'Kônsul User';
-          await sql`
-            INSERT INTO users (kinde_id, company_name, monthly_volume, is_setup_complete) 
-            VALUES (${user.id}, ${name}, 10000, true)
-            ON CONFLICT (kinde_id) DO NOTHING
-          `;
-          console.log("Usuario sincronizado con éxito en la BD de Mailing:", user.id);
-        }
-      }
-    } catch (dbError) {
-      console.error("Error sincronizando usuario en BD (verificar DATABASE_URL):", dbError);
-    }
+    // 1. Intercambiar code por access_token
+    const tokenResponse = await fetch(`${KINDE_ISSUER_URL}/oauth2/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: KINDE_CLIENT_ID,
+        client_secret: KINDE_CLIENT_SECRET,
+        code: code,
+        redirect_uri: `${KINDE_SITE_URL}/api/auth/kinde_callback`
+      })
+    });
+    const tokenData = await tokenResponse.json();
+    if (!tokenData.access_token) throw new Error('No access token received from Kinde');
 
-    // En Serverless (Vercel), se debe esperar explícitamente a que req.session.save() complete la inserción en DB
-    if (req.session) {
-      await new Promise((resolve, reject) => {
-        req.session.save((err) => {
-          if (err) return reject(err);
-          resolve();
-        });
-      });
-    }
-    res.redirect('/');
+    // 2. Obtener perfil del usuario
+    const profileResponse = await fetch(`${KINDE_ISSUER_URL}/oauth2/v2/user_profile`, {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` }
+    });
+    const profile = await profileResponse.json();
+
+    // 3. Crear usuario en Neon DB local
+    const name = profile.given_name || 'Kônsul User';
+    await sql`
+      INSERT INTO users (kinde_id, company_name, monthly_volume, is_setup_complete) 
+      VALUES (${profile.id}, ${name}, 10000, true)
+      ON CONFLICT (kinde_id) DO NOTHING
+    `;
+
+    // 4. Firmar JWT propio
+    const token = jwt.sign({ 
+      id: profile.id, 
+      email: profile.email || profile.preferred_email,
+      given_name: profile.given_name 
+    }, JWT_SECRET, { expiresIn: '30d' });
+
+    // 5. Redirigir al frontend con el token
+    res.redirect(`${KINDE_SITE_URL}/?token=${encodeURIComponent(token)}`);
   } catch (err) {
-    console.error("Error en Kinde Callback:", err);
+    console.error("Error en Kinde Callback Manual:", err);
     res.redirect('/?error=auth_failed');
   }
 });
 
-app.get('/api/auth/logout', async (req, res) => {
-  try {
-    const logoutUrl = await kindeClient.logout(req);
-    if (req.session) {
-      await new Promise((resolve) => req.session.destroy(() => resolve()));
-    }
-    res.redirect(logoutUrl);
-  } catch (err) {
-    res.redirect('/');
-  }
+app.get('/api/auth/logout', (req, res) => {
+  const logoutRedirect = process.env.KINDE_POST_LOGOUT_REDIRECT_URL || KINDE_SITE_URL;
+  const logoutUrl = `${KINDE_ISSUER_URL}/logout?redirect=${encodeURIComponent(logoutRedirect)}`;
+  res.redirect(logoutUrl);
 });
 
-app.get('/api/auth/me', async (req, res) => {
-  try {
-    const isAuth = await kindeClient.isAuthenticated(req);
-    if (!isAuth) return res.status(401).json({ authenticated: false });
-    const user = await kindeClient.getUserProfile(req);
-    res.json({ authenticated: true, user });
-  } catch (err) {
-    res.status(401).json({ authenticated: false });
-  }
-});
-
-// Middleware de Protección Multi-Tenant
+// Middleware de Protección Multi-Tenant con JWT
 const protectRoute = async (req, res, next) => {
   try {
-    if (await kindeClient.isAuthenticated(req)) {
-      req.user = await kindeClient.getUserProfile(req);
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, JWT_SECRET);
+      req.user = decoded;
       return next();
     }
   } catch (e) {}
   res.status(401).json({ success: false, message: 'No autorizado. Inicia sesión en Kônsul.' });
 };
+
+app.get('/api/auth/me', protectRoute, (req, res) => {
+  res.json({ authenticated: true, user: req.user });
+});
 
 // ================= API ENDPOINTS =================
 

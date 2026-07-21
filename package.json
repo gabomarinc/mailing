@@ -20,14 +20,12 @@
   "license": "ISC",
   "dependencies": {
     "@aws-sdk/client-ses": "^3.600.0",
-    "@kinde-oss/kinde-nodejs-sdk": "^1.2.4",
     "@neondatabase/serverless": "^0.9.4",
-    "connect-pg-simple": "^9.0.1",
-    "pg": "^8.11.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "express-session": "^1.18.0"
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.11.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

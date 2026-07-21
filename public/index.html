@@ -307,10 +307,10 @@
             Ayuda
           </button>
         </div>
-        <a href="/api/auth/logout" class="flex items-center justify-center gap-2 w-full text-brand-gray hover:text-red-500 transition-colors text-xs font-bold py-2 mt-2">
-          <i data-lucide="log-out" class="w-4 h-4"></i>
-          Cerrar Sesión
-        </a>
+        <button onclick="logoutUser()" class="flex items-center justify-center gap-2 w-full text-brand-gray hover:text-red-500 transition-colors text-xs font-bold py-2 mt-2">
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          <span>Cerrar Sesión</span>
+        </button>
         <div class="text-center text-[10px] font-bold text-brand-gray uppercase tracking-wider">
           &copy; Kônsul Suite 2026
         </div>
@@ -853,6 +853,41 @@
     ];
     let microcopyInterval = null;
 
+    // ================== JWT AUTHENTICATION ==================
+    // 1. Extraer y guardar token de la URL si venimos del login
+    const urlParams = new URLSearchParams(window.location.search);
+    const jwtToken = urlParams.get('token');
+    if (jwtToken) {
+      localStorage.setItem('kns_token', jwtToken);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // 2. Interceptar fetch nativo para inyectar token
+    const originalFetch = window.fetch;
+    window.fetch = async function() {
+      let [resource, config] = arguments;
+      if (typeof resource === 'string' && resource.startsWith('/api/')) {
+        const token = localStorage.getItem('kns_token');
+        if (token) {
+          config = config || {};
+          config.headers = config.headers || {};
+          config.headers['Authorization'] = `Bearer ${token}`;
+        }
+      }
+      const response = await originalFetch(resource, config);
+      if (response.status === 401 && resource !== '/api/auth/me') {
+        localStorage.removeItem('kns_token');
+        window.location.href = '/api/auth/login';
+      }
+      return response;
+    };
+    // ========================================================
+    
+    window.logoutUser = function() {
+      localStorage.removeItem('kns_token');
+      window.location.href = '/api/auth/logout';
+    };
+
     // Inicializar aplicación al cargar
     window.addEventListener('DOMContentLoaded', async () => {
       lucide.createIcons();
@@ -899,8 +934,7 @@
             'Cache-Control': 'no-cache, no-store, must-revalidate',
             'Pragma': 'no-cache',
             'Expires': '0'
-          },
-          credentials: 'include'
+          }
         });
         const data = await res.json();
         if (data.authenticated) {
