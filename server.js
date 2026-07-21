@@ -133,6 +133,26 @@ app.get('/api/auth/login', async (req, res) => {
 app.get('/api/auth/kinde_callback', async (req, res) => {
   try {
     await kindeClient.getToken(req);
+    
+    // Crear el usuario en la BD de Mailing si no existe (solicitud del usuario)
+    try {
+      const isAuth = await kindeClient.isAuthenticated(req);
+      if (isAuth) {
+        const user = await kindeClient.getUserProfile(req);
+        if (user && user.id) {
+          const name = user.given_name || 'Kônsul User';
+          await sql`
+            INSERT INTO users (kinde_id, company_name, monthly_volume, is_setup_complete) 
+            VALUES (${user.id}, ${name}, 10000, true)
+            ON CONFLICT (kinde_id) DO NOTHING
+          `;
+          console.log("Usuario sincronizado con éxito en la BD de Mailing:", user.id);
+        }
+      }
+    } catch (dbError) {
+      console.error("Error sincronizando usuario en BD (verificar DATABASE_URL):", dbError);
+    }
+
     // En Serverless (Vercel), se debe esperar explícitamente a que req.session.save() complete la inserción en DB
     if (req.session) {
       await new Promise((resolve, reject) => {
