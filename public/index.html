@@ -85,14 +85,14 @@
     }
 
     .sidebar-active {
-      background-color: #F8F9FA;
-      border-left: 3px solid #13B497;
-      color: #1B2939 !important;
+      background-color: rgba(39, 190, 165, 0.1) !important;
+      color: #27bea5 !important;
       font-weight: 700;
+      border-radius: 1rem;
     }
     
     .sidebar-active i {
-      color: #13B497 !important;
+      color: #27bea5 !important;
     }
 
     /* ====== Collapsible Sidebar Custom Classes ====== */
@@ -362,86 +362,146 @@
         <!-- ================= TAB: DASHBOARD ================= -->
         <section id="tab-dashboard" class="tab-content flex flex-col gap-6">
           
-          <!-- Head Title Row -->
+          <!-- Head Title Row (Greeting from Kônsul Bills reference) -->
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h1 class="text-3xl font-extrabold tracking-tight text-[#1B2939]" id="page-main-title">Panel Principal</h1>
-              <p class="text-xs font-medium text-brand-gray mt-1">Información estratégica de tus campañas y suscriptores.</p>
+            <div class="flex flex-col gap-1">
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#27bea5]/10 text-[#27bea5] text-[10px] font-bold uppercase tracking-widest w-fit">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#27bea5] animate-pulse"></span>
+                <span id="current-day-badge">MARTES, 21 DE JULIO</span>
+              </div>
+              <h1 class="text-3xl lg:text-4xl font-black text-[#1c2938]" id="dashboard-welcome-heading">Hola, Usuario 👋</h1>
+              <p class="text-xs font-medium text-slate-400">Hoy es un buen día para hacer crecer tu negocio con tus campañas.</p>
             </div>
             
             <!-- Date Filter Widget -->
             <div class="flex items-center gap-2">
-              <span class="text-[9px] font-bold text-brand-gray uppercase tracking-wider">Filtrar por fecha</span>
-              <button class="flex items-center gap-2 bg-white border border-brand-border px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-brand-light transition-all text-brand-dark">
-                <i data-lucide="calendar" class="w-3.5 h-3.5 text-brand-gray"></i> TODO EL HISTORIAL
+              <button class="flex items-center gap-2 bg-white border border-slate-100 px-4 py-2.5 rounded-2xl text-xs font-bold shadow-sm hover:shadow-md transition-all text-[#1c2938]">
+                <i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i> TODO EL HISTORIAL
               </button>
             </div>
           </div>
 
-          <!-- KPI Cards Grid (Direct adaptation from reference image) -->
+          <!-- BENTO HERO GRID (3 Cards - Exact match to Kônsul Bills Image 4) -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Card 1: Navy Dark Hero (#1c2938) -->
+            <div class="bg-[#1c2938] text-white p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[230px]">
+              <div class="absolute top-0 right-0 w-36 h-36 bg-[#27bea5] rounded-full blur-[50px] opacity-20 pointer-events-none"></div>
+              <div class="flex justify-between items-start relative z-10">
+                <div class="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center text-[#27bea5]">
+                  <i data-lucide="send" class="w-6 h-6"></i>
+                </div>
+                <span class="text-[10px] bg-white/10 backdrop-blur-sm text-slate-300 font-bold px-3 py-1 rounded-full border border-white/10 uppercase tracking-widest">
+                  RENDIMIENTO
+                </span>
+              </div>
+              <div class="mt-6 relative z-10">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Enviados este mes</p>
+                <h2 class="text-5xl lg:text-6xl font-black text-white tracking-tight mt-1" id="hero-sent-count">0</h2>
+                <button onclick="switchTab('campaigns')" class="text-xs font-bold text-[#27bea5] hover:underline mt-3 flex items-center gap-1">
+                  + Ver historial de envíos
+                </button>
+              </div>
+            </div>
+
+            <!-- Card 2: Kônsul Teal CTA (#27bea5) -->
+            <div onclick="switchTab('campaigns')" class="bg-gradient-to-br from-[#27bea5] to-[#20a08a] text-white p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[230px] cursor-pointer group hover:-translate-y-1 transition-all duration-300">
+              <div class="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
+                <i data-lucide="plus" class="w-6 h-6 group-hover:rotate-90 transition-transform"></i>
+              </div>
+              <div>
+                <h2 class="text-2xl font-black text-white tracking-tight">Crear Nuevo</h2>
+                <p class="text-xs text-white/80 font-medium mt-1">Campaña de correo, boletín o aviso masivo.</p>
+              </div>
+              <div class="absolute bottom-6 right-6 w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+                <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
+              </div>
+            </div>
+
+            <!-- Card 3: White Card Status Overview -->
+            <div class="bg-white border border-slate-100 p-6 rounded-[2.5rem] shadow-sm flex flex-col justify-between min-h-[230px]">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <i data-lucide="clock" class="w-3.5 h-3.5 text-[#27bea5]"></i> ESTADO DE AUDIENCIA
+                </span>
+                <div class="flex bg-slate-100 p-1 rounded-xl text-[10px] font-bold">
+                  <span class="bg-white text-[#1c2938] px-2.5 py-0.5 rounded-lg shadow-sm">Mailing</span>
+                </div>
+              </div>
+              <div class="flex flex-col gap-2 my-2">
+                <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 border border-slate-100 text-xs font-bold text-[#1c2938]">
+                  <span class="flex items-center gap-2"><i data-lucide="users" class="w-4 h-4 text-emerald-500"></i> Contactos Activos</span>
+                  <span id="hero-status-active">0</span>
+                </div>
+                <div class="flex items-center justify-between p-2.5 rounded-2xl bg-sky-50/50 border border-sky-100 text-xs font-bold text-sky-900">
+                  <span class="flex items-center gap-2"><i data-lucide="eye" class="w-4 h-4 text-sky-500"></i> Aperturas</span>
+                  <span id="hero-status-opens">0</span>
+                </div>
+                <div class="flex items-center justify-between p-2.5 rounded-2xl bg-red-50/50 border border-red-100 text-xs font-bold text-red-900">
+                  <span class="flex items-center gap-2"><i data-lucide="user-x" class="w-4 h-4 text-red-500"></i> Bajas</span>
+                  <span id="hero-status-unsubs">0</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Secondary KPI Cards with Pastel Corner Accents (Image 2 match) -->
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             
-            <!-- Card 1 -->
-            <div class="bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm hover:shadow-xl hover:border-[#27bea5]/30 hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between min-h-[150px] relative overflow-hidden">
-              <div class="flex justify-between items-center w-full">
-                <div class="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-[#27bea5]/10 group-hover:text-[#27bea5] transition-colors">
+            <!-- Mini Card 1 (Lime Pastel) -->
+            <div class="bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm hover:shadow-xl hover:border-[#27bea5]/30 hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between min-h-[140px] relative overflow-hidden">
+              <div class="absolute top-0 right-0 w-16 h-16 bg-[#ecfccb] rounded-bl-full opacity-60 pointer-events-none"></div>
+              <div class="flex justify-between items-center w-full relative z-10">
+                <div class="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
                   <i data-lucide="send" class="w-5 h-5"></i>
                 </div>
-                <div class="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-2.5 py-1 rounded-lg border border-emerald-100 uppercase tracking-widest">
-                  ↗ 100%
-                </div>
               </div>
-              <div class="mt-4">
-                <h3 class="text-4xl lg:text-5xl font-black text-[#1c2938] tracking-tight" id="kpi-sent">0</h3>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Total de Correos Enviados</p>
+              <div class="mt-4 relative z-10">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Enviados Totales</p>
+                <h3 class="text-3xl font-black text-[#1c2938] tracking-tight mt-0.5" id="kpi-sent">0</h3>
               </div>
             </div>
 
-            <!-- Card 2 -->
-            <div class="bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm hover:shadow-xl hover:border-[#27bea5]/30 hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between min-h-[150px] relative overflow-hidden">
-              <div class="flex justify-between items-center w-full">
-                <div class="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-[#27bea5]/10 group-hover:text-[#27bea5] transition-colors">
+            <!-- Mini Card 2 (Yellow Pastel) -->
+            <div class="bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm hover:shadow-xl hover:border-[#27bea5]/30 hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between min-h-[140px] relative overflow-hidden">
+              <div class="absolute top-0 right-0 w-16 h-16 bg-[#fef9c3] rounded-bl-full opacity-60 pointer-events-none"></div>
+              <div class="flex justify-between items-center w-full relative z-10">
+                <div class="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
                   <i data-lucide="users" class="w-5 h-5"></i>
                 </div>
-                <div class="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-2.5 py-1 rounded-lg border border-emerald-100 uppercase tracking-widest">
-                  ↗ 0%
-                </div>
               </div>
-              <div class="mt-4">
-                <h3 class="text-4xl lg:text-5xl font-black text-[#1c2938] tracking-tight" id="kpi-contacts">0</h3>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Contactos Activos</p>
+              <div class="mt-4 relative z-10">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Base de Contactos</p>
+                <h3 class="text-3xl font-black text-[#1c2938] tracking-tight mt-0.5" id="kpi-contacts">0</h3>
               </div>
             </div>
 
-            <!-- Card 3 -->
-            <div class="bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm hover:shadow-xl hover:border-[#27bea5]/30 hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between min-h-[150px] relative overflow-hidden">
-              <div class="flex justify-between items-center w-full">
-                <div class="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-[#27bea5]/10 group-hover:text-[#27bea5] transition-colors">
+            <!-- Mini Card 3 (Purple Pastel) -->
+            <div class="bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm hover:shadow-xl hover:border-[#27bea5]/30 hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between min-h-[140px] relative overflow-hidden">
+              <div class="absolute top-0 right-0 w-16 h-16 bg-[#f3e8ff] rounded-bl-full opacity-60 pointer-events-none"></div>
+              <div class="flex justify-between items-center w-full relative z-10">
+                <div class="w-10 h-10 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600">
                   <i data-lucide="eye" class="w-5 h-5"></i>
                 </div>
-                <div class="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-2.5 py-1 rounded-lg border border-emerald-100 uppercase tracking-widest">
-                  ↗ 0%
-                </div>
               </div>
-              <div class="mt-4">
-                <h3 class="text-4xl lg:text-5xl font-black text-[#1c2938] tracking-tight" id="kpi-opens">0</h3>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Aperturas Registradas</p>
+              <div class="mt-4 relative z-10">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ratio de Lectura</p>
+                <h3 class="text-3xl font-black text-[#1c2938] tracking-tight mt-0.5" id="kpi-opens">0</h3>
               </div>
             </div>
 
-            <!-- Card 4 -->
-            <div class="bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm hover:shadow-xl hover:border-[#27bea5]/30 hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between min-h-[150px] relative overflow-hidden">
-              <div class="flex justify-between items-center w-full">
-                <div class="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-[#27bea5]/10 group-hover:text-[#27bea5] transition-colors">
-                  <i data-lucide="user-x" class="w-5 h-5"></i>
+            <!-- Mini Card 4 (Dark Navy Trend Card) -->
+            <div class="bg-[#1c2938] text-white p-6 rounded-[2rem] shadow-xl flex flex-col justify-between min-h-[140px] relative overflow-hidden">
+              <div class="flex justify-between items-center w-full relative z-10">
+                <div class="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-[#27bea5]">
+                  <i data-lucide="sparkles" class="w-5 h-5"></i>
                 </div>
-                <div class="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-2.5 py-1 rounded-lg border border-emerald-100 uppercase tracking-widest">
-                  ↗ 0%
-                </div>
+                <i data-lucide="lock" class="w-4 h-4 text-slate-500"></i>
               </div>
-              <div class="mt-4">
-                <h3 class="text-4xl lg:text-5xl font-black text-[#1c2938] tracking-tight" id="kpi-unsubs">0</h3>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Bajas de Suscripción</p>
+              <div class="mt-4 relative z-10">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">TENDENCIA</p>
+                <h3 class="text-xl font-black text-white tracking-tight mt-0.5">Optimizada con IA</h3>
               </div>
             </div>
 
@@ -548,33 +608,43 @@
         <section id="tab-contacts" class="tab-content hidden flex flex-col gap-6">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 class="text-2xl font-extrabold text-[#1B2939]">Base de Suscriptores</h1>
-              <p class="text-xs text-brand-gray mt-1 font-medium">Organiza a tus destinatarios e importa base de datos.</p>
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">AUDIENCIA</span>
+              <h1 class="text-3xl font-black text-[#1c2938]">Base de Suscriptores</h1>
             </div>
-            <div class="flex gap-2">
-              <button onclick="openAddContactModal()" class="bg-brand-dark text-white font-semibold px-4 py-2.5 rounded-xl hover:bg-black transition-all text-xs flex items-center gap-1.5 shadow-sm">
-                <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Añadir Contacto
+            <div class="flex gap-3">
+              <button onclick="openAddContactModal()" class="bg-[#1c2938] text-white font-bold px-6 py-3 rounded-2xl hover:bg-[#27bea5] transition-all text-xs flex items-center gap-2 shadow-lg shadow-slate-200">
+                <i data-lucide="plus" class="w-4 h-4"></i> Añadir Contacto
               </button>
-              <button onclick="openImportBulkModal()" class="bg-white border border-brand-border text-brand-dark font-semibold px-4 py-2.5 rounded-xl hover:bg-brand-light transition-all text-xs flex items-center gap-1.5 shadow-sm">
-                <i data-lucide="upload" class="w-3.5 h-3.5 text-brand-dark"></i> Importar en Bloque
+              <button onclick="openImportBulkModal()" class="bg-white border-2 border-slate-100 text-[#1c2938] font-bold px-5 py-3 rounded-2xl hover:bg-slate-50 transition-all text-xs flex items-center gap-2 shadow-sm">
+                <i data-lucide="upload" class="w-4 h-4 text-[#27bea5]"></i> Importar CSV
               </button>
             </div>
           </div>
 
-          <!-- Tags Filter Banner -->
-          <div class="flex flex-wrap gap-2 items-center bg-white border border-brand-border p-4 rounded-[20px] shadow-sm">
-            <span class="text-[10px] font-bold text-brand-gray uppercase tracking-wider mr-2">Filtrar Segmento:</span>
-            <div class="flex flex-wrap gap-1.5" id="contacts-tags-filter">
-              <!-- Loaded Dynamically -->
+          <!-- Segmented Filter Bar Floating Pill (Exact match to Image 2) -->
+          <div class="flex flex-col md:flex-row items-center justify-between gap-4 bg-white p-3 rounded-[2.5rem] border border-slate-100 shadow-sm">
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3">FILTRAR:</span>
+              <div class="flex flex-wrap gap-1.5" id="contacts-tags-filter">
+                <!-- Loaded Dynamically -->
+              </div>
+            </div>
+            <div class="relative w-full md:w-64">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+              <input 
+                type="text" 
+                placeholder="Buscar por nombre o correo..."
+                class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-full text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all"
+              >
             </div>
           </div>
 
           <!-- Table Container -->
-          <div class="bg-white border border-brand-border rounded-[28px] p-6 shadow-sm flex flex-col">
-            <div class="overflow-y-auto max-h-[450px] custom-scroll">
+          <div class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm flex flex-col">
+            <div class="overflow-y-auto max-h-[480px] custom-scroll">
               <table class="w-full text-left text-xs relative">
                 <thead>
-                  <tr class="border-b border-brand-border text-brand-gray font-bold sticky top-0 bg-white z-10">
+                  <tr class="border-b border-slate-100 text-slate-400 font-bold uppercase text-[10px] tracking-widest sticky top-0 bg-white z-10">
                     <th class="py-3 px-4">Nombre</th>
                     <th class="py-3 px-4">Email</th>
                     <th class="py-3 px-4">Segmentos</th>
@@ -590,63 +660,92 @@
           </div>
         </section>
 
-        <!-- ================= TAB: CAMPAIGNS (CREATOR) ================= -->
+        <!-- ================= TAB: CAMPAIGNS (CREATOR / WIZARD - Split View like Image 3) ================= -->
         <section id="tab-campaigns" class="tab-content hidden flex flex-col gap-6">
-          <div>
-            <h1 class="text-2xl font-extrabold text-[#1B2939]">Redacción de Campaña</h1>
-            <p class="text-xs text-brand-gray mt-1 font-medium">Escribe, personaliza y distribuye de forma fluida.</p>
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">PASO DE REDACCIÓN</span>
+              <h1 class="text-3xl font-black text-[#1c2938]">NUEVA CAMPAÑA</h1>
+            </div>
           </div>
 
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
             
-            <!-- Editor columns -->
-            <div class="lg:col-span-2 flex flex-col gap-5 bg-white border border-brand-border rounded-[28px] p-6 md:p-8 shadow-sm">
-              <h2 class="text-xs font-bold text-[#1B2939] uppercase tracking-wider border-b border-brand-border pb-2">Contenido de Envío</h2>
+            <!-- Editor Column (Left 2 cols) -->
+            <div class="lg:col-span-2 flex flex-col gap-6">
               
-              <div class="flex flex-col gap-1">
-                <label for="campaign-subject" class="text-xs font-semibold text-[#1B2939]">Asunto</label>
-                <input 
-                  type="text" 
-                  id="campaign-subject" 
-                  placeholder="Ej: Te damos la bienvenida a Kônsul"
-                  class="w-full px-4 py-2.5 rounded-xl border border-brand-border focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none text-xs font-medium"
-                >
-              </div>
+              <!-- Card: Asunto y Contenido -->
+              <div class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm space-y-6">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <i data-lucide="mail" class="w-4 h-4 text-[#27bea5]"></i> CONTENIDO DEL MENSAJE
+                </h3>
 
-              <div class="flex flex-col gap-1">
-                <div class="flex justify-between items-center">
-                  <label for="campaign-body" class="text-xs font-semibold text-[#1B2939]">Mensaje (HTML o Texto)</label>
-                  <button onclick="loadTemplate()" class="text-xs font-bold text-brand-accent hover:underline">Cargar Plantilla</button>
+                <div class="space-y-2">
+                  <label for="campaign-subject" class="text-xs font-bold text-[#1c2938]">Asunto del Correo</label>
+                  <input 
+                    type="text" 
+                    id="campaign-subject" 
+                    placeholder="Ej: Novedades importantes de este mes"
+                    class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all"
+                  >
                 </div>
-                <textarea 
-                  id="campaign-body" 
-                  placeholder="Estimado cliente..."
-                  class="w-full min-h-[200px] px-4 py-3 rounded-xl border border-brand-border focus:border-brand-accent focus:ring-1 focus:ring-brand-accent outline-none text-xs font-medium font-sans"
-                ></textarea>
-              </div>
-            </div>
 
-            <!-- Safety limits & Send actions -->
-            <div class="flex flex-col gap-6">
-              
-              <div class="bg-white border border-brand-border rounded-[28px] p-6 shadow-sm flex flex-col gap-4">
-                <h2 class="text-xs font-bold text-[#1B2939] uppercase tracking-wider">Destinatarios</h2>
-                
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-xs font-semibold">Seleccionar segmento</label>
-                  <select id="campaign-segment-select" class="w-full px-3 py-2 rounded-xl border border-brand-border outline-none text-xs font-medium bg-brand-light">
+                <div class="space-y-2">
+                  <div class="flex justify-between items-center">
+                    <label for="campaign-body" class="text-xs font-bold text-[#1c2938]">Cuerpo del Mensaje (HTML o Texto)</label>
+                    <button onclick="loadTemplate()" class="text-xs font-bold text-[#27bea5] bg-[#27bea5]/10 px-3 py-1.5 rounded-lg hover:bg-[#27bea5]/20 transition-colors">
+                      + Cargar Plantilla
+                    </button>
+                  </div>
+                  <textarea 
+                    id="campaign-body" 
+                    placeholder="Estimado suscriptor..."
+                    class="w-full p-6 bg-slate-50 border border-slate-100 rounded-[2rem] text-sm text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all h-64 resize-none leading-relaxed"
+                  ></textarea>
+                </div>
+              </div>
+
+              <!-- Card: Segmento y Filtros -->
+              <div class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm space-y-4">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <i data-lucide="users" class="w-4 h-4 text-[#27bea5]"></i> DESTINATARIOS
+                </h3>
+
+                <div class="space-y-2">
+                  <label class="text-xs font-bold text-[#1c2938]">Seleccionar Segmento</label>
+                  <select id="campaign-segment-select" class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all cursor-pointer">
                     <option value="all">Todos los contactos activos</option>
                   </select>
-                  <div class="text-[10px] text-brand-gray mt-1 font-medium">
-                    Audiencia estimada: <strong id="campaign-recipients-count">0</strong>
-                  </div>
                 </div>
+              </div>
 
-                <div class="flex flex-col gap-1.5 pt-2 border-t border-brand-border">
-                  <div class="flex justify-between items-center">
-                    <label class="text-xs font-semibold">Límite de seguridad</label>
-                    <span class="text-xs font-bold text-brand-accent" id="camp-slider-badge">10,000</span>
-                  </div>
+            </div>
+
+            <!-- Sticky Dark Summary Panel (Right Column - Exact match to Image 3) -->
+            <div class="bg-[#1c2938] text-white p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden space-y-6 lg:sticky lg:top-6">
+              <div class="absolute top-0 right-0 w-32 h-32 bg-[#27bea5] rounded-full blur-[60px] opacity-20 pointer-events-none"></div>
+
+              <div class="flex items-center justify-between border-b border-white/10 pb-4">
+                <div class="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-[#27bea5]">
+                  <i data-lucide="calculator" class="w-5 h-5"></i>
+                </div>
+                <div class="text-right">
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">RESUMEN ESTIMADO</span>
+                  <p class="text-3xl font-black text-white" id="camp-cost-est">$1.00 USD</p>
+                </div>
+              </div>
+
+              <div class="space-y-3 text-xs font-medium text-slate-300">
+                <div class="flex justify-between items-center">
+                  <span>Destinatarios Estimados:</span>
+                  <strong class="text-white font-bold" id="campaign-recipients-count">0</strong>
+                </div>
+                <div class="flex justify-between items-center">
+                  <span>Límite Configurado:</span>
+                  <span class="text-xs font-bold text-[#27bea5]" id="camp-slider-badge">10,000</span>
+                </div>
+                
+                <div class="pt-2">
                   <input 
                     type="range" 
                     id="camp-slider" 
@@ -654,37 +753,38 @@
                     max="10000" 
                     step="1000" 
                     value="10000"
+                    class="w-full"
                   >
-                  <p class="text-[9px] text-brand-gray font-medium">
-                    Costo AWS SES estimado: <strong id="camp-cost-est">$1.00 USD</strong>.
-                  </p>
                 </div>
               </div>
 
-              <!-- Submit button & progress card -->
-              <div class="bg-white border border-brand-border rounded-[28px] p-6 shadow-sm flex flex-col gap-4">
+              <div id="camp-alert-limit" class="hidden p-3 bg-red-500/20 border border-red-500/30 rounded-2xl text-[10px] text-red-200 font-bold">
+                ⚠️ Destinatarios exceden el límite. Desliza la barra.
+              </div>
+
+              <!-- Action buttons matching Image 3 -->
+              <div class="grid grid-cols-2 gap-3 pt-4 border-t border-white/10">
+                <button class="w-full py-3 bg-transparent border border-slate-600 text-slate-300 rounded-2xl font-bold text-xs hover:bg-white/5 transition-all">
+                  Borrador
+                </button>
                 <button 
                   id="camp-send-btn" 
-                  class="w-full bg-brand-accent text-white font-bold py-3.5 rounded-xl shadow-sm hover:bg-brand-accentHover transition-all text-xs flex items-center justify-center gap-2"
+                  class="w-full bg-[#27bea5] text-white font-bold py-3 rounded-2xl shadow-lg hover:bg-[#22a890] transition-all text-xs flex items-center justify-center gap-1.5"
                 >
-                  <i data-lucide="send" class="w-3.5 h-3.5"></i> Enviar Campaña
+                  <i data-lucide="send" class="w-3.5 h-3.5"></i> Finalizar ✓
                 </button>
+              </div>
 
-                <div id="camp-alert-limit" class="hidden p-3 bg-rose-50 border border-rose-100 rounded-xl text-[10px] text-rose-700 font-medium">
-                  ⚠️ Destinatarios exceden el límite del slider. Incrementa la barra.
+              <!-- Progress area -->
+              <div id="camp-progress-area" class="hidden space-y-2 pt-2">
+                <div class="flex justify-between items-center text-xs">
+                  <span class="font-bold text-white" id="camp-progress-pct">0%</span>
+                  <span class="text-slate-400 font-bold" id="camp-progress-cnt">0 / 0</span>
                 </div>
-
-                <!-- Progress area -->
-                <div id="camp-progress-area" class="hidden flex flex-col gap-2 pt-2 border-t border-brand-border">
-                  <div class="flex justify-between items-center text-xs">
-                    <span class="font-bold text-[#1B2939]" id="camp-progress-pct">0%</span>
-                    <span class="text-brand-gray font-bold" id="camp-progress-cnt">0 / 0</span>
-                  </div>
-                  <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                    <div id="camp-progress-bar" class="bg-brand-accent h-full w-0 transition-all duration-200"></div>
-                  </div>
-                  <p id="camp-microcopy" class="text-[9px] italic text-brand-gray font-medium">Preparando motores...</p>
+                <div class="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+                  <div id="camp-progress-bar" class="bg-[#27bea5] h-full w-0 transition-all duration-200"></div>
                 </div>
+                <p id="camp-microcopy" class="text-[10px] italic text-slate-400 font-medium text-center">Preparando envíos...</p>
               </div>
 
             </div>
