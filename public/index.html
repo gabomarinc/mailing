@@ -873,7 +873,7 @@
               <h1 class="text-3xl font-black text-[#1c2938]">Remitentes y Dominios</h1>
             </div>
             <div class="flex gap-3">
-              <button onclick="openModal('modal-add-sender')" class="bg-[#1c2938] text-white font-bold px-6 py-3 rounded-2xl hover:bg-[#27bea5] transition-all text-xs flex items-center gap-2 shadow-lg shadow-slate-200">
+              <button id="main-action-btn" onclick="openModal('modal-add-sender')" class="bg-[#1c2938] text-white font-bold px-6 py-3 rounded-2xl hover:bg-[#27bea5] transition-all text-xs flex items-center gap-2 shadow-lg shadow-slate-200">
                 <i data-lucide="plus" class="w-4 h-4"></i> Agregar Remitente
               </button>
             </div>
@@ -886,7 +886,6 @@
               <div class="flex flex-wrap gap-1.5" id="senders-tabs-filter">
                 <button id="btn-sub-senders" onclick="switchSubTab('senders')" class="bg-[#1c2938] text-white font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all shadow-sm">Remitentes</button>
                 <button id="btn-sub-domains" onclick="switchSubTab('domains')" class="bg-slate-50 text-slate-400 hover:text-slate-600 font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all">Dominios</button>
-                <button id="btn-sub-ips" onclick="switchSubTab('ips')" class="hidden bg-slate-50 text-slate-400 hover:text-slate-600 font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all">IP dedicadas</button>
                 <button id="btn-sub-cadence" onclick="switchSubTab('cadence')" class="bg-slate-50 text-slate-400 hover:text-slate-600 font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all">Cadencia</button>
               </div>
             </div>
@@ -1838,8 +1837,15 @@
       document.getElementById('sub-ips').classList.add('hidden');
       document.getElementById('sub-cadence').classList.add('hidden');
       
+      // Toggle main action button (Agregar Remitente)
+      const mainActionBtn = document.getElementById('main-action-btn');
+      if (mainActionBtn) {
+        if (tab === 'senders') mainActionBtn.classList.remove('hidden');
+        else mainActionBtn.classList.add('hidden');
+      }
+      
       // Reset buttons styles
-      const btns = ['senders', 'domains', 'ips', 'cadence'];
+      const btns = ['senders', 'domains', 'cadence'];
       btns.forEach(b => {
         const btn = document.getElementById(`btn-sub-${b}`);
         if(btn) {
@@ -1864,7 +1870,7 @@
     async function fetchDomains() {
       try {
         const res = await fetch('/api/domains', {
-          headers: { 'Authorization': `Bearer ${sessionToken}` }
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('kns_token')}` }
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error);
@@ -1927,7 +1933,7 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${sessionToken}`
+            'Authorization': `Bearer ${localStorage.getItem('kns_token')}`
           },
           body: JSON.stringify({ domain_name })
         });
@@ -1982,7 +1988,7 @@
       try {
         const res = await fetch(`/api/domains/${id}`, {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${sessionToken}` }
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('kns_token')}` }
         });
         const data = await res.json();
         if (data.success) {
@@ -1997,7 +2003,7 @@
     async function fetchIps() {
       try {
         const res = await fetch('/api/ips', {
-          headers: { 'Authorization': `Bearer ${sessionToken}` }
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('kns_token')}` }
         });
         ips = await res.json();
         renderIps();
@@ -2045,7 +2051,7 @@
       try {
         const res = await fetch('/api/ips', {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${sessionToken}` }
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('kns_token')}` }
         });
         const data = await res.json();
         if (data.success) {
@@ -2061,7 +2067,7 @@
     async function fetchCadence() {
       try {
         const res = await fetch('/api/settings/cadence', {
-          headers: { 'Authorization': `Bearer ${sessionToken}` }
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('kns_token')}` }
         });
         const data = await res.json();
         
@@ -2095,7 +2101,7 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${sessionToken}`
+            'Authorization': `Bearer ${localStorage.getItem('kns_token')}`
           },
           body: JSON.stringify({ hourly_limit: limit, warmup_mode: warmup })
         });
