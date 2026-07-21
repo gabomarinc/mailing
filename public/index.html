@@ -1545,6 +1545,7 @@
         const dropZone = document.getElementById('drop-zone');
         if (dropZone) dropZone.classList.remove('bg-blue-50/50', 'border-[#27bea5]');
       }
+      window.resetImport = resetImport;
 
       function handleFileSelect(file) {
         if (!file) return;
