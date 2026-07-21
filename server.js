@@ -489,6 +489,64 @@ app.delete('/api/contacts/:id', protectRoute, async (req, res) => {
   }
 });
 
+app.post('/api/contacts/delete-bulk', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'Se requiere una lista de IDs válida.' });
+    }
+    
+    await sql`
+      DELETE FROM contacts 
+      WHERE kinde_id = ${userId} AND id = ANY(${ids})
+    `;
+    res.json({ success: true, message: 'Contactos eliminados correctamente.' });
+  } catch (err) {
+    console.error('Error delete bulk:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+app.post('/api/contacts/delete-by-tag', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { tag } = req.body;
+    if (!tag) {
+      return res.status(400).json({ success: false, message: 'Se requiere una etiqueta.' });
+    }
+    
+    await sql`
+      DELETE FROM contacts 
+      WHERE kinde_id = ${userId} AND ${tag} = ANY(tags)
+    `;
+    res.json({ success: true, message: `Contactos de la lista '${tag}' eliminados correctamente.` });
+  } catch (err) {
+    console.error('Error delete by tag:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+app.post('/api/contacts/rename-tag', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { oldTag, newTag } = req.body;
+    if (!oldTag || !newTag) {
+      return res.status(400).json({ success: false, message: 'Se requiere nombre antiguo y nuevo.' });
+    }
+
+    await sql`
+      UPDATE contacts 
+      SET tags = array_replace(tags, ${oldTag}, ${newTag})
+      WHERE kinde_id = ${userId} AND ${oldTag} = ANY(tags)
+    `;
+    res.json({ success: true, message: `Lista renombrada correctamente a '${newTag}'.` });
+  } catch (err) {
+    console.error('Error rename tag:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
 // Remitentes (Senders)
 app.get('/api/senders', protectRoute, async (req, res) => {
   try {
