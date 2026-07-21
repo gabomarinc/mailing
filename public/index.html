@@ -700,6 +700,30 @@
                 >
               </div>
             </div>
+
+            <!-- Custom Fields Filter & Column Toggle Row -->
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4 border-t border-slate-50 pt-4 mt-2">
+              <div class="flex items-center gap-2 w-full md:w-auto">
+                <span class="text-[9px] font-bold text-slate-400 uppercase">Filtro Custom:</span>
+                <select id="filter-custom-key" onchange="onCustomFilterKeyChange()" class="px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-full text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all w-28">
+                  <option value="">Ninguno</option>
+                  <!-- Populated dynamically -->
+                </select>
+                <input type="text" id="filter-custom-value" placeholder="Valor..." oninput="onFilterChange()" class="px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-full text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all w-32 hidden">
+              </div>
+              
+              <div class="relative">
+                <button onclick="toggleColumnsMenu()" class="px-4 py-1.5 rounded-full border border-slate-200 text-xs font-bold text-[#1c2938] hover:bg-slate-50 transition-all flex items-center gap-2">
+                  <i data-lucide="columns" class="w-3.5 h-3.5"></i> Columnas
+                </button>
+                <div id="columns-menu" class="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl p-3 hidden z-50 flex flex-col gap-2">
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-1">Columnas Visibles</span>
+                  <div id="columns-menu-list" class="flex flex-col gap-1 max-h-48 overflow-y-auto custom-scroll">
+                    <!-- Populated dynamically -->
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Table Container -->
@@ -717,17 +741,8 @@
 
             <div class="overflow-y-auto max-h-[480px] custom-scroll">
               <table class="w-full text-left text-xs relative">
-                <thead>
-                  <tr class="border-b border-slate-100 text-slate-400 font-bold uppercase text-[10px] tracking-widest sticky top-0 bg-white z-10">
-                    <th class="py-3 px-4 w-10">
-                      <input type="checkbox" id="selectAllContacts" onchange="toggleSelectAllContacts(this)" class="rounded text-[#27bea5] focus:ring-[#27bea5] w-4 h-4 border-slate-200">
-                    </th>
-                    <th class="py-3 px-4">Nombre</th>
-                    <th class="py-3 px-4">Email</th>
-                    <th class="py-3 px-4">Segmentos</th>
-                    <th class="py-3 px-4">Estado</th>
-                    <th class="py-3 px-4 text-right">Acciones</th>
-                  </tr>
+                <thead id="contacts-table-head">
+                  <!-- Generated dynamically -->
                 </thead>
                 <tbody id="contacts-table-body">
                   <!-- Dynamic Rows -->
@@ -756,12 +771,30 @@
           </div>
         </section>
 
-        <!-- ================= TAB: CAMPAIGNS (CREATOR / WIZARD - Split View like Image 3) ================= -->
+        <!-- ================= TAB: CAMPAIGNS (CREATOR / WIZARD - Step by Step Flow) ================= -->
         <section id="tab-campaigns" class="tab-content hidden flex flex-col gap-6">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
-              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">PASO DE REDACCIÓN</span>
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Creador de Campaña</span>
               <h1 class="text-3xl font-black text-[#1c2938]">NUEVA CAMPAÑA</h1>
+            </div>
+            
+            <!-- Step Indicators -->
+            <div class="flex items-center gap-2 bg-slate-50 border border-slate-100 p-2.5 rounded-2xl">
+              <div class="flex items-center gap-1.5">
+                <span id="step-indicator-1" class="flex items-center justify-center w-7 h-7 rounded-full bg-[#1c2938] text-white font-bold text-xs">1</span>
+                <span class="text-xs font-bold text-[#1c2938] hidden sm:inline">Destinatarios</span>
+              </div>
+              <div id="step-line-1" class="w-8 h-0.5 bg-slate-200"></div>
+              <div class="flex items-center gap-1.5">
+                <span id="step-indicator-2" class="flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-400 font-bold text-xs">2</span>
+                <span class="text-xs font-bold text-slate-400 hidden sm:inline">Configuración</span>
+              </div>
+              <div id="step-line-2" class="w-8 h-0.5 bg-slate-200"></div>
+              <div class="flex items-center gap-1.5">
+                <span id="step-indicator-3" class="flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-400 font-bold text-xs">3</span>
+                <span class="text-xs font-bold text-slate-400 hidden sm:inline">Diseño</span>
+              </div>
             </div>
           </div>
 
@@ -770,77 +803,228 @@
             <!-- Editor Column (Left 2 cols) -->
             <div class="lg:col-span-2 flex flex-col gap-6">
               
-              <!-- Card: Asunto y Contenido -->
-              <div class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm space-y-6">
-                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <i data-lucide="mail" class="w-4 h-4 text-[#27bea5]"></i> CONTENIDO DEL MENSAJE
-                </h3>
-
-                <div class="space-y-2">
-                  <label for="campaign-name" class="text-xs font-bold text-[#1c2938]">Nombre de la Campaña (Interno)</label>
-                  <input 
-                    type="text" 
-                    id="campaign-name" 
-                    placeholder="Ej: Promo Verano 2026"
-                    class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all"
-                  >
+              <!-- STEP 1: DESTINATARIOS -->
+              <div id="camp-step-panel-1" class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm space-y-6">
+                <div class="flex items-center gap-2">
+                  <div class="bg-[#27bea5]/10 p-2 rounded-xl text-[#27bea5]">
+                    <i data-lucide="users" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <h3 class="text-sm font-extrabold text-[#1B2939]">PASO 1: SELECCIONAR DESTINATARIOS</h3>
+                    <p class="text-xs text-brand-gray mt-0.5">Elige la lista y aplica filtros específicos.</p>
+                  </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="space-y-4">
                   <div class="space-y-2">
-                    <label for="campaign-sender-name" class="text-xs font-bold text-[#1c2938]">Nombre del Remitente</label>
-                    <input 
-                      type="text" 
-                      id="campaign-sender-name" 
-                      placeholder="Ej: Kônsul Digital"
-                      class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all"
-                    >
-                  </div>
-                  <div class="space-y-2">
-                    <label for="campaign-sender-email" class="text-xs font-bold text-[#1c2938]">Email del Remitente</label>
-                    <select id="campaign-sender-email" onchange="handleSenderSelect(this)" class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all cursor-pointer">
-                      <option value="">Cargando remitentes...</option>
+                    <label class="text-xs font-bold text-[#1c2938]">Segmento / Lista Destinataria</label>
+                    <select id="campaign-segment-select" onchange="updateCampaignAudienceCount()" class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all cursor-pointer">
+                      <option value="all">Todos los contactos activos</option>
                     </select>
                   </div>
-                </div>
 
-                <div class="space-y-2">
-                  <label for="campaign-subject" class="text-xs font-bold text-[#1c2938]">Asunto del Correo</label>
-                  <input 
-                    type="text" 
-                    id="campaign-subject" 
-                    placeholder="Ej: Novedades importantes de este mes"
-                    class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all"
-                  >
-                </div>
-
-                <div class="space-y-2">
-                  <div class="flex justify-between items-center">
-                    <label for="campaign-body" class="text-xs font-bold text-[#1c2938]">Cuerpo del Mensaje (HTML o Texto)</label>
-                    <button onclick="loadTemplate()" class="text-xs font-bold text-[#27bea5] bg-[#27bea5]/10 px-3 py-1.5 rounded-lg hover:bg-[#27bea5]/20 transition-colors">
-                      + Cargar Plantilla
-                    </button>
+                  <!-- Statistics -->
+                  <div class="grid grid-cols-3 gap-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                    <div class="text-center">
+                      <span class="text-[9px] font-bold text-slate-400 uppercase">Total en Lista</span>
+                      <p id="camp-stats-total" class="text-lg font-black text-[#1c2938]">0</p>
+                    </div>
+                    <div class="text-center border-x border-slate-200">
+                      <span class="text-[9px] font-bold text-slate-400 uppercase">Activos (Envío)</span>
+                      <p id="camp-stats-active" class="text-lg font-black text-emerald-600">0</p>
+                    </div>
+                    <div class="text-center">
+                      <span class="text-[9px] font-bold text-slate-400 uppercase">De Baja</span>
+                      <p id="camp-stats-unsub" class="text-lg font-black text-rose-500">0</p>
+                    </div>
                   </div>
-                  <textarea 
-                    id="campaign-body" 
-                    placeholder="Estimado suscriptor..."
-                    class="w-full p-6 bg-slate-50 border border-slate-100 rounded-[2rem] text-sm text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all h-64 resize-none leading-relaxed"
-                  ></textarea>
+
+                  <!-- Advanced filters for Sending -->
+                  <div class="border-t border-slate-100 pt-4 space-y-4">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Filtros de Segmento Adicionales (Opcional)</span>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div class="space-y-1.5">
+                        <label class="text-[11px] font-bold text-slate-500">Filtrar por Campo Custom</label>
+                        <div class="flex gap-2">
+                          <select id="campaign-filter-custom-key" onchange="updateCampaignAudienceCount()" class="w-1/2 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5]">
+                            <option value="">Ninguno</option>
+                          </select>
+                          <input type="text" id="campaign-filter-custom-val" placeholder="Valor a buscar..." oninput="updateCampaignAudienceCount()" class="w-1/2 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5]">
+                        </div>
+                      </div>
+
+                      <div class="space-y-1.5">
+                        <label class="text-[11px] font-bold text-slate-500">Creados Después De</label>
+                        <input type="date" id="campaign-filter-date" onchange="updateCampaignAudienceCount()" class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5]">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex justify-end pt-4 border-t border-slate-100">
+                  <button onclick="goToStep(2)" id="btn-camp-step1-next" class="px-5 py-3 bg-[#27bea5] hover:bg-[#22a890] text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5">
+                    Siguiente: Configuración <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                  </button>
                 </div>
               </div>
 
-              <!-- Card: Segmento y Filtros -->
-              <div class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm space-y-4">
-                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <i data-lucide="users" class="w-4 h-4 text-[#27bea5]"></i> DESTINATARIOS
-                </h3>
-
-                <div class="space-y-2">
-                  <label class="text-xs font-bold text-[#1c2938]">Seleccionar Segmento</label>
-                  <select id="campaign-segment-select" class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all cursor-pointer">
-                    <option value="all">Todos los contactos activos</option>
-                  </select>
+              <!-- STEP 2: CONFIGURACION -->
+              <div id="camp-step-panel-2" class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm space-y-6 hidden">
+                <div class="flex items-center gap-2">
+                  <div class="bg-[#27bea5]/10 p-2 rounded-xl text-[#27bea5]">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <h3 class="text-sm font-extrabold text-[#1B2939]">PASO 2: REMITENTE Y ASUNTO</h3>
+                    <p class="text-xs text-brand-gray mt-0.5">Configura cómo verán el correo los destinatarios.</p>
+                  </div>
                 </div>
+
+                <div class="space-y-4">
+                  <div class="space-y-2">
+                    <label for="campaign-name" class="text-xs font-bold text-[#1c2938]">Nombre de la Campaña (Interno)</label>
+                    <input 
+                      type="text" 
+                      id="campaign-name" 
+                      placeholder="Ej: Promo Verano 2026"
+                      class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all"
+                    >
+                  </div>
+
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                      <label for="campaign-sender-name" class="text-xs font-bold text-[#1c2938]">Nombre del Remitente</label>
+                      <input 
+                        type="text" 
+                        id="campaign-sender-name" 
+                        placeholder="Ej: Kônsul Digital"
+                        class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all"
+                      >
+                    </div>
+                    <div class="space-y-2">
+                      <label for="campaign-sender-email" class="text-xs font-bold text-[#1c2938]">Email del Remitente</label>
+                      <select id="campaign-sender-email" onchange="handleSenderSelect(this)" class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all cursor-pointer">
+                        <option value="">Cargando remitentes...</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="space-y-2">
+                    <label for="campaign-subject" class="text-xs font-bold text-[#1c2938]">Asunto del Correo</label>
+                    <input 
+                      type="text" 
+                      id="campaign-subject" 
+                      placeholder="Ej: Novedades importantes de este mes"
+                      class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all"
+                    >
+                  </div>
+                </div>
+
+                <div class="flex justify-between pt-4 border-t border-slate-100">
+                  <button onclick="goToStep(1)" class="px-5 py-3 border border-slate-200 hover:bg-slate-50 text-slate-500 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5">
+                    <i data-lucide="arrow-left" class="w-4 h-4"></i> Atrás
+                  </button>
+                  <button onclick="goToStep(3)" class="px-5 py-3 bg-[#27bea5] hover:bg-[#22a890] text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5">
+                    Siguiente: Diseño <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- STEP 3: DISEÑO Y PLANTILLA -->
+              <div id="camp-step-panel-3" class="hidden flex flex-col gap-6">
+                
+                <!-- Inner split: left customizers, right live preview -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  
+                  <!-- Left: Designer customization inputs -->
+                  <div class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm space-y-6">
+                    <div class="flex items-center gap-2">
+                      <div class="bg-[#27bea5]/10 p-2 rounded-xl text-[#27bea5]">
+                        <i data-lucide="palette" class="w-5 h-5"></i>
+                      </div>
+                      <div>
+                        <h3 class="text-sm font-extrabold text-[#1B2939]">PASO 3: DISEÑO</h3>
+                        <p class="text-xs text-brand-gray mt-0.5">Elige un estilo y personaliza el texto.</p>
+                      </div>
+                    </div>
+
+                    <!-- Template Selector -->
+                    <div class="space-y-2">
+                      <label class="text-xs font-bold text-[#1c2938]">Estilo de Plantilla</label>
+                      <div class="grid grid-cols-2 gap-2" id="campaign-template-select-group">
+                        <button onclick="selectCampTemplate('minimal')" class="p-3 border-2 border-[#27bea5] bg-emerald-50/20 text-[#1c2938] rounded-xl text-xs font-bold text-left transition-all" id="tpl-btn-minimal">
+                          Minimalista
+                        </button>
+                        <button onclick="selectCampTemplate('elegant')" class="p-3 border-2 border-slate-100 hover:border-slate-200 text-[#1c2938] rounded-xl text-xs font-bold text-left transition-all" id="tpl-btn-elegant">
+                          Elegante
+                        </button>
+                        <button onclick="selectCampTemplate('newsletter')" class="p-3 border-2 border-slate-100 hover:border-slate-200 text-[#1c2938] rounded-xl text-xs font-bold text-left transition-all" id="tpl-btn-newsletter">
+                          Boletín
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Customizer Fields -->
+                    <div class="space-y-3 pt-2 border-t border-slate-50">
+                      <div class="space-y-1">
+                        <label class="text-[11px] font-bold text-slate-500">URL del Logo (Opcional)</label>
+                        <input type="text" id="tpl-logo-url" oninput="updateLivePreview()" placeholder="https://miweb.com/logo.png" class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold text-[#1c2938] outline-none focus:border-[#27bea5]">
+                      </div>
+                      
+                      <div class="space-y-1">
+                        <label class="text-[11px] font-bold text-slate-500">Saludo inicial</label>
+                        <input type="text" id="tpl-greeting" oninput="updateLivePreview()" value="¡Hola {name}!" class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold text-[#1c2938] outline-none focus:border-[#27bea5]">
+                      </div>
+
+                      <div class="space-y-1">
+                        <label class="text-[11px] font-bold text-slate-500">Título Principal</label>
+                        <input type="text" id="tpl-title" oninput="updateLivePreview()" value="Novedades de Kônsul" class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold text-[#1c2938] outline-none focus:border-[#27bea5]">
+                      </div>
+
+                      <div class="space-y-1">
+                        <label class="text-[11px] font-bold text-slate-500">Mensaje / Párrafo</label>
+                        <textarea id="tpl-message" oninput="updateLivePreview()" class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs text-[#1c2938] outline-none focus:border-[#27bea5] h-32 resize-none leading-relaxed">Nos alegra saludarte y compartir contigo lo nuevo...</textarea>
+                      </div>
+
+                      <div class="grid grid-cols-2 gap-2">
+                        <div class="space-y-1">
+                          <label class="text-[11px] font-bold text-slate-500">Texto del Botón</label>
+                          <input type="text" id="tpl-btn-text" oninput="updateLivePreview()" value="Visitar Kônsul" class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold text-[#1c2938] outline-none focus:border-[#27bea5]">
+                        </div>
+                        <div class="space-y-1">
+                          <label class="text-[11px] font-bold text-slate-500">Enlace del Botón</label>
+                          <input type="text" id="tpl-btn-url" oninput="updateLivePreview()" value="https://konsul.digital" class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold text-[#1c2938] outline-none focus:border-[#27bea5]">
+                        </div>
+                      </div>
+
+                      <div class="space-y-1">
+                        <label class="text-[11px] font-bold text-slate-500">Texto del Pie (Footer)</label>
+                        <input type="text" id="tpl-footer" oninput="updateLivePreview()" value="© 2026 Kônsul Digital. Si no deseas recibir más correos, haz clic en desuscribir." class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold text-[#1c2938] outline-none focus:border-[#27bea5]">
+                      </div>
+                    </div>
+
+                    <!-- Hidden target for execution body -->
+                    <textarea id="campaign-body" class="hidden"></textarea>
+
+                    <div class="flex justify-between pt-4 border-t border-slate-100">
+                      <button onclick="goToStep(2)" class="px-5 py-3 border border-slate-200 hover:bg-slate-50 text-slate-500 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5">
+                        <i data-lucide="arrow-left" class="w-4 h-4"></i> Atrás
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Right: Live Visual Preview Card -->
+                  <div class="bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-sm flex flex-col h-full sticky top-6">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Previsualización en Vivo</span>
+                    
+                    <div class="border border-slate-100 rounded-2xl flex-1 overflow-hidden min-h-[400px] max-h-[550px] bg-slate-50">
+                      <iframe id="email-live-preview" class="w-full h-full border-none"></iframe>
+                    </div>
+                  </div>
+
+                </div>
+
               </div>
 
             </div>
@@ -881,6 +1065,7 @@
                 </button>
                 <button 
                   id="camp-send-btn" 
+                  onclick="executeCampaignSend()"
                   class="w-full bg-[#27bea5] text-white font-bold py-3 rounded-2xl shadow-lg hover:bg-[#22a890] transition-all text-xs flex items-center justify-center gap-1.5"
                 >
                   <i data-lucide="send" class="w-3.5 h-3.5"></i> Finalizar ✓
@@ -1271,6 +1456,8 @@
     let contactsPerPage = 10;
     let currentPage = 1;
     let selectedContacts = [];
+    let availableCustomFields = new Set();
+    let visibleColumns = ['checkbox', 'name', 'email', 'tags', 'status', 'actions'];
 
     const microcopies = [
       "Preparando motores y repasando tu mensaje... 📝",
@@ -1436,6 +1623,24 @@
         selectedContacts = [];
         const res = await fetch('/api/contacts');
         contacts = await res.json();
+        
+        availableCustomFields.clear();
+        contacts.forEach(c => {
+          if (c.custom_fields && typeof c.custom_fields === 'object') {
+            Object.keys(c.custom_fields).forEach(key => {
+              availableCustomFields.add(key);
+              const colId = 'custom_' + key;
+              if (!visibleColumns.includes(colId)) {
+                visibleColumns.push(colId);
+              }
+            });
+          }
+        });
+
+        updateCustomFiltersUI();
+        renderColumnsMenu();
+        populateCampaignFilters();
+
         renderContacts();
         renderTagsFilter();
         updateDashboardStats();
@@ -1529,6 +1734,9 @@
 
       if (tabId === 'settings') {
         checkSettingsStatus();
+      }
+      if (tabId === 'campaigns') {
+        goToStep(1);
       }
     }
 
@@ -1909,33 +2117,57 @@
     // UI Renders
     function renderContacts() {
       const tbody = document.getElementById('contacts-table-body');
+      const thead = document.getElementById('contacts-table-head');
       tbody.innerHTML = '';
+      
+      let theadHtml = '<tr class="border-b border-slate-100 text-slate-400 font-bold uppercase text-[10px] tracking-widest sticky top-0 bg-white z-10">';
+      if (visibleColumns.includes('checkbox')) {
+        theadHtml += '<th class="py-3 px-4 w-10"><input type="checkbox" id="selectAllContacts" onchange="toggleSelectAllContacts(this)" class="rounded text-[#27bea5] focus:ring-[#27bea5] w-4 h-4 border-slate-200"></th>';
+      }
+      if (visibleColumns.includes('name')) {
+        theadHtml += '<th class="py-3 px-4">Nombre</th>';
+      }
+      if (visibleColumns.includes('email')) {
+        theadHtml += '<th class="py-3 px-4">Email</th>';
+      }
+      if (visibleColumns.includes('tags')) {
+        theadHtml += '<th class="py-3 px-4">Segmentos</th>';
+      }
+      if (visibleColumns.includes('status')) {
+        theadHtml += '<th class="py-3 px-4">Estado</th>';
+      }
+      availableCustomFields.forEach(field => {
+        if (visibleColumns.includes('custom_' + field)) {
+          theadHtml += `<th class="py-3 px-4">${field}</th>`;
+        }
+      });
+      if (visibleColumns.includes('actions')) {
+        theadHtml += '<th class="py-3 px-4 text-right">Acciones</th>';
+      }
+      theadHtml += '</tr>';
+      thead.innerHTML = theadHtml;
 
-      // Reset master checkbox
       const masterCheckbox = document.getElementById('selectAllContacts');
       if (masterCheckbox) masterCheckbox.checked = false;
 
-      // Get values of advanced filters
       const searchVal = document.getElementById('filter-search').value.toLowerCase().trim();
       const statusVal = document.getElementById('filter-status').value;
       const startDateVal = document.getElementById('filter-date-start').value;
       const endDateVal = document.getElementById('filter-date-end').value;
+      const customKeyVal = document.getElementById('filter-custom-key').value;
+      const customValueVal = document.getElementById('filter-custom-value').value.toLowerCase().trim();
 
       const filtered = contacts.filter(c => {
-        // 1. Tag filter
         if (selectedTag !== 'all' && (!c.tags || !c.tags.includes(selectedTag))) return false;
 
-        // 2. Search filter
         if (searchVal) {
           const nameMatch = c.name && c.name.toLowerCase().includes(searchVal);
           const emailMatch = c.email && c.email.toLowerCase().includes(searchVal);
           if (!nameMatch && !emailMatch) return false;
         }
 
-        // 3. Status filter
         if (statusVal !== 'all' && c.status !== statusVal) return false;
 
-        // 4. Date filter
         if (c.dateAdded) {
           const contactDate = new Date(c.dateAdded).toISOString().split('T')[0];
           if (startDateVal && contactDate < startDateVal) return false;
@@ -1943,17 +2175,23 @@
         } else if (startDateVal || endDateVal) {
           return false;
         }
+        
+        if (customKeyVal && customValueVal) {
+           if (!c.custom_fields || !c.custom_fields[customKeyVal] || !c.custom_fields[customKeyVal].toString().toLowerCase().includes(customValueVal)) {
+             return false;
+           }
+        }
 
         return true;
       });
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-brand-gray text-xs font-semibold">No se encontraron contactos con los filtros aplicados.</td></tr>`;
+        const colCount = visibleColumns.length;
+        tbody.innerHTML = `<tr><td colspan="${colCount}" class="py-8 text-center text-brand-gray text-xs font-semibold">No se encontraron contactos con los filtros aplicados.</td></tr>`;
         document.getElementById('contacts-pagination').innerHTML = '';
         return;
       }
 
-      // Pagination slice
       const startIdx = (currentPage - 1) * contactsPerPage;
       const paginated = filtered.slice(startIdx, startIdx + contactsPerPage);
 
@@ -1965,27 +2203,122 @@
         const statusBadge = c.status === 'active' 
           ? `<span class="bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-emerald-100">Activo</span>`
           : `<span class="bg-rose-50 text-rose-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-rose-100 font-mono">Baja</span>`;
-
         const isChecked = selectedContacts.includes(c.id);
 
-        tr.innerHTML = `
-          <td class="py-3.5 px-4">
-            <input type="checkbox" value="${c.id}" ${isChecked ? 'checked' : ''} onchange="onContactCheckboxChange(this)" class="contact-row-checkbox rounded text-[#27bea5] focus:ring-[#27bea5] w-4 h-4 border-slate-200">
-          </td>
-          <td class="py-3.5 px-4 font-bold text-[#1B2939]">${c.name}</td>
-          <td class="py-3.5 px-4 font-mono text-brand-gray">${c.email}</td>
-          <td class="py-3.5 px-4">${tagsBadges}</td>
-          <td class="py-3.5 px-4">${statusBadge}</td>
-          <td class="py-3.5 px-4 text-right">
-            <button onclick="deleteContact('${c.id}')" class="text-rose-500 hover:text-rose-700 font-bold">Eliminar</button>
-          </td>
-        `;
+        let trHtml = '';
+        if (visibleColumns.includes('checkbox')) {
+          trHtml += `<td class="py-3.5 px-4"><input type="checkbox" value="${c.id}" ${isChecked ? 'checked' : ''} onchange="onContactCheckboxChange(this)" class="contact-row-checkbox rounded text-[#27bea5] focus:ring-[#27bea5] w-4 h-4 border-slate-200"></td>`;
+        }
+        if (visibleColumns.includes('name')) trHtml += `<td class="py-3.5 px-4 font-bold text-[#1B2939]">${c.name || ''}</td>`;
+        if (visibleColumns.includes('email')) trHtml += `<td class="py-3.5 px-4 font-mono text-brand-gray">${c.email || ''}</td>`;
+        if (visibleColumns.includes('tags')) trHtml += `<td class="py-3.5 px-4">${tagsBadges}</td>`;
+        if (visibleColumns.includes('status')) trHtml += `<td class="py-3.5 px-4">${statusBadge}</td>`;
+        
+        availableCustomFields.forEach(field => {
+          if (visibleColumns.includes('custom_' + field)) {
+             const val = c.custom_fields && c.custom_fields[field] ? c.custom_fields[field] : '-';
+             trHtml += `<td class="py-3.5 px-4 text-brand-gray text-[11px]">${val}</td>`;
+          }
+        });
+        
+        if (visibleColumns.includes('actions')) {
+          trHtml += `<td class="py-3.5 px-4 text-right"><button onclick="deleteContact('${c.id}')" class="text-rose-500 hover:text-rose-700 font-bold">Eliminar</button></td>`;
+        }
+
+        tr.innerHTML = trHtml;
         tbody.appendChild(tr);
       });
 
       renderPagination(filtered.length);
       updateBulkActionUI();
       lucide.createIcons();
+    }
+    function updateCustomFiltersUI() {
+      const select = document.getElementById('filter-custom-key');
+      const input = document.getElementById('filter-custom-value');
+      
+      const currentVal = select.value;
+      
+      let html = '<option value="">Ninguno</option>';
+      availableCustomFields.forEach(field => {
+        html += `<option value="${field}">${field}</option>`;
+      });
+      select.innerHTML = html;
+      select.value = currentVal;
+      
+      if (select.value) {
+        input.classList.remove('hidden');
+      } else {
+        input.classList.add('hidden');
+        input.value = '';
+      }
+    }
+    
+    function onCustomFilterKeyChange() {
+      const select = document.getElementById('filter-custom-key');
+      const input = document.getElementById('filter-custom-value');
+      
+      if (select.value) {
+        input.classList.remove('hidden');
+      } else {
+        input.classList.add('hidden');
+        input.value = '';
+      }
+      onFilterChange();
+    }
+    
+    function renderColumnsMenu() {
+      const menu = document.getElementById('columns-menu-list');
+      
+      const stdCols = [
+        { id: 'checkbox', label: 'Selección' },
+        { id: 'name', label: 'Nombre' },
+        { id: 'email', label: 'Email' },
+        { id: 'tags', label: 'Segmentos' },
+        { id: 'status', label: 'Estado' },
+        { id: 'actions', label: 'Acciones' }
+      ];
+      
+      let html = '<div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 mb-1">Estandar</div>';
+      stdCols.forEach(col => {
+         const isChecked = visibleColumns.includes(col.id);
+         html += `
+           <label class="flex items-center gap-2 text-xs font-medium text-[#1c2938] hover:bg-slate-50 p-1 rounded cursor-pointer">
+             <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleColumn('${col.id}')" class="rounded text-[#27bea5] focus:ring-[#27bea5] w-3.5 h-3.5 border-slate-200">
+             ${col.label}
+           </label>
+         `;
+      });
+      
+      if (availableCustomFields.size > 0) {
+        html += '<div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-3 mb-1">Personalizados</div>';
+        availableCustomFields.forEach(field => {
+           const id = 'custom_' + field;
+           const isChecked = visibleColumns.includes(id);
+           html += `
+             <label class="flex items-center gap-2 text-xs font-medium text-[#1c2938] hover:bg-slate-50 p-1 rounded cursor-pointer">
+               <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleColumn('${id}')" class="rounded text-[#27bea5] focus:ring-[#27bea5] w-3.5 h-3.5 border-slate-200">
+               ${field}
+             </label>
+           `;
+        });
+      }
+      
+      menu.innerHTML = html;
+    }
+    
+    function toggleColumnsMenu() {
+      const menu = document.getElementById('columns-menu');
+      menu.classList.toggle('hidden');
+    }
+    
+    function toggleColumn(colId) {
+      if (visibleColumns.includes(colId)) {
+        visibleColumns = visibleColumns.filter(c => c !== colId);
+      } else {
+        visibleColumns.push(colId);
+      }
+      renderContacts();
     }
 
     function renderTagsFilter() {
@@ -2276,25 +2609,69 @@
       if (kpiOpens) kpiOpens.textContent = totalOpens.toLocaleString();
     }
 
+    // Variables de paso de campaña y plantilla activa
+    let currentCampaignStep = 1;
+    let activeCampTemplate = 'minimal';
+
+    function populateCampaignFilters() {
+      const select = document.getElementById('campaign-filter-custom-key');
+      if (!select) return;
+      const prevVal = select.value;
+      select.innerHTML = '<option value="">Ninguno</option>';
+      availableCustomFields.forEach(field => {
+        const opt = document.createElement('option');
+        opt.value = field;
+        opt.textContent = field;
+        select.appendChild(opt);
+      });
+      select.value = prevVal;
+    }
+
     function updateCampaignAudienceCount() {
       const select = document.getElementById('campaign-segment-select');
       const val = select.value;
       
-      let count = 0;
-      if (val === 'all') {
-        count = contacts.filter(c => c.status === 'active').length;
-      } else {
-        count = contacts.filter(c => c.status === 'active' && c.tags && c.tags.includes(val)).length;
-      }
+      const customKey = document.getElementById('campaign-filter-custom-key').value;
+      const customVal = document.getElementById('campaign-filter-custom-val').value.toLowerCase().trim();
+      const dateVal = document.getElementById('campaign-filter-date').value;
 
-      document.getElementById('campaign-recipients-count').textContent = count;
-      checkCampaignLimitSafety();
-    }
+      // 1. Filtrar los contactos por segmento
+      const segmentContacts = contacts.filter(c => {
+        if (val === 'all') return true;
+        return c.tags && c.tags.includes(val);
+      });
 
-    function updateCampSliderBadge(value) {
-      document.getElementById('camp-slider-badge').textContent = Number(value).toLocaleString();
-      const cost = (value / 1000) * 0.10;
+      // 2. Filtrar por estado activo para el conteo de envíos reales
+      const activeContacts = segmentContacts.filter(c => c.status === 'active');
+      const unsubContacts = segmentContacts.filter(c => c.status === 'unsubscribe');
+
+      // 3. Aplicar filtros adicionales si existen
+      const finalTargets = activeContacts.filter(c => {
+        if (customKey && customVal) {
+          if (!c.custom_fields || !c.custom_fields[customKey] || !c.custom_fields[customKey].toString().toLowerCase().includes(customVal)) {
+            return false;
+          }
+        }
+        if (dateVal && c.dateAdded) {
+          const contactDate = new Date(c.dateAdded).toISOString().split('T')[0];
+          if (contactDate < dateVal) return false;
+        }
+        return true;
+      });
+
+      // Actualizar campos de estadística del paso 1
+      document.getElementById('camp-stats-total').textContent = segmentContacts.length;
+      document.getElementById('camp-stats-active').textContent = activeContacts.length;
+      document.getElementById('camp-stats-unsub').textContent = unsubContacts.length;
+
+      // Actualizar resumen del panel lateral
+      document.getElementById('campaign-recipients-count').textContent = finalTargets.length;
+      
+      // Costo estimado
+      const cost = (finalTargets.length / 1000) * 0.10;
       document.getElementById('camp-cost-est').textContent = `$${cost.toFixed(2)} USD`;
+
+      checkCampaignLimitSafety();
     }
 
     function checkCampaignLimitSafety() {
@@ -2302,13 +2679,165 @@
       const estAudience = parseInt(document.getElementById('campaign-recipients-count').textContent, 10);
       const alertDiv = document.getElementById('camp-alert-limit');
       const sendBtn = document.getElementById('camp-send-btn');
+      const nextBtn = document.getElementById('btn-camp-step1-next');
 
       if (estAudience > limitVal) {
         alertDiv.classList.remove('hidden');
-        sendBtn.disabled = true;
+        if (sendBtn) sendBtn.disabled = true;
+        if (nextBtn) nextBtn.disabled = true;
       } else {
         alertDiv.classList.add('hidden');
-        sendBtn.disabled = false;
+        if (sendBtn) sendBtn.disabled = false;
+        if (nextBtn) nextBtn.disabled = false;
+      }
+    }
+
+    function goToStep(step) {
+      if (step === 2) {
+        const estCount = parseInt(document.getElementById('campaign-recipients-count').textContent, 10);
+        if (estCount === 0) {
+          showToast('No hay destinatarios activos que cumplan con los filtros para enviar esta campaña.', 'error');
+          return;
+        }
+      }
+      if (step === 3) {
+        const campaignName = document.getElementById('campaign-name').value.trim();
+        const senderName = document.getElementById('campaign-sender-name').value.trim();
+        const senderEmail = document.getElementById('campaign-sender-email').value.trim();
+        const subject = document.getElementById('campaign-subject').value.trim();
+        
+        if (!campaignName || !senderName || !senderEmail || !subject) {
+          showToast('Por favor completa todos los campos de configuración (Nombre, Remitente, Email y Asunto).', 'error');
+          return;
+        }
+      }
+
+      currentCampaignStep = step;
+
+      // Actualizar indicadores visuales de pasos
+      for (let i = 1; i <= 3; i++) {
+        const el = document.getElementById(`step-indicator-${i}`);
+        const line = document.getElementById(`step-line-${i-1}`);
+        
+        if (i < step) {
+          el.className = "flex items-center justify-center w-7 h-7 rounded-full bg-emerald-500 text-white font-bold text-xs";
+          if (line) line.className = "w-8 h-0.5 bg-emerald-500 transition-all";
+        } else if (i === step) {
+          el.className = "flex items-center justify-center w-7 h-7 rounded-full bg-[#1c2938] text-white font-bold text-xs ring-4 ring-[#27bea5]/20";
+          if (line) line.className = "w-8 h-0.5 bg-[#1c2938] transition-all";
+        } else {
+          el.className = "flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-400 font-bold text-xs";
+          if (line) line.className = "w-8 h-0.5 bg-slate-200 transition-all";
+        }
+      }
+
+      // Mostrar/ocultar los paneles correspondientes
+      document.getElementById('camp-step-panel-1').classList.add('hidden');
+      document.getElementById('camp-step-panel-2').classList.add('hidden');
+      document.getElementById('camp-step-panel-3').classList.add('hidden');
+      document.getElementById(`camp-step-panel-${step}`).classList.remove('hidden');
+
+      if (step === 3) {
+        updateLivePreview();
+      }
+      lucide.createIcons();
+    }
+
+    function selectCampTemplate(tpl) {
+      activeCampTemplate = tpl;
+      
+      const btnMin = document.getElementById('tpl-btn-minimal');
+      const btnElg = document.getElementById('tpl-btn-elegant');
+      const btnNws = document.getElementById('tpl-btn-newsletter');
+      
+      [btnMin, btnElg, btnNws].forEach(b => {
+         if (b) b.className = "p-3 border-2 border-slate-100 hover:border-slate-200 text-[#1c2938] rounded-xl text-xs font-bold text-left transition-all";
+      });
+
+      const selectedBtn = document.getElementById(`tpl-btn-${tpl}`);
+      if (selectedBtn) {
+         selectedBtn.className = "p-3 border-2 border-[#27bea5] bg-emerald-50/20 text-[#1c2938] rounded-xl text-xs font-bold text-left transition-all";
+      }
+
+      updateLivePreview();
+    }
+
+    function updateLivePreview() {
+      const logoUrl = document.getElementById('tpl-logo-url').value.trim();
+      const greeting = document.getElementById('tpl-greeting').value;
+      const title = document.getElementById('tpl-title').value;
+      const message = document.getElementById('tpl-message').value;
+      const btnText = document.getElementById('tpl-btn-text').value;
+      const btnUrl = document.getElementById('tpl-btn-url').value;
+      const footer = document.getElementById('tpl-footer').value;
+
+      const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="Logo" style="max-height: 48px; max-width: 150px; object-fit: contain;">` : '';
+      const buttonHtml = (btnText && btnUrl) ? `
+        <div style="text-align: center; margin: 24px 0;">
+          <a href="${btnUrl}" target="_blank" style="background-color: #27bea5; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">${btnText}</a>
+        </div>
+      ` : '';
+
+      let bodyHtml = '';
+
+      if (activeCampTemplate === 'minimal') {
+        bodyHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff; color: #1e293b;">
+            <div style="text-align: center; margin-bottom: 24px;">
+              ${logoHtml}
+            </div>
+            <p style="font-size: 14px; margin-bottom: 12px;">${greeting}</p>
+            <h2 style="font-size: 20px; font-weight: 800; color: #1b2939; margin-top: 0; margin-bottom: 16px;">${title}</h2>
+            <p style="font-size: 13px; line-height: 1.6; color: #334155; margin-bottom: 24px; white-space: pre-line;">${message}</p>
+            ${buttonHtml}
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 32px 0 16px 0;" />
+            <p style="font-size: 10px; text-align: center; color: #64748b; margin: 0;">${footer}</p>
+          </div>
+        `;
+      } else if (activeCampTemplate === 'elegant') {
+        bodyHtml = `
+          <div style="font-family: 'Georgia', serif; max-width: 600px; margin: 0 auto; padding: 40px 30px; border-top: 4px solid #1c2938; background-color: #fcfbf9; color: #2c2520;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              ${logoHtml}
+            </div>
+            <p style="font-size: 15px; font-style: italic; color: #6b5c53; margin-bottom: 16px;">${greeting}</p>
+            <h2 style="font-size: 22px; font-weight: normal; color: #1c2938; margin-top: 0; margin-bottom: 20px; text-align: center;">${title}</h2>
+            <p style="font-size: 14px; line-height: 1.8; color: #3e352f; margin-bottom: 30px; text-align: justify; white-space: pre-line;">${message}</p>
+            ${buttonHtml}
+            <div style="text-align: center; margin-top: 40px; border-top: 1px solid #e2ddda; padding-top: 20px;">
+              <p style="font-size: 11px; color: #8e7f76; margin: 0;">${footer}</p>
+            </div>
+          </div>
+        `;
+      } else if (activeCampTemplate === 'newsletter') {
+        bodyHtml = `
+          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; overflow: hidden; border-radius: 12px;">
+            <div style="background-color: #1c2938; padding: 30px 20px; text-align: center;">
+              ${logoHtml}
+              <h1 style="color: #ffffff; margin: 10px 0 0 0; font-size: 24px; font-weight: 800;">${title}</h1>
+            </div>
+            <div style="padding: 30px 24px; color: #334155;">
+              <p style="font-size: 15px; font-weight: bold; margin-bottom: 12px;">${greeting}</p>
+              <p style="font-size: 13px; line-height: 1.6; margin-bottom: 24px; white-space: pre-line;">${message}</p>
+              ${buttonHtml}
+            </div>
+            <div style="background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #f1f5f9;">
+              <p style="font-size: 10px; color: #94a3b8; margin: 0;">${footer}</p>
+            </div>
+          </div>
+        `;
+      }
+
+      // Guardar el cuerpo generado en el textarea oculto
+      document.getElementById('campaign-body').value = bodyHtml;
+
+      // Actualizar el iframe
+      const iframe = document.getElementById('email-live-preview');
+      if (iframe) {
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        doc.open();
+        doc.write(bodyHtml);
+        doc.close();
       }
     }
 
@@ -2326,12 +2855,29 @@
         return;
       }
 
-      let targets = [];
-      if (segment === 'all') {
-        targets = contacts.filter(c => c.status === 'active').map(c => c.email);
-      } else {
-        targets = contacts.filter(c => c.status === 'active' && c.tags && c.tags.includes(segment)).map(c => c.email);
-      }
+      const customKey = document.getElementById('campaign-filter-custom-key').value;
+      const customVal = document.getElementById('campaign-filter-custom-val').value.toLowerCase().trim();
+      const dateVal = document.getElementById('campaign-filter-date').value;
+
+      let segmentContacts = contacts.filter(c => {
+        if (segment === 'all') return true;
+        return c.tags && c.tags.includes(segment);
+      });
+
+      let activeContacts = segmentContacts.filter(c => c.status === 'active');
+
+      let targets = activeContacts.filter(c => {
+        if (customKey && customVal) {
+          if (!c.custom_fields || !c.custom_fields[customKey] || !c.custom_fields[customKey].toString().toLowerCase().includes(customVal)) {
+            return false;
+          }
+        }
+        if (dateVal && c.dateAdded) {
+          const contactDate = new Date(c.dateAdded).toISOString().split('T')[0];
+          if (contactDate < dateVal) return false;
+        }
+        return true;
+      }).map(c => c.email);
 
       if (targets.length === 0) {
         showToast('No hay destinatarios activos en el segmento seleccionado.', 'error');
