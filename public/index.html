@@ -1107,25 +1107,73 @@
   </div>
 
   <!-- IMPORT BULK CONTACTS MODAL -->
-  <div id="modal-import-bulk" class="fixed inset-0 bg-[#1B2939]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white max-w-lg w-full rounded-2xl border border-brand-border p-6 shadow-xl">
-      <h3 class="text-base font-bold mb-1 text-[#1B2939]">Importar en Bloque</h3>
-      <p class="text-[11px] text-brand-gray mb-4 font-medium">Pega los correos separados por comas o saltos de línea.</p>
+  <div id="modal-import-bulk" class="fixed inset-0 bg-[#1B2939]/40 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 hidden">
+    <div class="bg-white max-w-3xl w-full rounded-[2rem] border border-brand-border p-8 shadow-2xl overflow-y-auto max-h-[90vh] custom-scroll">
+      <div class="flex justify-between items-center mb-6">
+        <div>
+          <h3 class="text-xl font-extrabold text-[#1B2939]">Importar Contactos</h3>
+          <p class="text-xs text-brand-gray mt-1">Sube un archivo CSV o Excel para importar en bloque.</p>
+        </div>
+        <button onclick="closeModal('modal-import-bulk'); resetImport();" class="text-brand-gray hover:text-[#1B2939] transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
       
-      <form id="import-bulk-form" class="flex flex-col gap-3.5">
-        <div class="flex flex-col gap-1">
-          <label class="text-xs font-semibold">Correos electrónicos</label>
-          <textarea id="ib-list" placeholder="correo1@ejemplo.com&#10;correo2@ejemplo.com, correo3@ejemplo.com" required class="w-full min-h-[120px] px-3 py-2.5 rounded-xl border border-brand-border text-xs font-mono outline-none focus:border-brand-accent"></textarea>
+      <!-- Phase 1: Upload -->
+      <div id="import-phase-1" class="flex flex-col gap-4">
+        <div id="drop-zone" class="border-2 border-dashed border-slate-300 rounded-2xl p-10 flex flex-col items-center justify-center bg-slate-50 hover:bg-blue-50/50 hover:border-[#27bea5] transition-all cursor-pointer relative">
+          <i data-lucide="upload-cloud" class="w-10 h-10 text-slate-400 mb-3 pointer-events-none"></i>
+          <p class="text-sm font-bold text-[#1B2939] pointer-events-none">Haz clic o arrastra tu archivo aquí</p>
+          <p class="text-xs text-brand-gray mt-1 pointer-events-none">Soporta .csv, .xlsx, .xls (Max 10MB)</p>
+          <input type="file" id="import-file-input" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".csv, .xlsx, .xls, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel">
         </div>
-        <div class="flex flex-col gap-1">
-          <label class="text-xs font-semibold">Asignar Tag Común</label>
-          <input type="text" id="ib-tag" value="Importados" class="w-full px-3 py-2 rounded-xl border border-brand-border text-xs outline-none focus:border-brand-accent font-medium">
+      </div>
+
+      <!-- Phase 2: Mapping -->
+      <div id="import-phase-2" class="hidden flex flex-col gap-4">
+        <div class="bg-[#f4f7fb] p-4 rounded-xl border border-blue-100/50 flex items-start gap-3">
+          <i data-lucide="list-tree" class="w-5 h-5 text-blue-500 mt-0.5"></i>
+          <div>
+            <h4 class="text-sm font-bold text-[#1B2939]">Asignar Columnas</h4>
+            <p class="text-xs text-brand-gray mt-1">Selecciona qué columna de tu archivo corresponde a cada campo en Kônsul. Es obligatorio asignar la columna de "Email".</p>
+          </div>
         </div>
-        <div class="flex justify-end gap-2 mt-2">
-          <button type="button" onclick="closeModal('modal-import-bulk')" class="px-4 py-2 rounded-xl text-xs font-semibold text-brand-gray hover:bg-brand-light">Cancelar</button>
-          <button type="submit" class="bg-brand-accent text-white font-semibold px-4 py-2 rounded-xl text-xs hover:bg-brand-accentHover shadow-sm">Importar</button>
+
+        <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
+          <table class="w-full text-left">
+            <thead class="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th class="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-1/3">Campo App</th>
+                <th class="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-1/3">Columna Archivo</th>
+                <th class="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-1/3">Ejemplo del Archivo</th>
+              </tr>
+            </thead>
+            <tbody id="mapping-table-body">
+              <!-- Dynamically filled -->
+            </tbody>
+          </table>
         </div>
-      </form>
+
+        <div class="flex flex-col gap-1 mt-2">
+          <label class="text-xs font-bold text-brand-dark">Asignar Etiqueta (Tag)</label>
+          <input type="text" id="import-tag" value="Importados" class="w-full px-4 py-3 rounded-xl border border-brand-border text-xs outline-none focus:border-brand-accent font-medium bg-slate-50">
+        </div>
+
+        <div class="flex justify-end gap-3 mt-4">
+          <button onclick="resetImport()" class="px-5 py-2.5 rounded-xl text-xs font-bold text-brand-gray bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors">Volver</button>
+          <button id="btn-start-import" class="bg-[#1c2938] text-white font-bold px-6 py-2.5 rounded-xl hover:bg-[#27bea5] transition-all text-xs shadow-sm">Iniciar Importación</button>
+        </div>
+      </div>
+
+      <!-- Phase 3: Progress -->
+      <div id="import-phase-3" class="hidden flex flex-col items-center justify-center py-10 gap-4">
+        <i data-lucide="loader-2" class="w-12 h-12 text-[#27bea5] animate-spin"></i>
+        <h3 class="text-lg font-bold text-[#1B2939]">Importando Contactos...</h3>
+        <p id="import-progress-text" class="text-xs text-brand-gray">Procesando filas...</p>
+        
+        <div class="w-full bg-slate-100 rounded-full h-2 mt-2 overflow-hidden">
+          <div id="import-progress-bar" class="bg-[#27bea5] h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+      </div>
+
     </div>
   </div>
 
