@@ -16,10 +16,81 @@ const dbUrl = process.env.DATABASE_URL || 'postgresql://user:pass@ep-host.neon.t
 const sql = neon(dbUrl);
 const pool = new Pool({ connectionString: dbUrl });
 
+// Inicializar tablas en Neon
+async function initDB() {
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS users (
+          kinde_id VARCHAR(255) PRIMARY KEY,
+          company_name VARCHAR(255),
+          monthly_volume INTEGER,
+          is_setup_complete BOOLEAN DEFAULT false
+      );
+    `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS contacts (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          kinde_id VARCHAR(255) NOT NULL REFERENCES users(kinde_id) ON DELETE CASCADE,
+          name VARCHAR(255) NOT NULL,
+          email VARCHAR(255) NOT NULL,
+          tags TEXT[],
+          status VARCHAR(50) DEFAULT 'active',
+          added_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS campaigns (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          kinde_id VARCHAR(255) NOT NULL REFERENCES users(kinde_id) ON DELETE CASCADE,
+          subject VARCHAR(255) NOT NULL,
+          body TEXT NOT NULL,
+          target_tags TEXT[],
+          total_sent INTEGER DEFAULT 0,
+          status VARCHAR(50) DEFAULT 'sent',
+          sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS senders (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          kinde_id VARCHAR(255) NOT NULL REFERENCES users(kinde_id) ON DELETE CASCADE,
+          name VARCHAR(255) NOT NULL,
+          email VARCHAR(255) NOT NULL,
+          is_verified BOOLEAN DEFAULT true,
+          dkim_status BOOLEAN DEFAULT true,
+          dmarc_status BOOLEAN DEFAULT true,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_contacts_kinde_id ON contacts(kinde_id);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_campaigns_kinde_id ON campaigns(kinde_id);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_senders_kinde_id ON senders(kinde_id);`;
+    
+    // Tabla de sesiones para connect-pg-simple
+    await sql`
+      CREATE TABLE IF NOT EXISTS "session" (
+        "sid" varchar NOT NULL COLLATE "default",
+        "sess" json NOT NULL,
+        "expire" timestamp(6) NOT NULL
+      );
+    `;
+    try {
+      await sql`ALTER TABLE "session" ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE;`;
+    } catch(e) {}
+    await sql`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");`;
+    console.log("Neon DB tables verified/created successfully.");
+  } catch (err) {
+    console.error("Error al inicializar la base de datos:", err);
+  }
+}
+initDB();
+
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // Ruta secreta temporal para crear tablas en Neon (ANTES del session middleware)
 app.get('/api/setup-db', async (req, res) => {
@@ -381,6 +452,18 @@ app.post('/api/senders', protectRoute, async (req, res) => {
       RETURNING *
     `;
     res.json({ success: true, sender: inserted[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+app.delete('/api/senders/:id', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    await sql`DELETE FROM senders WHERE id = ${id} AND kinde_id = ${userId}`;
+    res.json({ success: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, error: 'DB Error' });

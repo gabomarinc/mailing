@@ -869,28 +869,37 @@
         <section id="tab-senders" class="tab-content hidden flex flex-col gap-6">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 class="text-3xl font-black text-[#1B2939]">Remitentes, dominios y direcciones IP dedicadas</h1>
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ADMINISTRACIÓN</span>
+              <h1 class="text-3xl font-black text-[#1c2938]">Remitentes y Dominios</h1>
             </div>
-            <div>
-              <button onclick="openModal('modal-add-sender')" class="bg-[#1c2938] text-white font-bold px-5 py-3 rounded-2xl hover:bg-black transition-all text-xs flex items-center gap-2 shadow-lg shadow-slate-200">
-                <i data-lucide="plus" class="w-4 h-4"></i> Agregar remitente
+            <div class="flex gap-3">
+              <button onclick="openModal('modal-add-sender')" class="bg-[#1c2938] text-white font-bold px-6 py-3 rounded-2xl hover:bg-[#27bea5] transition-all text-xs flex items-center gap-2 shadow-lg shadow-slate-200">
+                <i data-lucide="plus" class="w-4 h-4"></i> Agregar Remitente
               </button>
             </div>
           </div>
 
-          <!-- Pestañas Internas (Simuladas visualmente) -->
-          <div class="flex gap-6 border-b border-brand-border px-2 text-xs font-bold text-brand-gray">
-            <button class="pb-3 border-b-2 border-[#27bea5] text-[#1B2939]">Remitentes</button>
-            <button class="pb-3 border-b-2 border-transparent hover:text-[#1B2939]">Dominios</button>
-            <button class="pb-3 border-b-2 border-transparent hover:text-[#1B2939]">IP dedicadas</button>
-            <button class="pb-3 border-b-2 border-transparent hover:text-[#1B2939]">Cadencia de envío</button>
-          </div>
-
-          <div>
-            <h2 class="text-xl font-extrabold text-[#1B2939] mb-2">Remitentes</h2>
-            <p class="text-xs text-brand-gray font-medium leading-relaxed max-w-4xl">
-              Un remitente es el nombre y la dirección de email que ayudan al destinatario a reconocer tu marca y sentirse seguro al abrir tus emails. Para utilizar un remitente, debe estar verificado. Para una mejor entregabilidad del email, el dominio de tu remitente también debe estar autenticado.
-            </p>
+          <!-- Segmented Filter Bar Floating Pill (Matches Contacts style) -->
+          <div class="flex flex-col md:flex-row items-center justify-between gap-4 bg-white p-3 rounded-[2.5rem] border border-slate-100 shadow-sm">
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3">SECCIÓN:</span>
+              <div class="flex flex-wrap gap-1.5" id="senders-tabs-filter">
+                <button class="bg-[#1c2938] text-white font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all shadow-sm">Remitentes</button>
+                <button class="bg-slate-50 text-slate-400 hover:text-slate-600 font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all">Dominios</button>
+                <button class="bg-slate-50 text-slate-400 hover:text-slate-600 font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all">IP dedicadas</button>
+                <button class="bg-slate-50 text-slate-400 hover:text-slate-600 font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all">Cadencia</button>
+              </div>
+            </div>
+            <div class="relative w-full md:w-64">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+              <input 
+                type="text" 
+                id="search-senders"
+                oninput="filterSenders()"
+                placeholder="Buscar remitente por nombre o email..."
+                class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-full text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all"
+              >
+            </div>
           </div>
 
           <!-- Alerta de requisitos -->
@@ -899,15 +908,25 @@
             <p>Todos tus dominios de remitente cumplen con <a href="#" class="underline font-bold text-emerald-900">nuevos requisitos de Google, Yahoo y Microsoft para los remitentes</a>. Puedes utilizar cualquiera de ellos para enviar campañas de email.</p>
           </div>
 
-          <!-- Buscador -->
-          <div class="relative max-w-xs">
-            <i data-lucide="search" class="w-4 h-4 text-brand-gray absolute left-3.5 top-2.5"></i>
-            <input type="text" placeholder="Buscar remitente por nombre o email" class="w-full pl-10 pr-4 py-2 bg-white border border-brand-border rounded-full text-xs font-bold text-[#1B2939] outline-none focus:border-[#27bea5] focus:ring-1 focus:ring-[#27bea5] transition-all">
-          </div>
-
-          <!-- Lista de Remitentes -->
-          <div class="flex flex-col gap-4" id="senders-list-container">
-            <!-- Renderizado dinámico -->
+          <!-- Table Container (Matches Contacts layout) -->
+          <div class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm flex flex-col">
+            <div class="overflow-y-auto max-h-[480px] custom-scroll">
+              <table class="w-full text-left text-xs relative">
+                <thead>
+                  <tr class="border-b border-slate-100 text-slate-400 font-bold uppercase text-[10px] tracking-widest sticky top-0 bg-white z-10">
+                    <th class="py-3 px-4">Nombre</th>
+                    <th class="py-3 px-4">Email</th>
+                    <th class="py-3 px-4">Firma DKIM</th>
+                    <th class="py-3 px-4">DMARC</th>
+                    <th class="py-3 px-4">Estado</th>
+                    <th class="py-3 px-4 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="senders-table-body">
+                  <!-- Loaded Dynamically -->
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 
@@ -1180,15 +1199,40 @@
       }
     }
 
+    // Modal helpers (Corrigiendo ReferenceErrors)
+    function openModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) modal.classList.remove('hidden');
+    }
+    function closeModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) modal.classList.add('hidden');
+    }
+    function openAddContactModal() {
+      openModal('modal-add-contact');
+    }
+    function openImportBulkModal() {
+      openModal('modal-import-bulk');
+    }
+
     // 4. Senders API fetch
     async function fetchSenders() {
       try {
         const res = await fetch('/api/senders');
-        senders = await res.json();
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          senders = data;
+        } else {
+          console.error('API /api/senders no retornó un array:', data);
+          senders = [];
+        }
         renderSenders();
         populateSenderSelects();
       } catch (err) {
         console.error('Error cargando remitentes:', err);
+        senders = [];
+        renderSenders();
+        populateSenderSelects();
       }
     }
 
@@ -1197,24 +1241,31 @@
       document.querySelectorAll('.tab-content').forEach(section => {
         section.classList.add('hidden');
       });
-      document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+      const targetSec = document.getElementById(`tab-${tabId}`);
+      if (targetSec) targetSec.classList.remove('hidden');
 
       const pageTitleMap = {
         'dashboard': 'Panel Principal',
         'contacts': 'Base de Suscriptores',
         'campaigns': 'Redacción de Campaña',
+        'senders': 'Remitentes y Dominios',
         'forms': 'Captación de Contactos'
       };
 
-      document.getElementById('page-main-title').textContent = pageTitleMap[tabId] || 'Panel Principal';
+      const titleElem = document.getElementById('page-main-title');
+      if (titleElem) {
+        titleElem.textContent = pageTitleMap[tabId] || 'Panel Principal';
+      }
       
       const tabButtons = ['dashboard', 'contacts', 'campaigns', 'forms', 'senders', 'settings'];
       tabButtons.forEach(btn => {
         const button = document.getElementById(`tab-btn-${btn}`);
-        if (btn === tabId) {
-          button.className = "sidebar-active menu-item-btn flex items-center justify-between w-full px-4 py-3 rounded-2xl text-xs font-bold text-brand-dark transition-all";
-        } else {
-          button.className = "flex items-center justify-between w-full px-4 py-3 rounded-2xl text-xs font-bold text-brand-gray hover:bg-[#F8F9FA] hover:text-brand-dark transition-all menu-item-btn";
+        if (button) {
+          if (btn === tabId) {
+            button.className = "sidebar-active menu-item-btn flex items-center justify-between w-full px-4 py-3 rounded-2xl text-xs font-bold text-brand-dark transition-all";
+          } else {
+            button.className = "flex items-center justify-between w-full px-4 py-3 rounded-2xl text-xs font-bold text-brand-gray hover:bg-[#F8F9FA] hover:text-brand-dark transition-all menu-item-btn";
+          }
         }
       });
 
@@ -1479,10 +1530,12 @@
 
     function updateDashboardStats() {
       const activeContacts = contacts.filter(c => c.status === 'active').length;
-      document.getElementById('kpi-contacts').textContent = activeContacts.toLocaleString();
+      const kpiContacts = document.getElementById('kpi-contacts');
+      if (kpiContacts) kpiContacts.textContent = activeContacts.toLocaleString();
 
       const unsubs = contacts.filter(c => c.status === 'unsubscribe').length;
-      document.getElementById('kpi-unsubs').textContent = unsubs.toLocaleString();
+      const kpiUnsubs = document.getElementById('kpi-unsubs');
+      if (kpiUnsubs) kpiUnsubs.textContent = unsubs.toLocaleString();
 
       let totalSent = 0;
       let totalOpens = 0;
@@ -1491,8 +1544,10 @@
         totalOpens += c.opens || 0;
       });
 
-      document.getElementById('kpi-sent').textContent = totalSent.toLocaleString();
-      document.getElementById('kpi-opens').textContent = totalOpens.toLocaleString();
+      const kpiSent = document.getElementById('kpi-sent');
+      if (kpiSent) kpiSent.textContent = totalSent.toLocaleString();
+      const kpiOpens = document.getElementById('kpi-opens');
+      if (kpiOpens) kpiOpens.textContent = totalOpens.toLocaleString();
     }
 
     function updateCampaignAudienceCount() {
@@ -1642,51 +1697,68 @@
         console.error(err);
       }
     }    function renderSenders() {
-      const container = document.getElementById('senders-list-container');
-      container.innerHTML = '';
+      const tbody = document.getElementById('senders-table-body');
+      if (!tbody) return;
+      tbody.innerHTML = '';
       
-      if (senders.length === 0) {
-        container.innerHTML = '<p class="text-xs text-brand-gray">No tienes remitentes configurados.</p>';
+      const searchInput = document.getElementById('search-senders');
+      const searchVal = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+      const filtered = senders.filter(s => {
+        if (!searchVal) return true;
+        return s.name.toLowerCase().includes(searchVal) || s.email.toLowerCase().includes(searchVal);
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-brand-gray text-xs font-semibold">No se encontraron remitentes.</td></tr>`;
         return;
       }
 
-      senders.forEach(s => {
-        const div = document.createElement('div');
-        div.className = "bg-white border border-brand-border rounded-2xl p-6 shadow-sm flex flex-col gap-4";
+      filtered.forEach(s => {
+        const tr = document.createElement('tr');
+        tr.className = "border-b border-brand-border text-xs font-medium text-brand-dark";
         
         const isVerified = s.is_verified;
-        const badge = isVerified 
-          ? `<span class="flex items-center gap-1 text-[10px] text-emerald-600 font-bold"><i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Verificado</span>`
-          : `<span class="flex items-center gap-1 text-[10px] text-amber-600 font-bold"><i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> Pendiente</span>`;
+        const statusBadge = isVerified 
+          ? `<span class="bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-emerald-100 flex items-center gap-1.5 w-fit"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600"></i> Verificado</span>`
+          : `<span class="bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-amber-100 flex items-center gap-1.5 w-fit"><i data-lucide="clock" class="w-3.5 h-3.5 text-amber-600"></i> Pendiente</span>`;
 
-        div.innerHTML = `
-          <div class="flex items-center justify-between pb-4 border-b border-brand-border">
-            <div class="flex items-center gap-4">
-              <span class="text-xs font-bold text-[#1B2939]">${s.name} <span class="font-normal text-brand-gray">&lt;${s.email}&gt;</span></span>
-              ${badge}
-            </div>
-            <div class="flex items-center gap-2">
-              <button class="px-4 py-1.5 rounded-full border border-brand-border text-[10px] font-bold text-brand-dark hover:bg-brand-light transition-all">Editar</button>
-            </div>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-2">
-            <div class="flex flex-col gap-1">
-              <span class="text-[9px] font-bold text-brand-gray uppercase tracking-wider">Dirección IP</span>
-              <span class="text-xs font-semibold text-[#1B2939] flex items-center gap-1">IP compartida <i data-lucide="help-circle" class="w-3 h-3 text-slate-400"></i></span>
-            </div>
-            <div class="flex flex-col gap-1">
-              <span class="text-[9px] font-bold text-brand-gray uppercase tracking-wider">Firma DKIM</span>
-              <span class="text-xs font-semibold text-[#1B2939] flex items-center gap-1.5">${s.email.split('@')[1]} <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-500"></i></span>
-            </div>
-            <div class="flex flex-col gap-1">
-              <span class="text-[9px] font-bold text-brand-gray uppercase tracking-wider">DMARC</span>
-              <span class="text-xs font-semibold text-[#1B2939] flex items-center gap-1.5">DMARC está configurado <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-500"></i></span>
-            </div>
-          </div>
+        const domain = s.email.split('@')[1] || '';
+        const dkimBadge = `<span class="flex items-center gap-1 text-[10px] text-emerald-600 font-bold"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i> ${domain}</span>`;
+        const dmarcBadge = `<span class="flex items-center gap-1 text-[10px] text-emerald-600 font-bold"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Configurado</span>`;
+
+        tr.innerHTML = `
+          <td class="py-3.5 px-4 font-bold text-[#1B2939]">${s.name}</td>
+          <td class="py-3.5 px-4 font-mono text-brand-gray">${s.email}</td>
+          <td class="py-3.5 px-4">${dkimBadge}</td>
+          <td class="py-3.5 px-4">${dmarcBadge}</td>
+          <td class="py-3.5 px-4">${statusBadge}</td>
+          <td class="py-3.5 px-4 text-right">
+            <button onclick="deleteSender('${s.id}')" class="text-rose-500 hover:text-rose-700 font-bold">Eliminar</button>
+          </td>
         `;
-        container.appendChild(div);
+        tbody.appendChild(tr);
       });
       lucide.createIcons();
+    }
+
+    function filterSenders() {
+      renderSenders();
+    }
+
+    async function deleteSender(id) {
+      if (!confirm('¿Estás seguro de eliminar este remitente?')) return;
+      try {
+        const res = await fetch(`/api/senders/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          await fetchSenders();
+        } else {
+          alert('Error al eliminar el remitente.');
+        }
+      } catch (err) {
+        alert('Error de red.');
+      }
     }
 
     function populateSenderSelects() {
