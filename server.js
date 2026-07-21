@@ -559,7 +559,7 @@ app.post('/api/domains', protectRoute, async (req, res) => {
     res.json({ success: true, domain: inserted[0] });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, error: 'SES/DB Error' });
+    res.status(500).json({ success: false, message: err.message || 'SES/DB Error' });
   }
 });
 
