@@ -681,6 +681,37 @@
                 </h3>
 
                 <div class="space-y-2">
+                  <label for="campaign-name" class="text-xs font-bold text-[#1c2938]">Nombre de la Campaña (Interno)</label>
+                  <input 
+                    type="text" 
+                    id="campaign-name" 
+                    placeholder="Ej: Promo Verano 2026"
+                    class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all"
+                  >
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div class="space-y-2">
+                    <label for="campaign-sender-name" class="text-xs font-bold text-[#1c2938]">Nombre del Remitente</label>
+                    <input 
+                      type="text" 
+                      id="campaign-sender-name" 
+                      placeholder="Ej: Kônsul Digital"
+                      class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all"
+                    >
+                  </div>
+                  <div class="space-y-2">
+                    <label for="campaign-sender-email" class="text-xs font-bold text-[#1c2938]">Email del Remitente</label>
+                    <input 
+                      type="email" 
+                      id="campaign-sender-email" 
+                      placeholder="Ej: hola@konsul.digital"
+                      class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all"
+                    >
+                  </div>
+                </div>
+
+                <div class="space-y-2">
                   <label for="campaign-subject" class="text-xs font-bold text-[#1c2938]">Asunto del Correo</label>
                   <input 
                     type="text" 
@@ -741,25 +772,13 @@
                   <strong class="text-white font-bold" id="campaign-recipients-count">0</strong>
                 </div>
                 <div class="flex justify-between items-center">
-                  <span>Límite Configurado:</span>
-                  <span class="text-xs font-bold text-[#27bea5]" id="camp-slider-badge">10,000</span>
-                </div>
-                
-                <div class="pt-2">
-                  <input 
-                    type="range" 
-                    id="camp-slider" 
-                    min="1000" 
-                    max="10000" 
-                    step="1000" 
-                    value="10000"
-                    class="w-full"
-                  >
+                  <span>Límite del Plan:</span>
+                  <span class="text-xs font-bold text-[#27bea5]">10,000 / mes</span>
                 </div>
               </div>
 
               <div id="camp-alert-limit" class="hidden p-3 bg-red-500/20 border border-red-500/30 rounded-2xl text-[10px] text-red-200 font-bold">
-                ⚠️ Destinatarios exceden el límite. Desliza la barra.
+                ⚠️ Destinatarios exceden el límite de 10,000 mensuales.
               </div>
 
               <!-- Action buttons matching Image 3 -->
@@ -1049,11 +1068,11 @@
         } else {
           document.getElementById('topbar-credits').textContent = Number(data.monthlyVolume).toLocaleString() + ' unidades';
           currentOnboardingVolume = data.monthlyVolume;
-          
-          const campSlider = document.getElementById('camp-slider');
-          campSlider.max = currentOnboardingVolume;
-          campSlider.value = currentOnboardingVolume;
-          updateCampSliderBadge(currentOnboardingVolume);
+          // Límite fijo, no se usa slider
+          // const campSlider = document.getElementById('camp-slider');
+          // campSlider.max = currentOnboardingVolume;
+          // campSlider.value = currentOnboardingVolume;
+          // updateCampSliderBadge(currentOnboardingVolume);
         }
       } catch (err) {
         console.error('Error cargando onboarding:', err);
@@ -1202,11 +1221,12 @@
 
       document.getElementById('campaign-segment-select').addEventListener('change', updateCampaignAudienceCount);
 
-      const campSlider = document.getElementById('camp-slider');
-      campSlider.addEventListener('input', (e) => {
-        updateCampSliderBadge(e.target.value);
-        checkCampaignLimitSafety();
-      });
+      // Límite fijo de 10000
+      // const campSlider = document.getElementById('camp-slider');
+      // campSlider.addEventListener('input', (e) => {
+      //   updateCampSliderBadge(e.target.value);
+      //   checkCampaignLimitSafety();
+      // });
 
       document.getElementById('camp-send-btn').addEventListener('click', executeCampaignSend);
 
@@ -1379,12 +1399,12 @@
     }
 
     function checkCampaignLimitSafety() {
-      const sliderVal = parseInt(document.getElementById('camp-slider').value, 10);
+      const limitVal = 10000;
       const estAudience = parseInt(document.getElementById('campaign-recipients-count').textContent, 10);
       const alertDiv = document.getElementById('camp-alert-limit');
       const sendBtn = document.getElementById('camp-send-btn');
 
-      if (estAudience > sliderVal) {
+      if (estAudience > limitVal) {
         alertDiv.classList.remove('hidden');
         sendBtn.disabled = true;
       } else {
@@ -1394,13 +1414,16 @@
     }
 
     async function executeCampaignSend() {
+      const campaignName = document.getElementById('campaign-name').value.trim();
+      const senderName = document.getElementById('campaign-sender-name').value.trim();
+      const senderEmail = document.getElementById('campaign-sender-email').value.trim();
       const subject = document.getElementById('campaign-subject').value.trim();
       const body = document.getElementById('campaign-body').value.trim();
       const segment = document.getElementById('campaign-segment-select').value;
-      const limit = parseInt(document.getElementById('camp-slider').value, 10);
+      const limit = 10000;
 
-      if (!subject || !body) {
-        alert('Ingresa el asunto y contenido de la campaña.');
+      if (!campaignName || !senderName || !senderEmail || !subject || !body) {
+        alert('Ingresa todos los campos requeridos de la campaña (Nombre, Remitente, Email, Asunto y Contenido).');
         return;
       }
 
