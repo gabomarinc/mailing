@@ -688,6 +688,44 @@ app.post('/api/ips', protectRoute, async (req, res) => {
     res.json({ success: true, ip: inserted[0] });
   } catch (err) {
     res.status(500).json({ success: false, error: 'DB Error' });
+});
+
+// Proxy para subida de imágenes anónima a Catbox.moe (Soluciona problemas de CORS en navegador)
+app.post('/api/upload-proxy', protectRoute, async (req, res) => {
+  try {
+    const { fileData, filename } = req.body;
+    if (!fileData) {
+      return res.status(400).json({ success: false, message: 'No se envió información del archivo.' });
+    }
+
+    const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return res.status(400).json({ success: false, message: 'Formato base64 no válido.' });
+    }
+
+    const buffer = Buffer.from(matches[2], 'base64');
+    const mimeType = matches[1];
+
+    const formData = new FormData();
+    formData.append('reqtype', 'fileupload');
+    
+    const blob = new Blob([buffer], { type: mimeType });
+    formData.append('fileToUpload', blob, filename || 'upload.jpg');
+
+    const catboxRes = await fetch('https://catbox.moe/user/api.php', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!catboxRes.ok) {
+      throw new Error('La respuesta del servidor de alojamiento falló.');
+    }
+
+    const imageUrl = await catboxRes.text();
+    res.json({ success: true, url: imageUrl.trim() });
+  } catch (err) {
+    console.error('Error en upload-proxy:', err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
