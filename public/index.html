@@ -978,59 +978,45 @@
                       </div>
                     </div>
 
-                    <!-- Template Selector -->
-                    <div class="space-y-2">
-                      <label class="text-xs font-bold text-[#1c2938]">Estilo de Plantilla</label>
-                      <div class="grid grid-cols-2 gap-2" id="campaign-template-select-group">
-                        <button onclick="selectCampTemplate('minimal')" class="p-3 border-2 border-[#27bea5] bg-emerald-50/20 text-[#1c2938] rounded-xl text-xs font-bold text-left transition-all" id="tpl-btn-minimal">
-                          Minimalista
+                    <!-- LEGO Palette (Añadir Bloques) -->
+                    <div class="space-y-2 text-left">
+                      <label class="text-xs font-bold text-[#1c2938] uppercase tracking-wider block">Bloques de Construcción</label>
+                      <div class="grid grid-cols-5 gap-2">
+                        <button type="button" onclick="addBuilderBlock('header')" class="flex flex-col items-center justify-center p-3 border-2 border-slate-100 hover:border-[#27bea5] hover:bg-slate-50 rounded-xl text-center transition-all gap-1 group">
+                          <i data-lucide="heading" class="w-5 h-5 text-slate-400 group-hover:text-[#27bea5]"></i>
+                          <span class="text-[9px] font-bold text-slate-500 group-hover:text-[#1c2938]">Cabecera</span>
                         </button>
-                        <button onclick="selectCampTemplate('elegant')" class="p-3 border-2 border-slate-100 hover:border-slate-200 text-[#1c2938] rounded-xl text-xs font-bold text-left transition-all" id="tpl-btn-elegant">
-                          Elegante
+                        <button type="button" onclick="addBuilderBlock('text')" class="flex flex-col items-center justify-center p-3 border-2 border-slate-100 hover:border-[#27bea5] hover:bg-slate-50 rounded-xl text-center transition-all gap-1 group">
+                          <i data-lucide="align-left" class="w-5 h-5 text-slate-400 group-hover:text-[#27bea5]"></i>
+                          <span class="text-[9px] font-bold text-slate-500 group-hover:text-[#1c2938]">Texto</span>
                         </button>
-                        <button onclick="selectCampTemplate('newsletter')" class="p-3 border-2 border-slate-100 hover:border-slate-200 text-[#1c2938] rounded-xl text-xs font-bold text-left transition-all" id="tpl-btn-newsletter">
-                          Boletín
+                        <button type="button" onclick="addBuilderBlock('image')" class="flex flex-col items-center justify-center p-3 border-2 border-slate-100 hover:border-[#27bea5] hover:bg-slate-50 rounded-xl text-center transition-all gap-1 group">
+                          <i data-lucide="image" class="w-5 h-5 text-slate-400 group-hover:text-[#27bea5]"></i>
+                          <span class="text-[9px] font-bold text-slate-500 group-hover:text-[#1c2938]">Imagen</span>
+                        </button>
+                        <button type="button" onclick="addBuilderBlock('button')" class="flex flex-col items-center justify-center p-3 border-2 border-slate-100 hover:border-[#27bea5] hover:bg-slate-50 rounded-xl text-center transition-all gap-1 group">
+                          <i data-lucide="mouse-pointer" class="w-5 h-5 text-slate-400 group-hover:text-[#27bea5]"></i>
+                          <span class="text-[9px] font-bold text-slate-500 group-hover:text-[#1c2938]">Botón</span>
+                        </button>
+                        <button type="button" onclick="addBuilderBlock('divider')" class="flex flex-col items-center justify-center p-3 border-2 border-slate-100 hover:border-[#27bea5] hover:bg-slate-50 rounded-xl text-center transition-all gap-1 group">
+                          <i data-lucide="minus" class="w-5 h-5 text-slate-400 group-hover:text-[#27bea5]"></i>
+                          <span class="text-[9px] font-bold text-slate-500 group-hover:text-[#1c2938]">Divisor</span>
                         </button>
                       </div>
                     </div>
 
-                    <!-- Customizer Fields -->
-                    <div class="space-y-3 pt-2 border-t border-slate-50">
-                      <div class="space-y-1">
-                        <label class="text-[11px] font-bold text-slate-500">URL del Logo (Opcional)</label>
-                        <input type="text" id="tpl-logo-url" oninput="updateLivePreview()" placeholder="https://miweb.com/logo.png" class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold text-[#1c2938] outline-none focus:border-[#27bea5]">
+                    <!-- Canvas Editor (Lienzo de bloques) -->
+                    <div class="space-y-3 pt-4 border-t border-slate-50 text-left">
+                      <label class="text-xs font-bold text-[#1c2938] uppercase tracking-wider block">Lienzo del Correo</label>
+                      <div id="email-builder-canvas" class="space-y-3 max-h-[380px] overflow-y-auto custom-scroll p-1 bg-slate-50/50 rounded-2xl border border-slate-100 min-h-[120px]">
+                        <!-- Dynamic list of blocks -->
                       </div>
-                      
-                      <div class="space-y-1">
-                        <label class="text-[11px] font-bold text-slate-500">Saludo inicial</label>
-                        <input type="text" id="tpl-greeting" oninput="updateLivePreview()" value="¡Hola {name}!" class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold text-[#1c2938] outline-none focus:border-[#27bea5]">
-                      </div>
+                    </div>
 
-                      <div class="space-y-1">
-                        <label class="text-[11px] font-bold text-slate-500">Título Principal</label>
-                        <input type="text" id="tpl-title" oninput="updateLivePreview()" value="Novedades de Kônsul" class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold text-[#1c2938] outline-none focus:border-[#27bea5]">
-                      </div>
-
-                      <div class="space-y-1">
-                        <label class="text-[11px] font-bold text-slate-500">Mensaje / Párrafo</label>
-                        <textarea id="tpl-message" oninput="updateLivePreview()" class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs text-[#1c2938] outline-none focus:border-[#27bea5] h-32 resize-none leading-relaxed">Nos alegra saludarte y compartir contigo lo nuevo...</textarea>
-                      </div>
-
-                      <div class="grid grid-cols-2 gap-2">
-                        <div class="space-y-1">
-                          <label class="text-[11px] font-bold text-slate-500">Texto del Botón</label>
-                          <input type="text" id="tpl-btn-text" oninput="updateLivePreview()" value="Visitar Kônsul" class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold text-[#1c2938] outline-none focus:border-[#27bea5]">
-                        </div>
-                        <div class="space-y-1">
-                          <label class="text-[11px] font-bold text-slate-500">Enlace del Botón</label>
-                          <input type="text" id="tpl-btn-url" oninput="updateLivePreview()" value="https://konsul.digital" class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold text-[#1c2938] outline-none focus:border-[#27bea5]">
-                        </div>
-                      </div>
-
-                      <div class="space-y-1">
-                        <label class="text-[11px] font-bold text-slate-500">Texto del Pie (Footer)</label>
-                        <input type="text" id="tpl-footer" oninput="updateLivePreview()" value="© 2026 Kônsul Digital. Si no deseas recibir más correos, haz clic en desuscribir." class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold text-[#1c2938] outline-none focus:border-[#27bea5]">
-                      </div>
+                    <!-- Global Footer Settings -->
+                    <div class="space-y-2 pt-4 border-t border-slate-50 text-left">
+                      <label class="text-xs font-bold text-[#1c2938] uppercase tracking-wider block">Pie de Página (Footer Global)</label>
+                      <textarea id="builder-footer-text" oninput="updateFooterText(this.value)" class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs text-[#1c2938] outline-none focus:border-[#27bea5] h-16 resize-none leading-relaxed" placeholder="Configura el pie de página de tus correos..."></textarea>
                     </div>
 
                     <!-- Hidden target for execution body -->
@@ -2604,9 +2590,15 @@
       if (kpiOpens) kpiOpens.textContent = totalOpens.toLocaleString();
     }
 
-    // Variables de paso de campaña y plantilla activa
+    // Variables de paso de campaña y constructor de bloques (Email Builder)
     let currentCampaignStep = 1;
-    let activeCampTemplate = 'minimal';
+    let campaignBlocks = [
+      { id: '1', type: 'header', logoUrl: 'https://konsul.digital/images/Konsul-logo-general.png', title: 'Novedades de Kônsul' },
+      { id: '2', type: 'text', content: '¡Hola {name}!\n\nNos alegra saludarte y compartir contigo lo nuevo en nuestra plataforma. Hemos estado trabajando duro para traerte la mejor experiencia de correo electrónico. Puedes usar enlaces en formato [Consigue tu cuenta](https://konsul.digital) para guiar a tus usuarios.' },
+      { id: '3', type: 'button', text: 'Visitar Kônsul', url: 'https://konsul.digital', bgColor: '#27bea5', textColor: '#ffffff' }
+    ];
+    let activeBlockId = null;
+    let globalFooterText = '© 2026 Kônsul Digital. Si no deseas recibir más correos, haz clic en desuscribir.';
 
     function populateCampaignFilters() {
       const select = document.getElementById('campaign-filter-custom-key');
@@ -2741,95 +2733,18 @@
       document.getElementById(`camp-step-panel-${step}`).classList.remove('hidden');
 
       if (step === 3) {
+        const footerInput = document.getElementById('builder-footer-text');
+        if (footerInput) {
+          footerInput.value = globalFooterText;
+        }
+        renderBuilderCanvas();
         updateLivePreview();
       }
       lucide.createIcons();
     }
 
-    function selectCampTemplate(tpl) {
-      activeCampTemplate = tpl;
-      
-      const btnMin = document.getElementById('tpl-btn-minimal');
-      const btnElg = document.getElementById('tpl-btn-elegant');
-      const btnNws = document.getElementById('tpl-btn-newsletter');
-      
-      [btnMin, btnElg, btnNws].forEach(b => {
-         if (b) b.className = "p-3 border-2 border-slate-100 hover:border-slate-200 text-[#1c2938] rounded-xl text-xs font-bold text-left transition-all";
-      });
-
-      const selectedBtn = document.getElementById(`tpl-btn-${tpl}`);
-      if (selectedBtn) {
-         selectedBtn.className = "p-3 border-2 border-[#27bea5] bg-emerald-50/20 text-[#1c2938] rounded-xl text-xs font-bold text-left transition-all";
-      }
-
-      updateLivePreview();
-    }
-
     function updateLivePreview() {
-      const logoUrl = document.getElementById('tpl-logo-url').value.trim();
-      const greeting = document.getElementById('tpl-greeting').value;
-      const title = document.getElementById('tpl-title').value;
-      const message = document.getElementById('tpl-message').value;
-      const btnText = document.getElementById('tpl-btn-text').value;
-      const btnUrl = document.getElementById('tpl-btn-url').value;
-      const footer = document.getElementById('tpl-footer').value;
-
-      const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="Logo" style="max-height: 48px; max-width: 150px; object-fit: contain;">` : '';
-      const buttonHtml = (btnText && btnUrl) ? `
-        <div style="text-align: center; margin: 24px 0;">
-          <a href="${btnUrl}" target="_blank" style="background-color: #27bea5; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">${btnText}</a>
-        </div>
-      ` : '';
-
-      let bodyHtml = '';
-
-      if (activeCampTemplate === 'minimal') {
-        bodyHtml = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff; color: #1e293b;">
-            <div style="text-align: center; margin-bottom: 24px;">
-              ${logoHtml}
-            </div>
-            <p style="font-size: 14px; margin-bottom: 12px;">${greeting}</p>
-            <h2 style="font-size: 20px; font-weight: 800; color: #1b2939; margin-top: 0; margin-bottom: 16px;">${title}</h2>
-            <p style="font-size: 13px; line-height: 1.6; color: #334155; margin-bottom: 24px; white-space: pre-line;">${message}</p>
-            ${buttonHtml}
-            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 32px 0 16px 0;" />
-            <p style="font-size: 10px; text-align: center; color: #64748b; margin: 0;">${footer}</p>
-          </div>
-        `;
-      } else if (activeCampTemplate === 'elegant') {
-        bodyHtml = `
-          <div style="font-family: 'Georgia', serif; max-width: 600px; margin: 0 auto; padding: 40px 30px; border-top: 4px solid #1c2938; background-color: #fcfbf9; color: #2c2520;">
-            <div style="text-align: center; margin-bottom: 30px;">
-              ${logoHtml}
-            </div>
-            <p style="font-size: 15px; font-style: italic; color: #6b5c53; margin-bottom: 16px;">${greeting}</p>
-            <h2 style="font-size: 22px; font-weight: normal; color: #1c2938; margin-top: 0; margin-bottom: 20px; text-align: center;">${title}</h2>
-            <p style="font-size: 14px; line-height: 1.8; color: #3e352f; margin-bottom: 30px; text-align: justify; white-space: pre-line;">${message}</p>
-            ${buttonHtml}
-            <div style="text-align: center; margin-top: 40px; border-top: 1px solid #e2ddda; padding-top: 20px;">
-              <p style="font-size: 11px; color: #8e7f76; margin: 0;">${footer}</p>
-            </div>
-          </div>
-        `;
-      } else if (activeCampTemplate === 'newsletter') {
-        bodyHtml = `
-          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; overflow: hidden; border-radius: 12px;">
-            <div style="background-color: #1c2938; padding: 30px 20px; text-align: center;">
-              ${logoHtml}
-              <h1 style="color: #ffffff; margin: 10px 0 0 0; font-size: 24px; font-weight: 800;">${title}</h1>
-            </div>
-            <div style="padding: 30px 24px; color: #334155;">
-              <p style="font-size: 15px; font-weight: bold; margin-bottom: 12px;">${greeting}</p>
-              <p style="font-size: 13px; line-height: 1.6; margin-bottom: 24px; white-space: pre-line;">${message}</p>
-              ${buttonHtml}
-            </div>
-            <div style="background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #f1f5f9;">
-              <p style="font-size: 10px; color: #94a3b8; margin: 0;">${footer}</p>
-            </div>
-          </div>
-        `;
-      }
+      const bodyHtml = compileBuilderHtml();
 
       // Guardar el cuerpo generado en el textarea oculto
       document.getElementById('campaign-body').value = bodyHtml;
@@ -2843,6 +2758,372 @@
         doc.close();
       }
     }
+
+    function compileBuilderHtml() {
+      let blocksHtml = '';
+
+      campaignBlocks.forEach(block => {
+        if (block.type === 'header') {
+          const logoHtml = block.logoUrl ? `<img src="${block.logoUrl}" alt="Logo" style="max-height: 48px; max-width: 150px; object-fit: contain; display: block; margin: 0 auto;">` : '';
+          blocksHtml += `
+            <div style="text-align: center; margin-bottom: 24px; padding: 10px 0;">
+              ${logoHtml}
+              <h2 style="font-size: 22px; font-weight: 800; color: #1b2939; margin-top: 12px; margin-bottom: 0; font-family: Arial, sans-serif;">${block.title || ''}</h2>
+            </div>
+          `;
+        } else if (block.type === 'text') {
+          const formatted = formatTextContent(block.content || '');
+          blocksHtml += `
+            <div style="font-size: 14px; line-height: 1.6; color: #334155; margin-bottom: 16px; font-family: Arial, sans-serif; text-align: left;">${formatted}</div>
+          `;
+        } else if (block.type === 'image') {
+          if (block.url) {
+            const imgHtml = `<img src="${block.url}" alt="${block.alt || 'Imagen'}" style="max-width: 100%; border-radius: 8px; max-height: 300px; object-fit: contain; display: block; margin: 0 auto;">`;
+            blocksHtml += `
+              <div style="text-align: center; margin: 16px 0;">
+                ${block.linkUrl ? `<a href="${block.linkUrl}" target="_blank">${imgHtml}</a>` : imgHtml}
+              </div>
+            `;
+          }
+        } else if (block.type === 'button') {
+          blocksHtml += `
+            <div style="text-align: center; margin: 20px 0;">
+              <a href="${block.url || '#'}" target="_blank" style="background-color: ${block.bgColor || '#27bea5'}; color: ${block.textColor || '#ffffff'}; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block; font-family: Arial, sans-serif;">${block.text || 'Botón'}</a>
+            </div>
+          `;
+        } else if (block.type === 'divider') {
+          blocksHtml += `
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+          `;
+        }
+      });
+
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; color: #1e293b;">
+          ${blocksHtml}
+          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 32px 0 16px 0;" />
+          <p style="font-size: 10px; text-align: center; color: #64748b; margin: 0; font-family: Arial, sans-serif;">${globalFooterText}</p>
+        </div>
+      `;
+
+      return emailHtml;
+    }
+
+    function formatTextContent(val) {
+      if (!val) return '';
+      let formatted = val.replace(/\n/g, '<br>');
+      formatted = formatted.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #27bea5; text-decoration: underline;" target="_blank">$1</a>');
+      return formatted;
+    }
+
+    function renderBuilderCanvas() {
+      const canvas = document.getElementById('email-builder-canvas');
+      if (!canvas) return;
+      canvas.innerHTML = '';
+
+      if (campaignBlocks.length === 0) {
+        canvas.innerHTML = `
+          <div class="flex flex-col items-center justify-center p-6 text-center text-slate-400 gap-1.5 h-32">
+            <i data-lucide="layout-template" class="w-8 h-8 opacity-40"></i>
+            <p class="text-xs font-semibold">El lienzo está vacío.</p>
+            <p class="text-[10px]">Añade bloques de construcción desde la paleta superior.</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      campaignBlocks.forEach((block, idx) => {
+        const card = document.createElement('div');
+        const isActive = activeBlockId === block.id;
+        
+        card.className = `p-4 border-2 rounded-2xl transition-all relative flex flex-col gap-3 group cursor-pointer ${
+          isActive 
+            ? 'border-[#27bea5] bg-emerald-50/10' 
+            : 'border-slate-100 bg-white hover:border-slate-200 shadow-sm'
+        }`;
+        
+        card.setAttribute('draggable', 'true');
+        card.setAttribute('data-id', block.id);
+        
+        card.addEventListener('dragstart', handleDragStart);
+        card.addEventListener('dragover', handleDragOver);
+        card.addEventListener('drop', handleDrop);
+
+        let typeIcon = 'align-left';
+        let typeTitle = 'Texto';
+        let summaryText = block.content || '';
+        
+        if (block.type === 'header') {
+          typeIcon = 'heading';
+          typeTitle = 'Cabecera';
+          summaryText = block.title || 'Cabecera del correo';
+        } else if (block.type === 'image') {
+          typeIcon = 'image';
+          typeTitle = 'Imagen';
+          summaryText = block.url ? block.url.substring(block.url.lastIndexOf('/') + 1) : 'Sin imagen';
+        } else if (block.type === 'button') {
+          typeIcon = 'mouse-pointer';
+          typeTitle = 'Botón';
+          summaryText = block.text || 'Sin texto';
+        } else if (block.type === 'divider') {
+          typeIcon = 'minus';
+          typeTitle = 'Divisor';
+          summaryText = 'Línea de separación';
+        }
+
+        if (summaryText.length > 50) {
+          summaryText = summaryText.substring(0, 47) + '...';
+        }
+
+        const controlsHtml = `
+          <div class="flex items-center gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
+            <button type="button" onclick="moveBuilderBlock(${idx}, -1); event.stopPropagation();" class="p-1 rounded hover:bg-slate-100 text-slate-500" title="Subir">
+              <i data-lucide="chevron-up" class="w-3.5 h-3.5"></i>
+            </button>
+            <button type="button" onclick="moveBuilderBlock(${idx}, 1); event.stopPropagation();" class="p-1 rounded hover:bg-slate-100 text-slate-500" title="Bajar">
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+            </button>
+            <button type="button" onclick="deleteBuilderBlock('${block.id}'); event.stopPropagation();" class="p-1 rounded hover:bg-red-50 text-red-500" title="Eliminar">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        `;
+
+        const cardHeader = `
+          <div class="flex items-center justify-between" onclick="selectBuilderBlock('${block.id}')">
+            <div class="flex items-center gap-2 font-sans">
+              <div class="p-1.5 rounded-lg bg-slate-100 text-slate-500">
+                <i data-lucide="${typeIcon}" class="w-4 h-4"></i>
+              </div>
+              <div class="flex flex-col text-left">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${typeTitle}</span>
+                <span class="text-xs font-bold text-slate-700">${summaryText}</span>
+              </div>
+            </div>
+            ${controlsHtml}
+          </div>
+        `;
+
+        let editorFormHtml = '';
+        if (isActive) {
+          editorFormHtml = `
+            <div class="border-t border-slate-100 pt-3 mt-1 space-y-3 cursor-default" onclick="event.stopPropagation();">
+          `;
+
+          if (block.type === 'header') {
+            editorFormHtml += `
+              <div class="space-y-1 text-left">
+                <label class="text-[10px] font-bold text-slate-400 uppercase">URL del Logo</label>
+                <input type="text" value="${block.logoUrl || ''}" oninput="updateBlockProperty('${block.id}', 'logoUrl', this.value)" placeholder="https://miweb.com/logo.png" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-medium text-[#1c2938] outline-none focus:border-[#27bea5]">
+              </div>
+              <div class="space-y-1 text-left">
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Título del Encabezado</label>
+                <input type="text" value="${block.title || ''}" oninput="updateBlockProperty('${block.id}', 'title', this.value)" placeholder="Ingresa el título principal..." class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-medium text-[#1c2938] outline-none focus:border-[#27bea5]">
+              </div>
+            `;
+          } else if (block.type === 'text') {
+            editorFormHtml += `
+              <div class="space-y-1 text-left">
+                <div class="flex justify-between items-center">
+                  <label class="text-[10px] font-bold text-slate-400 uppercase">Contenido de Texto</label>
+                  <span class="text-[9px] text-[#27bea5] font-bold">Usa [texto](url) y {name}</span>
+                </div>
+                <textarea oninput="updateBlockProperty('${block.id}', 'content', this.value)" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs text-[#1c2938] outline-none focus:border-[#27bea5] h-28 resize-none leading-relaxed" placeholder="Escribe el texto de tu correo aquí...">${block.content || ''}</textarea>
+              </div>
+            `;
+          } else if (block.type === 'image') {
+            editorFormHtml += `
+              <div class="space-y-1 text-left">
+                <label class="text-[10px] font-bold text-slate-400 uppercase">URL de la Imagen</label>
+                <input type="text" value="${block.url || ''}" oninput="updateBlockProperty('${block.id}', 'url', this.value)" placeholder="https://miweb.com/imagen.jpg" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-medium text-[#1c2938] outline-none focus:border-[#27bea5]">
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-left">
+                <div class="space-y-1">
+                  <label class="text-[10px] font-bold text-slate-400 uppercase">Hipervínculo (Clic imagen)</label>
+                  <input type="text" value="${block.linkUrl || ''}" oninput="updateBlockProperty('${block.id}', 'linkUrl', this.value)" placeholder="https://..." class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-medium text-[#1c2938] outline-none focus:border-[#27bea5]">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[10px] font-bold text-slate-400 uppercase">Texto Alt</label>
+                  <input type="text" value="${block.alt || ''}" oninput="updateBlockProperty('${block.id}', 'alt', this.value)" placeholder="Descriptivo..." class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-medium text-[#1c2938] outline-none focus:border-[#27bea5]">
+                </div>
+              </div>
+            `;
+          } else if (block.type === 'button') {
+            editorFormHtml += `
+              <div class="grid grid-cols-2 gap-2 text-left">
+                <div class="space-y-1">
+                  <label class="text-[10px] font-bold text-slate-400 uppercase">Texto del Botón</label>
+                  <input type="text" value="${block.text || ''}" oninput="updateBlockProperty('${block.id}', 'text', this.value)" placeholder="Ej: Registrarse" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-medium text-[#1c2938] outline-none focus:border-[#27bea5]">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[10px] font-bold text-slate-400 uppercase">Enlace (URL)</label>
+                  <input type="text" value="${block.url || ''}" oninput="updateBlockProperty('${block.id}', 'url', this.value)" placeholder="https://..." class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-medium text-[#1c2938] outline-none focus:border-[#27bea5]">
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-left">
+                <div class="space-y-1 flex flex-col justify-center">
+                  <label class="text-[10px] font-bold text-slate-400 uppercase">Fondo</label>
+                  <div class="flex items-center gap-2">
+                    <input type="color" value="${block.bgColor || '#27bea5'}" oninput="updateBlockProperty('${block.id}', 'bgColor', this.value)" class="w-8 h-8 rounded border border-slate-200 cursor-pointer">
+                    <input type="text" value="${block.bgColor || '#27bea5'}" oninput="updateBlockProperty('${block.id}', 'bgColor', this.value)" class="w-full px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-[10px] font-mono text-[#1c2938] outline-none">
+                  </div>
+                </div>
+                <div class="space-y-1 flex flex-col justify-center">
+                  <label class="text-[10px] font-bold text-slate-400 uppercase">Texto</label>
+                  <div class="flex items-center gap-2">
+                    <input type="color" value="${block.textColor || '#ffffff'}" oninput="updateBlockProperty('${block.id}', 'textColor', this.value)" class="w-8 h-8 rounded border border-slate-200 cursor-pointer">
+                    <input type="text" value="${block.textColor || '#ffffff'}" oninput="updateBlockProperty('${block.id}', 'textColor', this.value)" class="w-full px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-[10px] font-mono text-[#1c2938] outline-none">
+                  </div>
+                </div>
+              </div>
+            `;
+          } else if (block.type === 'divider') {
+            editorFormHtml += `
+              <p class="text-[10px] text-slate-400 font-semibold text-center italic">El bloque divisor no requiere configuración adicional.</p>
+            `;
+          }
+
+          editorFormHtml += `</div>`;
+        }
+
+        card.innerHTML = cardHeader + editorFormHtml;
+        canvas.appendChild(card);
+      });
+
+      lucide.createIcons();
+    }
+
+    let dragSourceEl = null;
+    function handleDragStart(e) {
+      dragSourceEl = this;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', this.getAttribute('data-id'));
+      this.classList.add('opacity-50');
+    }
+    function handleDragOver(e) {
+      if (e.preventDefault) e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      return false;
+    }
+    function handleDrop(e) {
+      e.stopPropagation();
+      e.preventDefault();
+      
+      const targetId = this.getAttribute('data-id');
+      const sourceId = e.dataTransfer.getData('text/plain');
+      
+      if (sourceId !== targetId) {
+        const sourceIdx = campaignBlocks.findIndex(b => b.id === sourceId);
+        const targetIdx = campaignBlocks.findIndex(b => b.id === targetId);
+        
+        if (sourceIdx !== -1 && targetIdx !== -1) {
+          const temp = campaignBlocks[sourceIdx];
+          campaignBlocks.splice(sourceIdx, 1);
+          campaignBlocks.splice(targetIdx, 0, temp);
+          
+          renderBuilderCanvas();
+          updateLivePreview();
+        }
+      }
+      this.classList.remove('opacity-50');
+      if (dragSourceEl) {
+        dragSourceEl.classList.remove('opacity-50');
+      }
+      return false;
+    }
+
+    function addBuilderBlock(type) {
+      const newId = Date.now().toString();
+      let newBlock = { id: newId, type: type };
+      
+      if (type === 'header') {
+        newBlock.logoUrl = 'https://konsul.digital/images/Konsul-logo-general.png';
+        newBlock.title = 'Título del Encabezado';
+      } else if (type === 'text') {
+        newBlock.content = 'Escribe aquí tu texto... [Enlace de ejemplo](https://konsul.digital)';
+      } else if (type === 'image') {
+        newBlock.url = 'https://konsul.digital/images/Konsul-logo-general.png';
+        newBlock.linkUrl = '';
+        newBlock.alt = 'Imagen';
+      } else if (type === 'button') {
+        newBlock.text = 'Haz clic aquí';
+        newBlock.url = 'https://konsul.digital';
+        newBlock.bgColor = '#27bea5';
+        newBlock.textColor = '#ffffff';
+      }
+      
+      campaignBlocks.push(newBlock);
+      activeBlockId = newId;
+      renderBuilderCanvas();
+      updateLivePreview();
+      
+      const canvas = document.getElementById('email-builder-canvas');
+      if(canvas) {
+        canvas.scrollTop = canvas.scrollHeight;
+      }
+    }
+
+    function selectBuilderBlock(id) {
+      activeBlockId = (activeBlockId === id) ? null : id;
+      renderBuilderCanvas();
+    }
+
+    function deleteBuilderBlock(id) {
+      campaignBlocks = campaignBlocks.filter(b => b.id !== id);
+      if (activeBlockId === id) activeBlockId = null;
+      renderBuilderCanvas();
+      updateLivePreview();
+    }
+
+    function moveBuilderBlock(idx, direction) {
+      const newIdx = idx + direction;
+      if (newIdx < 0 || newIdx >= campaignBlocks.length) return;
+      
+      const temp = campaignBlocks[idx];
+      campaignBlocks[idx] = campaignBlocks[newIdx];
+      campaignBlocks[newIdx] = temp;
+      
+      renderBuilderCanvas();
+      updateLivePreview();
+    }
+
+    function updateBlockProperty(id, property, value) {
+      const block = campaignBlocks.find(b => b.id === id);
+      if (block) {
+        block[property] = value;
+        updateLivePreview();
+        
+        const card = document.querySelector(`[data-id="${id}"]`);
+        if (card) {
+          const summarySpan = card.querySelector('.text-xs.font-bold.text-slate-700');
+          if (summarySpan) {
+            let summaryText = '';
+            if (block.type === 'header') summaryText = block.title;
+            else if (block.type === 'text') summaryText = block.content;
+            else if (block.type === 'image') summaryText = block.url ? block.url.substring(block.url.lastIndexOf('/') + 1) : 'Sin imagen';
+            else if (block.type === 'button') summaryText = block.text;
+            
+            if (summaryText.length > 50) {
+              summaryText = summaryText.substring(0, 47) + '...';
+            }
+            summarySpan.textContent = summaryText || 'Sin texto';
+          }
+        }
+      }
+    }
+
+    function updateFooterText(val) {
+      globalFooterText = val;
+      updateLivePreview();
+    }
+
+    window.addBuilderBlock = addBuilderBlock;
+    window.selectBuilderBlock = selectBuilderBlock;
+    window.deleteBuilderBlock = deleteBuilderBlock;
+    window.moveBuilderBlock = moveBuilderBlock;
+    window.updateBlockProperty = updateBlockProperty;
+    window.updateFooterText = updateFooterText;
 
     async function executeCampaignSend() {
       const campaignName = document.getElementById('campaign-name').value.trim();
