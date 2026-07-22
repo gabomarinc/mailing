@@ -631,6 +631,9 @@
               <button onclick="openImportBulkModal()" class="bg-white border-2 border-slate-100 text-[#1c2938] font-bold px-5 py-3 rounded-2xl hover:bg-slate-50 transition-all text-xs flex items-center gap-2 shadow-sm">
                 <i data-lucide="upload" class="w-4 h-4 text-[#27bea5]"></i> Importar CSV
               </button>
+              <button onclick="openCreateListModal()" class="bg-white border-2 border-slate-100 text-[#1c2938] font-bold px-5 py-3 rounded-2xl hover:bg-slate-50 transition-all text-xs flex items-center gap-2 shadow-sm">
+                <i data-lucide="folder-plus" class="w-4 h-4 text-[#27bea5]"></i> Crear Lista
+              </button>
             </div>
           </div>
 
@@ -1402,13 +1405,32 @@
           <label class="text-xs font-semibold">Correo Electrónico</label>
           <input type="email" id="ac-email" placeholder="email@ejemplo.com" required class="w-full px-3 py-2 rounded-xl border border-brand-border text-xs outline-none focus:border-brand-accent font-medium">
         </div>
-        <div class="flex flex-col gap-1">
-          <label class="text-xs font-semibold">Tag / Segmento</label>
-          <input type="text" id="ac-tag" placeholder="Ej: Clientes" class="w-full px-3 py-2 rounded-xl border border-brand-border text-xs outline-none focus:border-brand-accent font-medium">
+        <div class="flex flex-col gap-1 text-left">
+          <label class="text-xs font-semibold">Lista / Segmento (Obligatorio)</label>
+          <select id="ac-tag" required class="w-full px-3 py-2 rounded-xl border border-brand-border text-xs outline-none focus:border-brand-accent font-medium">
+            <option value="">Selecciona una lista...</option>
+          </select>
         </div>
         <div class="flex justify-end gap-2 mt-2">
           <button type="button" onclick="closeModal('modal-add-contact')" class="px-4 py-2 rounded-xl text-xs font-semibold text-brand-gray hover:bg-brand-light">Cancelar</button>
           <button type="submit" class="bg-brand-accent text-white font-semibold px-4 py-2 rounded-xl text-xs hover:bg-brand-accentHover shadow-sm">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- CREATE MANUAL LIST MODAL -->
+  <div id="modal-create-list" class="fixed inset-0 bg-[#1B2939]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white max-w-sm w-full rounded-2xl border border-brand-border p-6 shadow-xl">
+      <h3 class="text-base font-bold mb-4 text-[#1B2939] text-left">Crear Nueva Lista</h3>
+      <form id="create-list-form" onsubmit="executeCreateList(event)" class="flex flex-col gap-3.5">
+        <div class="flex flex-col gap-1 text-left">
+          <label class="text-xs font-semibold text-slate-700">Nombre de la Lista</label>
+          <input type="text" id="cl-name" placeholder="Ej: Clientes VIP" required class="w-full px-3 py-2 rounded-xl border border-brand-border text-xs outline-none focus:border-brand-accent font-medium text-[#1c2938]">
+        </div>
+        <div class="flex justify-end gap-2 mt-2">
+          <button type="button" onclick="closeModal('modal-create-list')" class="px-4 py-2 rounded-xl text-xs font-semibold text-brand-gray hover:bg-brand-light">Cancelar</button>
+          <button type="submit" class="bg-brand-accent text-white font-semibold px-4 py-2 rounded-xl text-xs hover:bg-brand-accentHover shadow-sm">Crear</button>
         </div>
       </form>
     </div>
@@ -1496,6 +1518,7 @@
     let contactsPerPage = 10;
     let currentPage = 1;
     let selectedContacts = [];
+    let lists = [];
     let availableCustomFields = new Set();
     let visibleColumns = ['checkbox', 'name', 'email', 'tags', 'status', 'actions'];
 
@@ -1657,10 +1680,25 @@
       }
     }
 
+    async function fetchLists() {
+      try {
+        const res = await fetch('/api/lists');
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          lists = data;
+        } else {
+          lists = [];
+        }
+      } catch (err) {
+        console.error('Error cargando listas:', err);
+      }
+    }
+
     // 2. Contactos API fetch
     async function fetchContacts() {
       try {
         selectedContacts = [];
+        await fetchLists();
         const res = await fetch('/api/contacts');
         contacts = await res.json();
         
@@ -1712,7 +1750,22 @@
       if (modal) modal.classList.add('hidden');
     }
     function openAddContactModal() {
+      const select = document.getElementById('ac-tag');
+      if (select) {
+        select.innerHTML = '<option value="">Selecciona una lista...</option>';
+        lists.forEach(list => {
+          const opt = document.createElement('option');
+          opt.value = list;
+          opt.textContent = list;
+          select.appendChild(opt);
+        });
+      }
       openModal('modal-add-contact');
+    }
+    function openCreateListModal() {
+      const nameInput = document.getElementById('cl-name');
+      if (nameInput) nameInput.value = '';
+      openModal('modal-create-list');
     }
     function openImportBulkModal() {
       openModal('modal-import-bulk');
@@ -1844,7 +1897,12 @@
         e.preventDefault();
         const name = document.getElementById('ac-name').value.trim();
         const email = document.getElementById('ac-email').value.trim();
-        const tag = document.getElementById('ac-tag').value.trim() || 'Clientes';
+        const tag = document.getElementById('ac-tag').value;
+
+        if (!tag) {
+          showToast('Por favor selecciona una lista de destino.', 'error');
+          return;
+        }
 
         try {
           const res = await fetch('/api/contacts', {
@@ -1864,6 +1922,32 @@
           showToast('Error de red al guardar el contacto.', 'error');
         }
       });
+
+      window.executeCreateList = async function(e) {
+        if (e) e.preventDefault();
+        const nameInput = document.getElementById('cl-name');
+        const name = nameInput.value.trim();
+        if (!name) return;
+
+        try {
+          const res = await fetch('/api/lists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+          });
+          const data = await res.json();
+          if (data.success) {
+            closeModal('modal-create-list');
+            nameInput.value = '';
+            showToast('Lista creada exitosamente.', 'success');
+            await fetchContacts(); // esto refrescará las listas y filtros
+          } else {
+            showToast(data.message || 'Error al crear la lista.', 'error');
+          }
+        } catch (err) {
+          showToast('Error de red al crear la lista.', 'error');
+        }
+      };
 
       let importFile = null;
       let importHeaders = [];
@@ -2363,14 +2447,9 @@
 
     function renderTagsFilter() {
       const container = document.getElementById('contacts-tags-filter');
-      const allTags = new Set();
-      contacts.forEach(c => {
-        if (c.tags) c.tags.forEach(t => allTags.add(t));
-      });
-
       container.innerHTML = `<button onclick="filterContactsByTag('all')" class="px-3 py-1 rounded-full text-xs font-bold ${selectedTag === 'all' ? 'bg-brand-dark text-white' : 'bg-brand-light text-brand-gray hover:bg-brand-border' }">Todos</button>`;
       
-      allTags.forEach(tag => {
+      lists.forEach(tag => {
         const isSelected = selectedTag === tag;
         const btn = document.createElement('button');
         btn.onclick = () => filterContactsByTag(tag);
@@ -2380,15 +2459,17 @@
       });
 
       const select = document.getElementById('campaign-segment-select');
-      const prevVal = select.value;
-      select.innerHTML = `<option value="all">Todos los contactos activos</option>`;
-      allTags.forEach(tag => {
-        const opt = document.createElement('option');
-        opt.value = tag;
-        opt.textContent = `Segmento: ${tag}`;
-        select.appendChild(opt);
-      });
-      select.value = prevVal;
+      const prevVal = select ? select.value : 'all';
+      if (select) {
+        select.innerHTML = `<option value="all">Todos los contactos activos</option>`;
+        lists.forEach(tag => {
+          const opt = document.createElement('option');
+          opt.value = tag;
+          opt.textContent = `Segmento: ${tag}`;
+          select.appendChild(opt);
+        });
+        select.value = prevVal;
+      }
     }
 
     window.onFilterChange = function() {

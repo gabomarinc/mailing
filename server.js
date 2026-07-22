@@ -90,6 +90,15 @@ async function initDB() {
           assigned_at TIMESTAMP WITH TIME ZONE
       );
     `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS lists (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          kinde_id VARCHAR(255) NOT NULL REFERENCES users(kinde_id) ON DELETE CASCADE,
+          name VARCHAR(255) NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(kinde_id, name)
+      );
+    `;
     
     // Add columns if they don't exist
     try {
@@ -187,6 +196,15 @@ app.get('/api/setup-db', async (req, res) => {
           dkim_status BOOLEAN DEFAULT true,
           dmarc_status BOOLEAN DEFAULT true,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS lists (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          kinde_id VARCHAR(255) NOT NULL REFERENCES users(kinde_id) ON DELETE CASCADE,
+          name VARCHAR(255) NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(kinde_id, name)
       );
     `;
     await sql`CREATE INDEX IF NOT EXISTS idx_contacts_kinde_id ON contacts(kinde_id);`;
@@ -385,11 +403,70 @@ app.get('/api/contacts', protectRoute, async (req, res) => {
       name: c.name,
       email: c.email,
       tags: c.tags,
+      custom_fields: c.custom_fields || {},
       status: c.status,
       dateAdded: c.added_at
     })));
   } catch (err) {
     res.status(500).json({ error: 'DB Error' });
+  }
+});
+
+// Endpoint para obtener todas las listas (creadas manualmente y desde contactos importados)
+app.get('/api/lists', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    // Obtener listas manuales
+    const manualListsResult = await sql`SELECT name FROM lists WHERE kinde_id = ${userId}`;
+    const manualLists = manualListsResult.map(row => row.name);
+    
+    // Obtener tags únicos de contactos
+    const contactsResult = await sql`
+      SELECT DISTINCT unnest(tags) as name 
+      FROM contacts 
+      WHERE kinde_id = ${userId} AND tags IS NOT NULL
+    `;
+    const contactLists = contactsResult.map(row => row.name);
+    
+    // Unir listas únicas
+    const uniqueLists = [...new Set([...manualLists, ...contactLists])];
+    res.json(uniqueLists);
+  } catch (err) {
+    console.error('Error al obtener listas:', err);
+    res.status(500).json({ error: 'Error al obtener listas' });
+  }
+});
+
+// Endpoint para crear una lista manualmente
+app.post('/api/lists', protectRoute, async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || name.trim() === '') {
+      return res.status(400).json({ success: false, message: 'El nombre de la lista es requerido.' });
+    }
+    const userId = req.user.id;
+    const cleanName = name.trim();
+
+    // Validar si ya existe en listas manuales o como tag de contacto
+    const manualExisting = await sql`SELECT * FROM lists WHERE kinde_id = ${userId} AND name = ${cleanName}`;
+    const contactExisting = await sql`
+      SELECT 1 FROM contacts 
+      WHERE kinde_id = ${userId} AND ${cleanName} = ANY(tags) 
+      LIMIT 1
+    `;
+
+    if (manualExisting.length > 0 || contactExisting.length > 0) {
+      return res.status(400).json({ success: false, message: 'La lista ya existe.' });
+    }
+
+    await sql`
+      INSERT INTO lists (kinde_id, name)
+      VALUES (${userId}, ${cleanName})
+    `;
+    res.json({ success: true, message: 'Lista creada exitosamente.' });
+  } catch (err) {
+    console.error('Error al crear lista:', err);
+    res.status(500).json({ error: 'Error al crear la lista' });
   }
 });
 
