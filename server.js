@@ -688,6 +688,7 @@ app.post('/api/ips', protectRoute, async (req, res) => {
     res.json({ success: true, ip: inserted[0] });
   } catch (err) {
     res.status(500).json({ success: false, error: 'DB Error' });
+  }
 });
 
 // Proxy para subida de imágenes anónima a Catbox.moe (Soluciona problemas de CORS en navegador)
