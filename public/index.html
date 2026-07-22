@@ -1014,9 +1014,52 @@
                     </div>
 
                     <!-- Global Footer Settings -->
-                    <div class="space-y-2 pt-4 border-t border-slate-50 text-left">
-                      <label class="text-xs font-bold text-[#1c2938] uppercase tracking-wider block">Pie de Página (Footer Global)</label>
-                      <textarea id="builder-footer-text" oninput="updateFooterText(this.value)" class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs text-[#1c2938] outline-none focus:border-[#27bea5] h-16 resize-none leading-relaxed" placeholder="Configura el pie de página de tus correos..."></textarea>
+                    <div class="space-y-4 pt-4 border-t border-slate-50 text-left">
+                      <div class="flex items-center justify-between">
+                        <label class="text-xs font-bold text-[#1c2938] uppercase tracking-wider block">Pie de Página (Footer Global)</label>
+                        <button type="button" onclick="toggleFooterConfig()" class="text-[10px] font-bold text-[#27bea5] hover:underline flex items-center gap-1">
+                          <i data-lucide="settings" class="w-3 h-3"></i> Configurar Detalles
+                        </button>
+                      </div>
+                      
+                      <!-- Footer Details Form -->
+                      <div id="footer-config-form" class="space-y-3 bg-slate-50/50 p-4 border border-slate-100 rounded-2xl hidden">
+                        <div class="flex items-center gap-2">
+                          <input type="checkbox" id="footer-show-logo" onchange="updateFooterSetting('showLogo', this.checked)" class="rounded text-[#27bea5] focus:ring-[#27bea5] w-3.5 h-3.5 border-slate-200">
+                          <label for="footer-show-logo" class="text-[10px] font-bold text-slate-500 uppercase">Mostrar Logotipo</label>
+                        </div>
+                        <div class="space-y-1" id="footer-logo-url-container">
+                          <label class="text-[9px] font-bold text-slate-400 uppercase">URL Logo Footer</label>
+                          <input type="text" id="footer-logo-url" oninput="updateFooterSetting('logoUrl', this.value)" placeholder="https://..." class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5]">
+                        </div>
+                        <div class="space-y-1">
+                          <label class="text-[9px] font-bold text-slate-400 uppercase">Dirección Física</label>
+                          <input type="text" id="footer-address" oninput="updateFooterSetting('address', this.value)" placeholder="Calle, Ciudad, País" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5]">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                          <div class="space-y-1">
+                            <label class="text-[9px] font-bold text-slate-400 uppercase">Email Contacto</label>
+                            <input type="text" id="footer-email" oninput="updateFooterSetting('email', this.value)" placeholder="contacto@..." class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5]">
+                          </div>
+                          <div class="space-y-1">
+                            <label class="text-[9px] font-bold text-slate-400 uppercase">Teléfono</label>
+                            <input type="text" id="footer-phone" oninput="updateFooterSetting('phone', this.value)" placeholder="+1..." class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5]">
+                          </div>
+                        </div>
+                        <div class="space-y-1">
+                          <label class="text-[9px] font-bold text-slate-400 uppercase">Redes Sociales (URLs)</label>
+                          <div class="grid grid-cols-2 gap-2">
+                            <input type="text" id="footer-fb" oninput="updateFooterSocial('facebook', this.value)" placeholder="Facebook..." class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] outline-none focus:border-[#27bea5]">
+                            <input type="text" id="footer-ig" oninput="updateFooterSocial('instagram', this.value)" placeholder="Instagram..." class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] outline-none focus:border-[#27bea5]">
+                            <input type="text" id="footer-tw" oninput="updateFooterSocial('twitter', this.value)" placeholder="Twitter/X..." class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] outline-none focus:border-[#27bea5]">
+                            <input type="text" id="footer-li" oninput="updateFooterSocial('linkedin', this.value)" placeholder="LinkedIn..." class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] outline-none focus:border-[#27bea5]">
+                          </div>
+                        </div>
+                        <div class="space-y-1">
+                          <label class="text-[9px] font-bold text-slate-400 uppercase">Texto Desuscripción</label>
+                          <input type="text" id="footer-unsub" oninput="updateFooterSetting('unsubscribeText', this.value)" placeholder="Ej: Darse de baja de esta lista" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5]">
+                        </div>
+                      </div>
                     </div>
 
                     <!-- Hidden target for execution body -->
@@ -1054,10 +1097,10 @@
                   </div>
 
                   <!-- Right: Live Visual Preview Card -->
-                  <div class="bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-sm flex flex-col h-full sticky top-6">
+                  <div class="bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-sm flex flex-col h-[calc(100vh-280px)] lg:max-h-[750px] sticky top-6">
                     <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Previsualización en Vivo</span>
                     
-                    <div class="border border-slate-100 rounded-2xl flex-1 overflow-hidden min-h-[400px] max-h-[550px] bg-slate-50">
+                    <div class="border border-slate-100 rounded-2xl flex-1 overflow-hidden bg-slate-50 h-full">
                       <iframe id="email-live-preview" class="w-full h-full border-none"></iframe>
                     </div>
                   </div>
@@ -2598,7 +2641,20 @@
       { id: '3', type: 'button', text: 'Visitar Kônsul', url: 'https://konsul.digital', bgColor: '#27bea5', textColor: '#ffffff' }
     ];
     let activeBlockId = null;
-    let globalFooterText = '© 2026 Kônsul Digital. Si no deseas recibir más correos, haz clic en desuscribir.';
+    let footerSettings = {
+      showLogo: true,
+      logoUrl: 'https://konsul.digital/images/Konsul-logo-general.png',
+      address: 'Calle Principal 123, Ciudad, País',
+      phone: '',
+      email: '',
+      socials: {
+        facebook: '',
+        instagram: '',
+        twitter: '',
+        linkedin: ''
+      },
+      unsubscribeText: 'Si no deseas recibir más correos, haz clic aquí para desuscribirte.'
+    };
 
     function populateCampaignFilters() {
       const select = document.getElementById('campaign-filter-custom-key');
@@ -2733,10 +2789,7 @@
       document.getElementById(`camp-step-panel-${step}`).classList.remove('hidden');
 
       if (step === 3) {
-        const footerInput = document.getElementById('builder-footer-text');
-        if (footerInput) {
-          footerInput.value = globalFooterText;
-        }
+        initializeFooterInputs();
         renderBuilderCanvas();
         updateLivePreview();
       }
@@ -2744,7 +2797,7 @@
     }
 
     function updateLivePreview() {
-      const bodyHtml = compileBuilderHtml();
+      const bodyHtml = compileBuilderHtml(true);
 
       // Guardar el cuerpo generado en el textarea oculto
       document.getElementById('campaign-body').value = bodyHtml;
@@ -2759,7 +2812,7 @@
       }
     }
 
-    function compileBuilderHtml() {
+    function compileBuilderHtml(isLivePreview = false) {
       let blocksHtml = '';
 
       campaignBlocks.forEach(block => {
@@ -2798,15 +2851,59 @@
         }
       });
 
+      let footerHtml = compileFooterHtml();
+      if (isLivePreview) {
+        footerHtml = footerHtml.replace(/\{\{unsubscribe_url\}\}/g, '#');
+      }
+
       const emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; color: #1e293b;">
           ${blocksHtml}
-          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 32px 0 16px 0;" />
-          <p style="font-size: 10px; text-align: center; color: #64748b; margin: 0; font-family: Arial, sans-serif;">${globalFooterText}</p>
+          ${footerHtml}
         </div>
       `;
 
       return emailHtml;
+    }
+
+    function compileFooterHtml() {
+      let footerLogoHtml = footerSettings.showLogo && footerSettings.logoUrl 
+        ? `<img src="${footerSettings.logoUrl}" alt="Logo Footer" style="max-height: 32px; max-width: 100px; object-fit: contain; margin-bottom: 12px; display: inline-block;">` 
+        : '';
+        
+      let contactParts = [];
+      if (footerSettings.email) contactParts.push(`<a href="mailto:${footerSettings.email}" style="color: #64748b; text-decoration: none;">${footerSettings.email}</a>`);
+      if (footerSettings.phone) contactParts.push(footerSettings.phone);
+      let contactHtml = contactParts.length > 0 ? `<p style="margin: 4px 0;">${contactParts.join(' | ')}</p>` : '';
+      
+      let addressHtml = footerSettings.address ? `<p style="margin: 4px 0;">${footerSettings.address}</p>` : '';
+      
+      let socialLinks = [];
+      if (footerSettings.socials.facebook) {
+        socialLinks.push(`<a href="${footerSettings.socials.facebook}" target="_blank" style="margin: 0 8px; color: #27bea5; text-decoration: none; font-weight: bold; font-size: 12px; display: inline-block;">Facebook</a>`);
+      }
+      if (footerSettings.socials.instagram) {
+        socialLinks.push(`<a href="${footerSettings.socials.instagram}" target="_blank" style="margin: 0 8px; color: #27bea5; text-decoration: none; font-weight: bold; font-size: 12px; display: inline-block;">Instagram</a>`);
+      }
+      if (footerSettings.socials.twitter) {
+        socialLinks.push(`<a href="${footerSettings.socials.twitter}" target="_blank" style="margin: 0 8px; color: #27bea5; text-decoration: none; font-weight: bold; font-size: 12px; display: inline-block;">Twitter/X</a>`);
+      }
+      if (footerSettings.socials.linkedin) {
+        socialLinks.push(`<a href="${footerSettings.socials.linkedin}" target="_blank" style="margin: 0 8px; color: #27bea5; text-decoration: none; font-weight: bold; font-size: 12px; display: inline-block;">LinkedIn</a>`);
+      }
+      let socialsHtml = socialLinks.length > 0 ? `<div style="margin: 16px 0 8px 0;">${socialLinks.join('')}</div>` : '';
+      
+      let unsubscribeHtml = `<p style="margin: 12px 0 0 0; font-size: 10px; color: #94a3b8;"><a href="{{unsubscribe_url}}" style="color: #27bea5; text-decoration: underline;">${footerSettings.unsubscribeText || 'Desuscribirse'}</a></p>`;
+      
+      return `
+        <div style="font-size: 11px; text-align: center; color: #64748b; margin-top: 32px; border-top: 1px solid #e2e8f0; padding-top: 24px; line-height: 1.6; font-family: Arial, sans-serif;">
+          ${footerLogoHtml}
+          ${addressHtml}
+          ${contactHtml}
+          ${socialsHtml}
+          ${unsubscribeHtml}
+        </div>
+      `;
     }
 
     function formatTextContent(val) {
@@ -2848,7 +2945,10 @@
         
         card.addEventListener('dragstart', handleDragStart);
         card.addEventListener('dragover', handleDragOver);
+        card.addEventListener('dragenter', handleDragEnter);
+        card.addEventListener('dragleave', handleDragLeave);
         card.addEventListener('drop', handleDrop);
+        card.addEventListener('dragend', handleDragEnd);
 
         let typeIcon = 'align-left';
         let typeTitle = 'Texto';
@@ -2893,6 +2993,9 @@
         const cardHeader = `
           <div class="flex items-center justify-between" onclick="selectBuilderBlock('${block.id}')">
             <div class="flex items-center gap-2 font-sans">
+              <div class="p-1 cursor-grab text-slate-400 hover:text-slate-600 flex items-center justify-center drag-handle mr-1" title="Arrastrar para reordenar">
+                <i data-lucide="grip-vertical" class="w-4 h-4"></i>
+              </div>
               <div class="p-1.5 rounded-lg bg-slate-100 text-slate-500">
                 <i data-lucide="${typeIcon}" class="w-4 h-4"></i>
               </div>
@@ -2913,9 +3016,17 @@
 
           if (block.type === 'header') {
             editorFormHtml += `
-              <div class="space-y-1 text-left">
-                <label class="text-[10px] font-bold text-slate-400 uppercase">URL del Logo</label>
-                <input type="text" value="${block.logoUrl || ''}" oninput="updateBlockProperty('${block.id}', 'logoUrl', this.value)" placeholder="https://miweb.com/logo.png" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-medium text-[#1c2938] outline-none focus:border-[#27bea5]">
+              <div class="space-y-2 text-left">
+                <label class="text-[10px] font-bold text-slate-400 uppercase block">URL del Logo</label>
+                <input type="text" id="header-logo-input-${block.id}" value="${block.logoUrl || ''}" oninput="updateBlockProperty('${block.id}', 'logoUrl', this.value)" placeholder="https://miweb.com/logo.png" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-medium text-[#1c2938] outline-none focus:border-[#27bea5]">
+                
+                <div class="flex items-center gap-2 mt-1">
+                  <input type="file" id="logo-upload-input-${block.id}" onchange="uploadLogoBlock('${block.id}', this)" class="hidden" accept="image/*">
+                  <button type="button" onclick="document.getElementById('logo-upload-input-${block.id}').click()" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 transition-all">
+                    <i data-lucide="upload" class="w-3 h-3"></i> Subir Logo (Nube)
+                  </button>
+                  <span id="logo-upload-status-${block.id}" class="text-[9px] font-bold text-slate-400"></span>
+                </div>
               </div>
               <div class="space-y-1 text-left">
                 <label class="text-[10px] font-bold text-slate-400 uppercase">Título del Encabezado</label>
@@ -2934,9 +3045,17 @@
             `;
           } else if (block.type === 'image') {
             editorFormHtml += `
-              <div class="space-y-1 text-left">
-                <label class="text-[10px] font-bold text-slate-400 uppercase">URL de la Imagen</label>
-                <input type="text" value="${block.url || ''}" oninput="updateBlockProperty('${block.id}', 'url', this.value)" placeholder="https://miweb.com/imagen.jpg" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-medium text-[#1c2938] outline-none focus:border-[#27bea5]">
+              <div class="space-y-2 text-left">
+                <label class="text-[10px] font-bold text-slate-400 uppercase block">URL de la Imagen</label>
+                <input type="text" id="img-url-input-${block.id}" value="${block.url || ''}" oninput="updateBlockProperty('${block.id}', 'url', this.value)" placeholder="https://miweb.com/imagen.jpg" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-medium text-[#1c2938] outline-none focus:border-[#27bea5]">
+                
+                <div class="flex items-center gap-2 mt-1">
+                  <input type="file" id="image-upload-input-${block.id}" onchange="uploadImageBlock('${block.id}', this)" class="hidden" accept="image/*">
+                  <button type="button" onclick="document.getElementById('image-upload-input-${block.id}').click()" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 transition-all">
+                    <i data-lucide="upload" class="w-3 h-3"></i> Subir Imagen (Nube)
+                  </button>
+                  <span id="upload-status-${block.id}" class="text-[9px] font-bold text-slate-400"></span>
+                </div>
               </div>
               <div class="grid grid-cols-2 gap-2 text-left">
                 <div class="space-y-1">
@@ -2999,17 +3118,24 @@
       dragSourceEl = this;
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', this.getAttribute('data-id'));
-      this.classList.add('opacity-50');
+      this.classList.add('opacity-40', 'border-dashed', 'border-[#27bea5]');
     }
     function handleDragOver(e) {
       if (e.preventDefault) e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
       return false;
     }
+    function handleDragEnter(e) {
+      this.classList.add('bg-slate-100');
+    }
+    function handleDragLeave(e) {
+      this.classList.remove('bg-slate-100');
+    }
     function handleDrop(e) {
       e.stopPropagation();
       e.preventDefault();
       
+      this.classList.remove('bg-slate-100');
       const targetId = this.getAttribute('data-id');
       const sourceId = e.dataTransfer.getData('text/plain');
       
@@ -3026,11 +3152,136 @@
           updateLivePreview();
         }
       }
-      this.classList.remove('opacity-50');
-      if (dragSourceEl) {
-        dragSourceEl.classList.remove('opacity-50');
-      }
       return false;
+    }
+    function handleDragEnd(e) {
+      this.classList.remove('opacity-40', 'border-dashed', 'border-[#27bea5]');
+      document.querySelectorAll('#email-builder-canvas > div').forEach(el => {
+        el.classList.remove('bg-slate-100');
+      });
+    }
+
+    async function uploadFileToCatbox(file) {
+      const formData = new FormData();
+      formData.append('reqtype', 'fileupload');
+      formData.append('fileToUpload', file);
+
+      const response = await fetch('https://catbox.moe/user/api.php', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) throw new Error('Error al subir');
+      const fileUrl = await response.text();
+      if (fileUrl && fileUrl.startsWith('http')) {
+        return fileUrl.trim();
+      } else {
+        throw new Error('Respuesta inválida');
+      }
+    }
+
+    async function uploadImageBlock(blockId, input) {
+      const file = input.files[0];
+      if (!file) return;
+
+      const statusSpan = document.getElementById(`upload-status-${blockId}`);
+      if (statusSpan) statusSpan.textContent = '⏳ Subiendo...';
+
+      try {
+        const imageUrl = await uploadFileToCatbox(file);
+        updateBlockProperty(blockId, 'url', imageUrl);
+        const urlInput = document.getElementById(`img-url-input-${blockId}`);
+        if (urlInput) urlInput.value = imageUrl;
+        
+        if (statusSpan) {
+          statusSpan.className = 'text-[9px] font-bold text-emerald-500';
+          statusSpan.textContent = '✓ Subida';
+        }
+      } catch (err) {
+        console.error(err);
+        if (statusSpan) {
+          statusSpan.className = 'text-[9px] font-bold text-rose-500';
+          statusSpan.textContent = '❌ Error';
+        }
+        showToast('No se pudo subir la imagen.', 'error');
+      }
+    }
+
+    async function uploadLogoBlock(blockId, input) {
+      const file = input.files[0];
+      if (!file) return;
+
+      const statusSpan = document.getElementById(`logo-upload-status-${blockId}`);
+      if (statusSpan) statusSpan.textContent = '⏳ Subiendo...';
+
+      try {
+        const logoUrl = await uploadFileToCatbox(file);
+        updateBlockProperty(blockId, 'logoUrl', logoUrl);
+        const logoInput = document.getElementById(`header-logo-input-${blockId}`);
+        if (logoInput) logoInput.value = logoUrl;
+        
+        if (statusSpan) {
+          statusSpan.className = 'text-[9px] font-bold text-emerald-500';
+          statusSpan.textContent = '✓ Subido';
+        }
+      } catch (err) {
+        console.error(err);
+        if (statusSpan) {
+          statusSpan.className = 'text-[9px] font-bold text-rose-500';
+          statusSpan.textContent = '❌ Error';
+        }
+        showToast('No se pudo subir el logo.', 'error');
+      }
+    }
+
+    function toggleFooterConfig() {
+      const form = document.getElementById('footer-config-form');
+      if (form) form.classList.toggle('hidden');
+    }
+
+    function updateFooterSetting(key, val) {
+      footerSettings[key] = val;
+      updateLivePreview();
+    }
+
+    // Checkbox mapping helper
+    window.updateFooterSetting = updateFooterSetting;
+
+    function updateFooterSocial(key, val) {
+      footerSettings.socials[key] = val;
+      updateLivePreview();
+    }
+
+    function initializeFooterInputs() {
+      const showLogoChk = document.getElementById('footer-show-logo');
+      if (showLogoChk) showLogoChk.checked = footerSettings.showLogo;
+      
+      const logoUrlInput = document.getElementById('footer-logo-url');
+      if (logoUrlInput) logoUrlInput.value = footerSettings.logoUrl || '';
+      
+      const addressInput = document.getElementById('footer-address');
+      if (addressInput) addressInput.value = footerSettings.address || '';
+      
+      const emailInput = document.getElementById('footer-email');
+      if (emailInput) emailInput.value = footerSettings.email || '';
+      
+      const phoneInput = document.getElementById('footer-phone');
+      if (phoneInput) phoneInput.value = footerSettings.phone || '';
+      
+      const fbInput = document.getElementById('footer-fb');
+      if (fbInput) fbInput.value = footerSettings.socials.facebook || '';
+      
+      const igInput = document.getElementById('footer-ig');
+      if (igInput) igInput.value = footerSettings.socials.instagram || '';
+      
+      const twInput = document.getElementById('footer-tw');
+      if (twInput) twInput.value = footerSettings.socials.twitter || '';
+      
+      const liInput = document.getElementById('footer-li');
+      if (liInput) liInput.value = footerSettings.socials.linkedin || '';
+      
+      const unsubInput = document.getElementById('footer-unsub');
+      if (unsubInput) unsubInput.value = footerSettings.unsubscribeText || '';
     }
 
     function addBuilderBlock(type) {
@@ -3113,17 +3364,17 @@
       }
     }
 
-    function updateFooterText(val) {
-      globalFooterText = val;
-      updateLivePreview();
-    }
-
     window.addBuilderBlock = addBuilderBlock;
     window.selectBuilderBlock = selectBuilderBlock;
     window.deleteBuilderBlock = deleteBuilderBlock;
     window.moveBuilderBlock = moveBuilderBlock;
     window.updateBlockProperty = updateBlockProperty;
-    window.updateFooterText = updateFooterText;
+    window.toggleFooterConfig = toggleFooterConfig;
+    window.updateFooterSetting = updateFooterSetting;
+    window.updateFooterSocial = updateFooterSocial;
+    window.initializeFooterInputs = initializeFooterInputs;
+    window.uploadImageBlock = uploadImageBlock;
+    window.uploadLogoBlock = uploadLogoBlock;
 
     async function executeCampaignSend() {
       const campaignName = document.getElementById('campaign-name').value.trim();

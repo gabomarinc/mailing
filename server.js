@@ -787,17 +787,30 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
       const unsubscribeUrl = `https://${req.get('host')}/unsubscribe/${campaignId}/${encodeURIComponent(recipient)}`;
       const openTrackingUrl = `https://${req.get('host')}/api/campaigns/${campaignId}/track-open?email=${encodeURIComponent(recipient)}`;
       
-      const richBody = `
-        <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1B2939; padding: 20px; max-width: 600px; margin: 0 auto; background-color: #FAF8F5; border-radius: 16px;">
-          ${body}
-          <hr style="border: 0; border-top: 1px solid #EAE6DF; margin: 30px 0;" />
-          <div style="font-size: 11px; color: #6E7A8A; text-align: center;">
-            <p>Has recibido este correo de parte de tu suscripción en la Suite Kônsul.</p>
-            <p><a href="${unsubscribeUrl}" style="color: #27bea7; text-decoration: underline;">Darme de baja de esta lista</a></p>
+      let customizedBody = body.replace(/\{\{unsubscribe_url\}\}/g, unsubscribeUrl);
+      
+      let richBody = '';
+      if (body.includes('max-width: 600px')) {
+        const pixelHtml = `<img src="${openTrackingUrl}" width="1" height="1" style="display:none;" />`;
+        if (customizedBody.includes('</div>')) {
+          const lastIndex = customizedBody.lastIndexOf('</div>');
+          richBody = customizedBody.substring(0, lastIndex) + pixelHtml + customizedBody.substring(lastIndex);
+        } else {
+          richBody = customizedBody + pixelHtml;
+        }
+      } else {
+        richBody = `
+          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1B2939; padding: 20px; max-width: 600px; margin: 0 auto; background-color: #FAF8F5; border-radius: 16px;">
+            ${customizedBody}
+            <hr style="border: 0; border-top: 1px solid #EAE6DF; margin: 30px 0;" />
+            <div style="font-size: 11px; color: #6E7A8A; text-align: center;">
+              <p>Has recibido este correo de parte de tu suscripción en la Suite Kônsul.</p>
+              <p><a href="${unsubscribeUrl}" style="color: #27bea7; text-decoration: underline;">Darme de baja de esta lista</a></p>
+            </div>
+            <img src="${openTrackingUrl}" width="1" height="1" style="display:none;" />
           </div>
-          <img src="${openTrackingUrl}" width="1" height="1" style="display:none;" />
-        </div>
-      `;
+        `;
+      }
 
       try {
         if (hasAwsCreds && sesClient) {
