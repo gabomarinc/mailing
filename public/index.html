@@ -2944,9 +2944,6 @@
       if (dateVal) filtersText.push(`Desde: ${dateVal}`);
       document.getElementById('top-summary-filters').textContent = filtersText.length > 0 ? filtersText.join(' | ') : 'Ninguno';
       
-      // Costo estimado
-      const cost = (finalTargets.length / 1000) * 0.10;
-      document.getElementById('camp-cost-est').textContent = `$${cost.toFixed(2)} USD`;
 
       checkCampaignLimitSafety();
     }
