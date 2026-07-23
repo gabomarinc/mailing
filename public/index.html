@@ -1784,11 +1784,25 @@
         }
         renderSenders();
         populateSenderSelects();
+        
+        // Actualizar estado visual de SES en el dashboard
+        const dashSender = document.getElementById('dash-sender');
+        if (dashSender) {
+          // Intentar mostrar el primer remitente configurado/activo o indicar que no hay ninguno
+          if (senders.length > 0) {
+            const activeSender = senders.find(s => s.is_verified) || senders[0];
+            dashSender.textContent = activeSender.email;
+          } else {
+            dashSender.textContent = 'Sin remitente activo';
+          }
+        }
       } catch (err) {
         console.error('Error cargando remitentes:', err);
         senders = [];
         renderSenders();
         populateSenderSelects();
+        const dashSender = document.getElementById('dash-sender');
+        if (dashSender) dashSender.textContent = 'Sin remitente activo';
       }
     }
 
@@ -2720,12 +2734,16 @@
       let totalSent = 0;
       let totalOpens = 0;
       campaigns.forEach(c => {
-        totalSent += c.successCount || 0;
+        totalSent += c.successCount || c.totalSent || 0;
         totalOpens += c.opens || 0;
       });
 
       const kpiSent = document.getElementById('kpi-sent');
       if (kpiSent) kpiSent.textContent = totalSent.toLocaleString();
+      
+      const heroSent = document.getElementById('hero-sent-count');
+      if (heroSent) heroSent.textContent = totalSent.toLocaleString();
+
       const kpiOpens = document.getElementById('kpi-opens');
       if (kpiOpens) kpiOpens.textContent = totalOpens.toLocaleString();
     }

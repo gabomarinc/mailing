@@ -840,6 +840,7 @@ app.get('/api/campaigns', protectRoute, async (req, res) => {
       body: c.body,
       targetTags: c.target_tags,
       totalSent: c.total_sent,
+      successCount: c.total_sent,
       status: c.status,
       sentDate: c.sent_at,
       opens: 0,
