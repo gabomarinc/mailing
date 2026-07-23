@@ -145,7 +145,7 @@ initDB();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ type: ['application/json', 'text/plain'] }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/favicon.ico', (req, res) => res.status(204).end());
@@ -1017,6 +1017,52 @@ app.get('/unsubscribe/:campaignId/:email', async (req, res) => {
     `);
   } catch (err) {
     res.status(500).send("Error procesando baja.");
+  }
+});
+
+// ======================== AWS SNS WEBHOOKS ========================
+// Webhook para gestionar rebotes (bounces) y quejas de spam (complaints) automáticamente
+app.post('/api/webhooks/sns', async (req, res) => {
+  try {
+    // AWS SNS manda el JSON como text/plain en algunos casos, por lo que usamos JSON.parse
+    const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    
+    // 1. Confirmar suscripción SNS
+    if (req.headers['x-amz-sns-message-type'] === 'SubscriptionConfirmation') {
+      const subscribeUrl = payload.SubscribeURL;
+      // Hacemos GET a la URL para confirmar el webhook
+      await fetch(subscribeUrl);
+      console.log('✅ Webhook de AWS SNS confirmado.');
+      return res.status(200).send('Confirmed');
+    }
+
+    // 2. Procesar Notificaciones de SES
+    if (req.headers['x-amz-sns-message-type'] === 'Notification') {
+      const message = JSON.parse(payload.Message);
+      
+      if (message.notificationType === 'Bounce') {
+        const bouncedRecipients = message.bounce.bouncedRecipients;
+        for (const rec of bouncedRecipients) {
+          const email = rec.emailAddress.toLowerCase();
+          console.log('❌ Rebote (Bounce) detectado para:', email);
+          // Actualizar estado a 'bounced' en toda la base de contactos
+          await sql`UPDATE contacts SET status = 'bounced' WHERE email = ${email}`;
+        }
+      } else if (message.notificationType === 'Complaint') {
+        const complainedRecipients = message.complaint.complainedRecipients;
+        for (const rec of complainedRecipients) {
+          const email = rec.emailAddress.toLowerCase();
+          console.log('🚫 Queja de Spam (Complaint) detectada para:', email);
+          // Actualizar estado a 'complained' en toda la base de contactos
+          await sql`UPDATE contacts SET status = 'complained' WHERE email = ${email}`;
+        }
+      }
+    }
+    
+    res.status(200).send('OK');
+  } catch (err) {
+    console.error('Error procesando Webhook de SNS:', err);
+    res.status(500).send('Error');
   }
 });
 
