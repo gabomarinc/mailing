@@ -3639,6 +3639,8 @@
           body: JSON.stringify({
             subject,
             body,
+            senderName,
+            senderEmail,
             recipients: targets,
             limit,
             targetTags: segment === 'all' ? [] : [segment]

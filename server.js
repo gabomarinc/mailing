@@ -852,10 +852,10 @@ app.get('/api/campaigns', protectRoute, async (req, res) => {
 
 app.post('/api/send-bulk', protectRoute, async (req, res) => {
   try {
-    const { subject, body, recipients, limit, targetTags } = req.body;
+    const { subject, body, senderName, senderEmail, recipients, limit, targetTags } = req.body;
     const userId = req.user.id;
 
-    if (!subject || !body || !recipients || !Array.isArray(recipients)) {
+    if (!subject || !body || !recipients || !Array.isArray(recipients) || !senderEmail) {
       return res.status(400).json({ success: false, message: 'Faltan datos.' });
     }
 
@@ -879,9 +879,9 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
     }
 
     // Configurar AWS SES
-    const hasAwsCreds = !!process.env.SES_SENDER_EMAIL;
+    const hasAwsCreds = !!process.env.AWS_ACCESS_KEY_ID || !!process.env.AWS_REGION || !!process.env.SES_SENDER_EMAIL;
     let sesClient = null;
-    let senderEmail = process.env.SES_SENDER_EMAIL;
+    let formattedSender = senderName ? `${senderName} <${senderEmail}>` : senderEmail;
 
     if (hasAwsCreds) {
       sesClient = new SESClient({ region: process.env.AWS_REGION || 'us-east-1' });
@@ -931,7 +931,7 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
       try {
         if (hasAwsCreds && sesClient) {
           const command = new SendEmailCommand({
-            Source: senderEmail,
+            Source: formattedSender,
             Destination: { ToAddresses: [recipient] },
             Message: {
               Subject: { Data: subject, Charset: 'UTF-8' },
