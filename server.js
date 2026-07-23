@@ -945,6 +945,7 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
         }
         successes.push(recipient);
       } catch (err) {
+        console.error('AWS SES Send Error para', recipient, ':', err);
         failures.push({ email: recipient, error: err.message });
       }
 

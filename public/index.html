@@ -3672,7 +3672,17 @@
           progressBar.style.width = '100%';
           progressPct.textContent = '100%';
           progressCnt.textContent = `${data.sentCount} / ${data.total}`;
-          microcopyText.textContent = data.simulation ? "✨ ¡Simulación completada de forma correcta!" : "✓ ¡Entrega finalizada con éxito!";
+          
+          if (data.failedCount > 0) {
+             const firstError = data.failures && data.failures[0] ? data.failures[0].error : 'Error desconocido de AWS SES';
+             microcopyText.textContent = `❌ Fallaron ${data.failedCount} correos. (AWS SES: ${firstError})`;
+             showToast(`Error AWS SES: ${firstError}`, 'error');
+          } else {
+             microcopyText.textContent = data.simulation ? "✨ ¡Simulación completada! (Faltan credenciales AWS)" : "✓ ¡Entrega finalizada con éxito!";
+             if (data.simulation) {
+                showToast("Modo Simulación: Para enviar realmente, configura AWS_ACCESS_KEY_ID y AWS_REGION en Vercel.", "warning");
+             }
+          }
 
           setTimeout(async () => {
             document.getElementById('campaign-subject').value = '';
@@ -3685,7 +3695,7 @@
             await fetchCampaigns();
             await fetchContacts();
             switchTab('dashboard');
-          }, 2500);
+          }, 6000); // Dar más tiempo para leer el error si lo hay
 
         } else {
           showToast('Error: ' + data.message, 'error');
