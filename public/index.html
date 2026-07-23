@@ -800,16 +800,18 @@
                   <span class="text-xs font-bold text-slate-400 hidden sm:inline">Diseño</span>
                 </div>
               </div>
+            </div>
+          </div>
 
-              <!-- Sub-Tabs Selector -->
-              <div class="flex bg-slate-100 p-1 rounded-2xl gap-1">
-                <button id="btn-camp-sub-compose" onclick="switchCampaignSubTab('compose')" class="bg-[#1c2938] text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-sm">
-                  Redactar
-                </button>
-                <button id="btn-camp-sub-history" onclick="switchCampaignSubTab('history')" class="text-slate-500 hover:text-slate-700 font-bold px-4 py-2 rounded-xl text-xs transition-all">
-                  Enviadas
-                </button>
-              </div>
+          <!-- Centered Sub-Tabs Selector (styled like contacts tags list) -->
+          <div class="flex justify-center bg-white p-3 rounded-[2.5rem] border border-slate-100 shadow-sm max-w-xs mx-auto w-full">
+            <div class="flex gap-2">
+              <button id="btn-camp-sub-compose" onclick="switchCampaignSubTab('compose')" class="px-4 py-2 rounded-full text-xs font-bold bg-[#1c2938] text-white transition-all">
+                Redactar
+              </button>
+              <button id="btn-camp-sub-history" onclick="switchCampaignSubTab('history')" class="px-4 py-2 rounded-full text-xs font-bold bg-brand-light text-brand-gray hover:bg-brand-border transition-all">
+                Enviadas
+              </button>
             </div>
           </div>
 
@@ -963,17 +965,7 @@
                     >
                   </div>
 
-                  <!-- PROGRAMAR ENVÍO -->
-                  <div class="border-t border-slate-100 pt-4 space-y-3">
-                    <div class="flex items-center gap-2">
-                      <input type="checkbox" id="campaign-schedule-check" onchange="toggleScheduleInput(this.checked)" class="rounded text-[#27bea5] focus:ring-[#27bea5] w-4 h-4 border-slate-200 cursor-pointer">
-                      <label for="campaign-schedule-check" class="text-xs font-bold text-[#1c2938] cursor-pointer">Programar envío para una fecha/hora futura</label>
-                    </div>
-                    <div id="campaign-schedule-input-container" class="hidden space-y-2">
-                      <label for="campaign-schedule-time" class="text-[11px] font-bold text-slate-500">Fecha y Hora de Envío (Tu hora local)</label>
-                      <input type="datetime-local" id="campaign-schedule-time" class="w-full p-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5]">
-                    </div>
-                  </div>
+
                 </div>
 
                 <div class="flex justify-between pt-4 border-t border-slate-100">
@@ -1110,6 +1102,18 @@
                     <!-- Action buttons and progress -->
                     <div class="flex flex-col gap-4 pt-6 border-t border-slate-100">
                       
+                      <!-- PROGRAMAR ENVÍO (Final de Paso 3) -->
+                      <div class="pb-4">
+                        <div class="flex items-center gap-2">
+                          <input type="checkbox" id="campaign-schedule-check" onchange="toggleScheduleInput(this.checked)" class="rounded text-[#27bea5] focus:ring-[#27bea5] w-4 h-4 border-slate-200 cursor-pointer">
+                          <label for="campaign-schedule-check" class="text-xs font-bold text-[#1c2938] cursor-pointer">Programar envío para una fecha/hora futura</label>
+                        </div>
+                        <div id="campaign-schedule-input-container" class="hidden space-y-2 mt-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                          <label for="campaign-schedule-time" class="text-[11px] font-bold text-slate-500">Fecha y Hora de Envío (Tu hora local)</label>
+                          <input type="datetime-local" id="campaign-schedule-time" class="w-full p-3 mt-1 bg-white border border-slate-200 rounded-xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5] transition-all">
+                        </div>
+                      </div>
+
                       <!-- Progress area -->
                       <div id="camp-progress-area" class="hidden space-y-2">
                         <div class="flex justify-between items-center text-xs">
@@ -3858,16 +3862,16 @@
         if (indicators) indicators.classList.remove('hidden');
         if (tabTitle) tabTitle.textContent = 'NUEVA CAMPAÑA';
         
-        btnCompose.className = 'bg-[#1c2938] text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-sm';
-        btnHistory.className = 'text-slate-500 hover:text-slate-700 font-bold px-4 py-2 rounded-xl text-xs transition-all';
+        btnCompose.className = 'px-4 py-2 rounded-full text-xs font-bold bg-[#1c2938] text-white transition-all';
+        btnHistory.className = 'px-4 py-2 rounded-full text-xs font-bold bg-brand-light text-brand-gray hover:bg-brand-border transition-all';
       } else {
         composeDiv.classList.add('hidden');
         historyDiv.classList.remove('hidden');
         if (indicators) indicators.classList.add('hidden');
         if (tabTitle) tabTitle.textContent = 'HISTORIAL DE CAMPAÑAS';
         
-        btnHistory.className = 'bg-[#1c2938] text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-sm';
-        btnCompose.className = 'text-slate-500 hover:text-slate-700 font-bold px-4 py-2 rounded-xl text-xs transition-all';
+        btnHistory.className = 'px-4 py-2 rounded-full text-xs font-bold bg-[#1c2938] text-white transition-all';
+        btnCompose.className = 'px-4 py-2 rounded-full text-xs font-bold bg-brand-light text-brand-gray hover:bg-brand-border transition-all';
         renderCampaigns();
       }
     };
