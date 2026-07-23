@@ -779,58 +779,69 @@
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
               <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Creador de Campaña</span>
-              <h1 class="text-3xl font-black text-[#1c2938]">NUEVA CAMPAÑA</h1>
+              <h1 class="text-3xl font-black text-[#1c2938]" id="campaign-tab-title-text">NUEVA CAMPAÑA</h1>
             </div>
             
-            <!-- Step Indicators -->
-            <div class="flex items-center gap-2 bg-slate-50 border border-slate-100 p-2.5 rounded-2xl">
-              <div class="flex items-center gap-1.5">
-                <span id="step-indicator-1" class="flex items-center justify-center w-7 h-7 rounded-full bg-[#1c2938] text-white font-bold text-xs">1</span>
-                <span class="text-xs font-bold text-[#1c2938] hidden sm:inline">Destinatarios</span>
+            <div class="flex flex-wrap items-center gap-4">
+              <!-- Step Indicators (Only shown in composer) -->
+              <div id="campaign-step-indicators" class="flex items-center gap-2 bg-slate-50 border border-slate-100 p-2.5 rounded-2xl">
+                <div class="flex items-center gap-1.5">
+                  <span id="step-indicator-1" class="flex items-center justify-center w-7 h-7 rounded-full bg-[#1c2938] text-white font-bold text-xs">1</span>
+                  <span class="text-xs font-bold text-[#1c2938] hidden sm:inline">Destinatarios</span>
+                </div>
+                <div id="step-line-1" class="w-8 h-0.5 bg-slate-200"></div>
+                <div class="flex items-center gap-1.5">
+                  <span id="step-indicator-2" class="flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-400 font-bold text-xs">2</span>
+                  <span class="text-xs font-bold text-slate-400 hidden sm:inline">Configuración</span>
+                </div>
+                <div id="step-line-2" class="w-8 h-0.5 bg-slate-200"></div>
+                <div class="flex items-center gap-1.5">
+                  <span id="step-indicator-3" class="flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-400 font-bold text-xs">3</span>
+                  <span class="text-xs font-bold text-slate-400 hidden sm:inline">Diseño</span>
+                </div>
               </div>
-              <div id="step-line-1" class="w-8 h-0.5 bg-slate-200"></div>
-              <div class="flex items-center gap-1.5">
-                <span id="step-indicator-2" class="flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-400 font-bold text-xs">2</span>
-                <span class="text-xs font-bold text-slate-400 hidden sm:inline">Configuración</span>
-              </div>
-              <div id="step-line-2" class="w-8 h-0.5 bg-slate-200"></div>
-              <div class="flex items-center gap-1.5">
-                <span id="step-indicator-3" class="flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-400 font-bold text-xs">3</span>
-                <span class="text-xs font-bold text-slate-400 hidden sm:inline">Diseño</span>
+
+              <!-- Sub-Tabs Selector -->
+              <div class="flex bg-slate-100 p-1 rounded-2xl gap-1">
+                <button id="btn-camp-sub-compose" onclick="switchCampaignSubTab('compose')" class="bg-[#1c2938] text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-sm">
+                  Redactar
+                </button>
+                <button id="btn-camp-sub-history" onclick="switchCampaignSubTab('history')" class="text-slate-500 hover:text-slate-700 font-bold px-4 py-2 rounded-xl text-xs transition-all">
+                  Enviadas
+                </button>
               </div>
             </div>
           </div>
 
-          <!-- New Top Summary Bar -->
-          <div id="campaign-top-summary" class="bg-[#1c2938] text-white p-5 rounded-[2rem] flex flex-col md:flex-row md:items-center justify-between shadow-xl gap-4">
-            <div class="flex flex-wrap gap-6 items-center">
-              <div>
-                <span class="text-[10px] text-slate-400 uppercase tracking-widest block">Lista Seleccionada</span>
-                <p class="font-black text-base mt-0.5" id="top-summary-list">Todos los contactos activos</p>
-              </div>
-              <div class="w-px h-8 bg-white/10 hidden md:block"></div>
-              <div>
-                <span class="text-[10px] text-slate-400 uppercase tracking-widest block">Filtros Activos</span>
-                <p class="font-bold text-sm text-[#27bea5] mt-0.5" id="top-summary-filters">Ninguno</p>
-              </div>
-              <div class="w-px h-8 bg-white/10 hidden md:block"></div>
-              <div>
-                <span class="text-[10px] text-slate-400 uppercase tracking-widest block">Destinatarios Estimados</span>
-                <p class="font-black text-lg mt-0.5 text-white" id="campaign-recipients-count">0</p>
-              </div>
-            </div>
-            <div class="flex flex-col items-end">
-              <span class="text-[10px] text-slate-400 uppercase tracking-widest block">Costo Estimado</span>
-              <p class="font-black text-lg text-white mt-0.5" id="camp-cost-est">$0.00 USD</p>
-            </div>
-          </div>
-          
-          <!-- Limit alert -->
-          <div id="camp-alert-limit" class="hidden p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-xs text-red-500 font-bold flex items-center gap-2">
-            <i data-lucide="alert-triangle" class="w-4 h-4"></i> Los destinatarios exceden el límite de 10,000 mensuales de tu plan actual.
-          </div>
+          <!-- Wrap Composer inside campaign-sub-compose -->
+          <div id="campaign-sub-compose" class="space-y-6 flex flex-col gap-6">
 
-          <div class="flex flex-col gap-6 items-start">
+            <!-- New Top Summary Bar -->
+            <div id="campaign-top-summary" class="bg-[#1c2938] text-white p-5 rounded-[2rem] flex flex-col md:flex-row md:items-center justify-between shadow-xl gap-4">
+              <div class="flex flex-wrap gap-6 items-center">
+                <div>
+                  <span class="text-[10px] text-slate-400 uppercase tracking-widest block">Lista Seleccionada</span>
+                  <p class="font-black text-base mt-0.5" id="top-summary-list">Todos los contactos activos</p>
+                </div>
+                <div class="w-px h-8 bg-white/10 hidden md:block"></div>
+                <div>
+                  <span class="text-[10px] text-slate-400 uppercase tracking-widest block">Filtros Activos</span>
+                  <p class="font-bold text-sm text-[#27bea5] mt-0.5" id="top-summary-filters">Ninguno</p>
+                </div>
+                <div class="w-px h-8 bg-white/10 hidden md:block"></div>
+                <div>
+                  <span class="text-[10px] text-slate-400 uppercase tracking-widest block">Destinatarios Estimados</span>
+                  <p class="font-black text-lg mt-0.5 text-white" id="campaign-recipients-count">0</p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Limit alert -->
+            <div id="camp-alert-limit" class="hidden p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-xs text-red-500 font-bold flex items-center gap-2">
+              <i data-lucide="alert-triangle" class="w-4 h-4"></i> Los destinatarios exceden el límite de 10,000 mensuales de tu plan actual.
+            </div>
+
+            <div class="flex flex-col gap-6 items-start">
             
             <!-- Editor Column -->
             <div class="w-full flex flex-col gap-6">
@@ -950,6 +961,18 @@
                       placeholder="Ej: Novedades importantes de este mes"
                       class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all"
                     >
+                  </div>
+
+                  <!-- PROGRAMAR ENVÍO -->
+                  <div class="border-t border-slate-100 pt-4 space-y-3">
+                    <div class="flex items-center gap-2">
+                      <input type="checkbox" id="campaign-schedule-check" onchange="toggleScheduleInput(this.checked)" class="rounded text-[#27bea5] focus:ring-[#27bea5] w-4 h-4 border-slate-200 cursor-pointer">
+                      <label for="campaign-schedule-check" class="text-xs font-bold text-[#1c2938] cursor-pointer">Programar envío para una fecha/hora futura</label>
+                    </div>
+                    <div id="campaign-schedule-input-container" class="hidden space-y-2">
+                      <label for="campaign-schedule-time" class="text-[11px] font-bold text-slate-500">Fecha y Hora de Envío (Tu hora local)</label>
+                      <input type="datetime-local" id="campaign-schedule-time" class="w-full p-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5]">
+                    </div>
                   </div>
                 </div>
 
@@ -1129,6 +1152,38 @@
               </div>
 
             </div>
+
+          </div> <!-- End #campaign-sub-compose -->
+
+          <!-- ================= SUB-TAB: CAMPAIGNS HISTORY & METRICS ================= -->
+          <div id="campaign-sub-history" class="hidden flex flex-col gap-6">
+            <div class="bg-white border border-slate-100 p-8 rounded-[2.5rem] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col gap-6">
+              <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                <div>
+                  <h3 class="text-base font-extrabold text-[#1B2939]">Historial de Campañas</h3>
+                  <p class="text-[11px] text-brand-gray mt-0.5 font-medium">Lista de todas las campañas enviadas y programadas.</p>
+                </div>
+              </div>
+              
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead>
+                    <tr class="border-b border-brand-border text-brand-gray font-bold">
+                      <th class="py-3 px-4">Asunto</th>
+                      <th class="py-3 px-4">Fecha de Envío/Prog.</th>
+                      <th class="py-3 px-4">Remitente</th>
+                      <th class="py-3 px-4">Destinatarios</th>
+                      <th class="py-3 px-4">Estado</th>
+                      <th class="py-3 px-4 text-right">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="history-campaigns-list-body">
+                    <!-- Loaded dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
 
         </section>
 
@@ -1844,6 +1899,7 @@
       }
       if (tabId === 'campaigns') {
         goToStep(1);
+        switchCampaignSubTab('compose');
       }
     }
 
@@ -2694,32 +2750,82 @@
     };
 
     function renderCampaigns() {
-      const tbody = document.getElementById('dashboard-campaigns-list');
-      tbody.innerHTML = '';
+      // 1. Render Dashboard list
+      const tbodyDash = document.getElementById('dashboard-campaigns-list');
+      if (tbodyDash) {
+        tbodyDash.innerHTML = '';
+        if (campaigns.length === 0) {
+          tbodyDash.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-brand-gray text-[11px] font-semibold">No has enviado ninguna campaña de correo todavía.</td></tr>`;
+        } else {
+          const sorted = [...campaigns].sort((a, b) => new Date(b.sentDate || b.scheduledFor) - new Date(a.sentDate || a.scheduledFor));
+          sorted.forEach(c => {
+            const tr = document.createElement('tr');
+            tr.className = "border-b border-brand-border text-brand-dark font-medium";
+            
+            const dateStr = new Date(c.sentDate || c.scheduledFor).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const successCount = c.successCount || c.totalSent || 0;
+            const openRate = successCount > 0 ? Math.round((c.opens / successCount) * 100) : 0;
+            
+            let badge = `<span class="bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-100 text-[10px]">Enviado</span>`;
+            if (c.status === 'scheduled') {
+              badge = `<span class="bg-amber-50 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-100 text-[10px]">Programado</span>`;
+            } else if (c.status === 'sending') {
+              badge = `<span class="bg-blue-50 text-blue-800 font-bold px-2 py-0.5 rounded-full border border-blue-100 text-[10px] animate-pulse">Enviando...</span>`;
+            }
 
-      if (campaigns.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-brand-gray text-[11px] font-semibold">No has enviado ninguna campaña de correo todavía.</td></tr>`;
-        return;
+            tr.innerHTML = `
+              <td class="py-3 px-3 font-bold text-[#1B2939]">${c.subject}</td>
+              <td class="py-3 px-3 text-brand-gray font-mono">${dateStr}</td>
+              <td class="py-3 px-3 font-semibold text-brand-accent">${successCount} / ${c.totalSent}</td>
+              <td class="py-3 px-3 font-semibold">${c.opens} (${openRate}%)</td>
+              <td class="py-3 px-3">${badge}</td>
+            `;
+            tbodyDash.appendChild(tr);
+          });
+        }
       }
 
-      const sorted = [...campaigns].sort((a, b) => new Date(b.sentDate) - new Date(a.sentDate));
+      // 2. Render History sub-tab list
+      const tbodyHist = document.getElementById('history-campaigns-list-body');
+      if (tbodyHist) {
+        tbodyHist.innerHTML = '';
+        if (campaigns.length === 0) {
+          tbodyHist.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-brand-gray text-xs font-semibold">No se encontraron campañas.</td></tr>`;
+        } else {
+          const sorted = [...campaigns].sort((a, b) => new Date(b.sentDate || b.scheduledFor) - new Date(a.sentDate || a.scheduledFor));
+          sorted.forEach(c => {
+            const tr = document.createElement('tr');
+            tr.className = "border-b border-brand-border text-brand-dark font-medium text-xs";
+            
+            const dateStr = new Date(c.sentDate || c.scheduledFor).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            
+            let badge = `<span class="bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-100 text-[10px]">Enviado</span>`;
+            if (c.status === 'scheduled') {
+              badge = `<span class="bg-amber-50 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-100 text-[10px]">Programado</span>`;
+            } else if (c.status === 'sending') {
+              badge = `<span class="bg-blue-50 text-blue-800 font-bold px-2 py-0.5 rounded-full border border-blue-100 text-[10px] animate-pulse">Enviando...</span>`;
+            }
 
-      sorted.forEach(c => {
-        const tr = document.createElement('tr');
-        tr.className = "border-b border-brand-border text-brand-dark font-medium";
-        
-        const dateStr = new Date(c.sentDate).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-        const openRate = c.successCount > 0 ? Math.round((c.opens / c.successCount) * 100) : 0;
+            const sender = c.senderEmail ? `${c.senderName || ''} <${c.senderEmail}>` : 'Por defecto (SES)';
+            const successCount = c.successCount || c.totalSent || 0;
 
-        tr.innerHTML = `
-          <td class="py-3 px-3 font-bold text-[#1B2939]">${c.subject}</td>
-          <td class="py-3 px-3 text-brand-gray font-mono">${dateStr}</td>
-          <td class="py-3 px-3 font-semibold text-brand-accent">${c.successCount} / ${c.totalSent}</td>
-          <td class="py-3 px-3 font-semibold">${c.opens} (${openRate}%)</td>
-          <td class="py-3 px-3"><span class="bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-100 text-[10px]">Enviado</span></td>
-        `;
-        tbody.appendChild(tr);
-      });
+            tr.innerHTML = `
+              <td class="py-3.5 px-4 font-bold text-[#1B2939]">${c.subject}</td>
+              <td class="py-3.5 px-4 font-mono text-brand-gray">${dateStr}</td>
+              <td class="py-3.5 px-4 truncate max-w-[150px]" title="${sender}">${sender}</td>
+              <td class="py-3.5 px-4 font-semibold text-brand-accent">${successCount} / ${c.totalSent}</td>
+              <td class="py-3.5 px-4">${badge}</td>
+              <td class="py-3.5 px-4 text-right">
+                <button onclick="openCampaignDetail('${c.id}')" class="text-[#27bea5] hover:text-[#1c2938] font-bold bg-[#27bea5]/10 hover:bg-[#27bea5]/20 px-3 py-1.5 rounded-lg transition-colors inline-block text-[10px] uppercase tracking-wide">
+                  Métricas
+                </button>
+              </td>
+            `;
+            tbodyHist.appendChild(tr);
+          });
+        }
+      }
+      lucide.createIcons();
     }
 
     function updateDashboardStats() {
@@ -3594,9 +3700,23 @@
       const segment = document.getElementById('campaign-segment-select').value;
       const limit = 10000;
 
+      const scheduleCheck = document.getElementById('campaign-schedule-check').checked;
+      const scheduledFor = scheduleCheck ? document.getElementById('campaign-schedule-time').value : null;
+
       if (!campaignName || !senderName || !senderEmail || !subject || !body) {
         showToast('Ingresa todos los campos requeridos de la campaña (Nombre, Remitente, Email, Asunto y Contenido).', 'error');
         return;
+      }
+
+      if (scheduleCheck) {
+        if (!scheduledFor) {
+          showToast('Selecciona una fecha y hora válidas para la programación.', 'error');
+          return;
+        }
+        if (new Date(scheduledFor) <= new Date()) {
+          showToast('La fecha y hora de programación deben estar en el futuro.', 'error');
+          return;
+        }
       }
 
       const customKey = document.getElementById('campaign-filter-custom-key').value;
@@ -3636,7 +3756,7 @@
       const microcopyText = document.getElementById('camp-microcopy');
 
       sendBtn.disabled = true;
-      sendBtn.innerHTML = "⏳ Enviando correos masivos...";
+      sendBtn.innerHTML = scheduleCheck ? "⏳ Programando campaña..." : "⏳ Enviando correos masivos...";
       progressArea.classList.remove('hidden');
       
       progressBar.style.width = '0%';
@@ -3661,7 +3781,8 @@
             senderEmail,
             recipients: targets,
             limit,
-            targetTags: segment === 'all' ? [] : [segment]
+            targetTags: segment === 'all' ? [] : [segment],
+            scheduledFor
           })
         });
 
@@ -3673,7 +3794,10 @@
           progressPct.textContent = '100%';
           progressCnt.textContent = `${data.sentCount} / ${data.total}`;
           
-          if (data.failedCount > 0) {
+          if (data.scheduled) {
+             microcopyText.textContent = "📅 ¡Campaña programada exitosamente!";
+             showToast("Campaña programada correctamente.", "success");
+          } else if (data.failedCount > 0) {
              const firstError = data.failures && data.failures[0] ? data.failures[0].error : 'Error desconocido de AWS SES';
              microcopyText.textContent = `❌ Fallaron ${data.failedCount} correos. (AWS SES: ${firstError})`;
              showToast(`Error AWS SES: ${firstError}`, 'error');
@@ -3681,12 +3805,16 @@
              microcopyText.textContent = data.simulation ? "✨ ¡Simulación completada! (Faltan credenciales AWS)" : "✓ ¡Entrega finalizada con éxito!";
              if (data.simulation) {
                 showToast("Modo Simulación: Para enviar realmente, configura AWS_ACCESS_KEY_ID y AWS_REGION en Vercel.", "warning");
-             }
+              }
           }
 
           setTimeout(async () => {
             document.getElementById('campaign-subject').value = '';
             document.getElementById('campaign-body').value = '';
+            // Reset scheduling check and inputs
+            document.getElementById('campaign-schedule-check').checked = false;
+            toggleScheduleInput(false);
+            
             progressArea.classList.add('hidden');
             sendBtn.disabled = false;
             sendBtn.innerHTML = "<i data-lucide='send' class='w-3.5 h-3.5'></i> Enviar Campaña";
@@ -3695,14 +3823,14 @@
             await fetchCampaigns();
             await fetchContacts();
             switchTab('dashboard');
-          }, 6000); // Dar más tiempo para leer el error si lo hay
+          }, 4000);
 
         } else {
           showToast('Error: ' + data.message, 'error');
           clearInterval(microcopyInterval);
           progressArea.classList.add('hidden');
           sendBtn.disabled = false;
-          sendBtn.innerHTML = "<i data-lucide='send' class='w-3.5 h-3.5'></i> Enviar Campaña";
+          sendBtn.innerHTML = scheduleCheck ? "<i data-lucide='clock' class='w-3.5 h-3.5'></i> Programar Campaña" : "<i data-lucide='send' class='w-3.5 h-3.5'></i> Enviar Campaña";
           lucide.createIcons();
         }
       } catch (err) {
@@ -3710,10 +3838,107 @@
         showToast('Error de conexión con el servidor.', 'error');
         progressArea.classList.add('hidden');
         sendBtn.disabled = false;
-        sendBtn.innerHTML = "<i data-lucide='send' class='w-3.5 h-3.5'></i> Enviar Campaña";
+        sendBtn.innerHTML = scheduleCheck ? "<i data-lucide='clock' class='w-3.5 h-3.5'></i> Programar Campaña" : "<i data-lucide='send' class='w-3.5 h-3.5'></i> Enviar Campaña";
         lucide.createIcons();
       }
     }
+
+    // Helper functions for campaign management
+    window.switchCampaignSubTab = function(tab) {
+      const composeDiv = document.getElementById('campaign-sub-compose');
+      const historyDiv = document.getElementById('campaign-sub-history');
+      const btnCompose = document.getElementById('btn-camp-sub-compose');
+      const btnHistory = document.getElementById('btn-camp-sub-history');
+      const indicators = document.getElementById('campaign-step-indicators');
+      const tabTitle = document.getElementById('campaign-tab-title-text');
+
+      if (tab === 'compose') {
+        composeDiv.classList.remove('hidden');
+        historyDiv.classList.add('hidden');
+        if (indicators) indicators.classList.remove('hidden');
+        if (tabTitle) tabTitle.textContent = 'NUEVA CAMPAÑA';
+        
+        btnCompose.className = 'bg-[#1c2938] text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-sm';
+        btnHistory.className = 'text-slate-500 hover:text-slate-700 font-bold px-4 py-2 rounded-xl text-xs transition-all';
+      } else {
+        composeDiv.classList.add('hidden');
+        historyDiv.classList.remove('hidden');
+        if (indicators) indicators.classList.add('hidden');
+        if (tabTitle) tabTitle.textContent = 'HISTORIAL DE CAMPAÑAS';
+        
+        btnHistory.className = 'bg-[#1c2938] text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-sm';
+        btnCompose.className = 'text-slate-500 hover:text-slate-700 font-bold px-4 py-2 rounded-xl text-xs transition-all';
+        renderCampaigns();
+      }
+    };
+
+    window.toggleScheduleInput = function(checked) {
+      const container = document.getElementById('campaign-schedule-input-container');
+      const timeInput = document.getElementById('campaign-schedule-time');
+      const sendBtn = document.getElementById('camp-send-btn');
+
+      if (checked) {
+        container.classList.remove('hidden');
+        timeInput.required = true;
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + 10); // Sugerir 10 min en el futuro
+        timeInput.value = now.toISOString().slice(0, 16);
+        sendBtn.innerHTML = "<i data-lucide='clock' class='w-4 h-4'></i> Programar Campaña";
+      } else {
+        container.classList.add('hidden');
+        timeInput.required = false;
+        timeInput.value = '';
+        sendBtn.innerHTML = "<i data-lucide='send' class='w-4 h-4'></i> Finalizar Campaña";
+      }
+      lucide.createIcons();
+    };
+
+    window.openCampaignDetail = function(id) {
+      const campaign = campaigns.find(c => c.id === id);
+      if (!campaign) return;
+
+      document.getElementById('detail-camp-subject').textContent = campaign.subject;
+      
+      const dateStr = new Date(campaign.sentDate || campaign.scheduledFor).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      const sender = campaign.senderEmail ? `${campaign.senderName || ''} <${campaign.senderEmail}>` : 'Por defecto (SES)';
+      document.getElementById('detail-camp-meta').textContent = `Remitente: ${sender} | Fecha: ${dateStr}`;
+
+      // Configurar Badge de Estado
+      const statusBadge = document.getElementById('detail-camp-status-badge');
+      if (campaign.status === 'scheduled') {
+        statusBadge.className = 'bg-amber-50 text-amber-800 font-bold px-2.5 py-0.5 rounded-full border border-amber-100 text-[10px]';
+        statusBadge.textContent = 'Programado';
+      } else if (campaign.status === 'sending') {
+        statusBadge.className = 'bg-blue-50 text-blue-800 font-bold px-2.5 py-0.5 rounded-full border border-blue-100 text-[10px] animate-pulse';
+        statusBadge.textContent = 'Enviando...';
+      } else {
+        statusBadge.className = 'bg-emerald-50 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full border border-emerald-100 text-[10px]';
+        statusBadge.textContent = 'Enviado';
+      }
+
+      // Métricas
+      const successCount = campaign.successCount || campaign.totalSent || 0;
+      const openRate = successCount > 0 ? Math.round((campaign.opens / successCount) * 100) : 0;
+      document.getElementById('detail-metric-sent').textContent = successCount;
+      document.getElementById('detail-metric-opens').textContent = `${campaign.opens} (${openRate}%)`;
+      document.getElementById('detail-metric-clicks').textContent = campaign.clicks;
+
+      // Vista previa HTML
+      const iframe = document.getElementById('detail-camp-body-preview');
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      doc.open();
+      doc.write(campaign.body);
+      doc.close();
+
+      openModal('modal-campaign-detail');
+      
+      // Activar animación modal
+      const modal = document.getElementById('modal-campaign-detail');
+      requestAnimationFrame(() => {
+        modal.classList.remove('opacity-0');
+        modal.children[0].classList.remove('scale-95');
+      });
+    };
 
     async function checkSettingsStatus() {
       try {
@@ -4301,6 +4526,44 @@
       <div class="flex gap-3 justify-end mt-2">
         <button id="btn-prompt-cancel" class="px-5 py-2.5 text-xs font-bold text-slate-500 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-xl transition-all">Cancelar</button>
         <button id="btn-prompt-ok" class="px-5 py-2.5 text-xs font-bold text-white bg-[#27bea5] hover:bg-[#27bea5]/90 rounded-xl transition-all shadow-sm">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Detalle de Campaña -->
+  <div id="modal-campaign-detail" class="fixed inset-0 bg-[#1B2939]/40 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 hidden transition-opacity duration-300 opacity-0">
+    <div class="bg-white max-w-4xl w-full h-[90vh] rounded-[2.5rem] border border-brand-border p-8 shadow-2xl flex flex-col gap-6 transform scale-95 transition-transform duration-300">
+      <div class="flex justify-between items-start border-b border-slate-100 pb-4">
+        <div>
+          <span id="detail-camp-status-badge" class="bg-emerald-50 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full border border-emerald-100 text-[10px]">Enviado</span>
+          <h2 class="text-xl font-extrabold text-[#1B2939] mt-2" id="detail-camp-subject">Asunto de la Campaña</h2>
+          <p class="text-xs text-brand-gray mt-0.5" id="detail-camp-meta">Enviado por: remitente | Fecha: 23/07/2026</p>
+        </div>
+        <button onclick="closeModal('modal-campaign-detail')" class="text-slate-400 hover:text-slate-600 transition-colors p-1 bg-slate-50 border border-slate-100 rounded-xl">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Quick Metrics Grid -->
+      <div class="grid grid-cols-3 gap-4">
+        <div class="bg-slate-50 border border-slate-100 p-4 rounded-2xl text-center">
+          <span class="text-[10px] font-bold text-slate-400 uppercase">Enviados</span>
+          <p id="detail-metric-sent" class="text-2xl font-black text-[#1c2938]">0</p>
+        </div>
+        <div class="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl text-center">
+          <span class="text-[10px] font-bold text-emerald-800 uppercase">Aperturas</span>
+          <p id="detail-metric-opens" class="text-2xl font-black text-emerald-700">0</p>
+        </div>
+        <div class="bg-purple-50 border border-purple-100 p-4 rounded-2xl text-center">
+          <span class="text-[10px] font-bold text-purple-800 uppercase">Clicks</span>
+          <p id="detail-metric-clicks" class="text-2xl font-black text-purple-700">0</p>
+        </div>
+      </div>
+
+      <!-- Body Preview Area -->
+      <div class="flex-1 flex flex-col border border-slate-100 rounded-2xl overflow-hidden bg-slate-50">
+        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest p-3 bg-white border-b border-slate-100">Contenido Enviado</span>
+        <iframe id="detail-camp-body-preview" class="w-full flex-1 border-none bg-white"></iframe>
       </div>
     </div>
   </div>

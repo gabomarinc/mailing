@@ -23,5 +23,11 @@
       "src": "/(.*)",
       "dest": "/public/$1"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/send-scheduled",
+      "schedule": "*/5 * * * *"
+    }
   ]
 }

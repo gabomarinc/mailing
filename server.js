@@ -107,6 +107,11 @@ async function initDB() {
     try {
       await sql`ALTER TABLE users ADD COLUMN warmup_mode BOOLEAN DEFAULT false`;
     } catch(e) { /* Column might exist */ }
+    try {
+      await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS scheduled_for TIMESTAMP WITH TIME ZONE`;
+      await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS sender_name VARCHAR(255)`;
+      await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS sender_email VARCHAR(255)`;
+    } catch(e) { /* Columns might exist */ }
     await sql`CREATE INDEX IF NOT EXISTS idx_contacts_kinde_id ON contacts(kinde_id);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_campaigns_kinde_id ON campaigns(kinde_id);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_senders_kinde_id ON senders(kinde_id);`;
@@ -843,6 +848,9 @@ app.get('/api/campaigns', protectRoute, async (req, res) => {
       successCount: c.total_sent,
       status: c.status,
       sentDate: c.sent_at,
+      scheduledFor: c.scheduled_for,
+      senderName: c.sender_name,
+      senderEmail: c.sender_email,
       opens: 0,
       clicks: 0
     })));
@@ -853,7 +861,7 @@ app.get('/api/campaigns', protectRoute, async (req, res) => {
 
 app.post('/api/send-bulk', protectRoute, async (req, res) => {
   try {
-    const { subject, body, senderName, senderEmail, recipients, limit, targetTags } = req.body;
+    const { subject, body, senderName, senderEmail, recipients, limit, targetTags, scheduledFor } = req.body;
     const userId = req.user.id;
 
     if (!subject || !body || !recipients || !Array.isArray(recipients) || !senderEmail) {
@@ -879,6 +887,24 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
       return res.status(400).json({ success: false, message: `Supera límite de ${allowedLimit}.` });
     }
 
+    // SI LA CAMPAÑA ESTÁ PROGRAMADA PARA EL FUTURO
+    if (scheduledFor && new Date(scheduledFor) > new Date()) {
+      const campaignInsert = await sql`
+        INSERT INTO campaigns (kinde_id, subject, body, target_tags, total_sent, status, scheduled_for, sender_name, sender_email)
+        VALUES (${userId}, ${subject}, ${body}, ${targetTags || []}, ${activeEmails.length}, 'scheduled', ${scheduledFor}, ${senderName}, ${senderEmail})
+        RETURNING id
+      `;
+      return res.json({
+        success: true,
+        scheduled: true,
+        campaignId: campaignInsert[0].id,
+        total: activeEmails.length,
+        sentCount: 0,
+        failedCount: 0,
+        failures: []
+      });
+    }
+
     // Configurar AWS SES
     const hasAwsCreds = !!process.env.AWS_ACCESS_KEY_ID || !!process.env.AWS_REGION || !!process.env.SES_SENDER_EMAIL;
     let sesClient = null;
@@ -893,8 +919,8 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
 
     // Registrar campaña
     const campaignInsert = await sql`
-      INSERT INTO campaigns (kinde_id, subject, body, target_tags, total_sent, status)
-      VALUES (${userId}, ${subject}, ${body}, ${targetTags || []}, ${activeEmails.length}, 'sending')
+      INSERT INTO campaigns (kinde_id, subject, body, target_tags, total_sent, status, sender_name, sender_email)
+      VALUES (${userId}, ${subject}, ${body}, ${targetTags || []}, ${activeEmails.length}, 'sending', ${senderName}, ${senderEmail})
       RETURNING id
     `;
     const campaignId = campaignInsert[0].id;
@@ -1019,6 +1045,120 @@ app.get('/unsubscribe/:campaignId/:email', async (req, res) => {
     res.status(500).send("Error procesando baja.");
   }
 });
+
+// ======================== CRON SCHEDULER ========================
+// Endpoint para procesar y enviar correos de campañas programadas
+app.get('/api/cron/send-scheduled', async (req, res) => {
+  try {
+    const now = new Date();
+    // Obtener campañas programadas cuya fecha de envío ya haya pasado
+    const scheduledCampaigns = await sql`
+      SELECT * FROM campaigns 
+      WHERE status = 'scheduled' AND scheduled_for <= ${now}
+    `;
+
+    if (scheduledCampaigns.length === 0) {
+      return res.json({ success: true, message: 'No hay campañas programadas pendientes.' });
+    }
+
+    const hasAwsCreds = !!process.env.AWS_ACCESS_KEY_ID || !!process.env.AWS_REGION || !!process.env.SES_SENDER_EMAIL;
+    const sesClient = hasAwsCreds ? new SESClient({ region: process.env.AWS_REGION || 'us-east-1' }) : null;
+
+    for (const campaign of scheduledCampaigns) {
+      // Cambiar estado a 'sending' para evitar envíos duplicados en ejecuciones paralelas del cron
+      await sql`UPDATE campaigns SET status = 'sending' WHERE id = ${campaign.id}`;
+
+      // Buscar destinatarios activos asociados a las etiquetas de la campaña (o todos si no tiene etiquetas)
+      let targetContacts;
+      if (campaign.target_tags && campaign.target_tags.length > 0) {
+        targetContacts = await sql`
+          SELECT email FROM contacts 
+          WHERE kinde_id = ${campaign.kinde_id} AND status != 'unsubscribe' 
+          AND tags && ${campaign.target_tags}
+        `;
+      } else {
+        targetContacts = await sql`
+          SELECT email FROM contacts 
+          WHERE kinde_id = ${campaign.kinde_id} AND status != 'unsubscribe'
+        `;
+      }
+      
+      const recipients = targetContacts.map(c => c.email);
+      let successCount = 0;
+      let failures = [];
+
+      const formattedSender = campaign.sender_name 
+        ? `${campaign.sender_name} <${campaign.sender_email}>` 
+        : campaign.sender_email;
+
+      for (let i = 0; i < recipients.length; i++) {
+        const recipient = recipients[i];
+        const unsubscribeUrl = `https://${req.get('host') || 'mailing.konsul.digital'}/unsubscribe/${campaign.id}/${encodeURIComponent(recipient)}`;
+        const openTrackingUrl = `https://${req.get('host') || 'mailing.konsul.digital'}/api/campaigns/${campaign.id}/track-open?email=${encodeURIComponent(recipient)}`;
+        
+        let customizedBody = campaign.body.replace(/\{\{unsubscribe_url\}\}/g, unsubscribeUrl);
+        let richBody = '';
+        if (campaign.body.includes('max-width: 600px')) {
+          const pixelHtml = `<img src="${openTrackingUrl}" width="1" height="1" style="display:none;" />`;
+          if (customizedBody.includes('</div>')) {
+            const lastIndex = customizedBody.lastIndexOf('</div>');
+            richBody = customizedBody.substring(0, lastIndex) + pixelHtml + customizedBody.substring(lastIndex);
+          } else {
+            richBody = customizedBody + pixelHtml;
+          }
+        } else {
+          richBody = `
+            <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1B2939; padding: 20px; max-width: 600px; margin: 0 auto; background-color: #FAF8F5; border-radius: 16px;">
+              ${customizedBody}
+              <hr style="border: 0; border-top: 1px solid #EAE6DF; margin: 30px 0;" />
+              <div style="font-size: 11px; color: #6E7A8A; text-align: center;">
+                <p>Has recibido este correo de parte de tu suscripción en la Suite Kônsul.</p>
+                <p><a href="${unsubscribeUrl}" style="color: #27bea7; text-decoration: underline;">Darme de baja de esta lista</a></p>
+              </div>
+              <img src="${openTrackingUrl}" width="1" height="1" style="display:none;" />
+            </div>
+          `;
+        }
+
+        try {
+          if (hasAwsCreds && sesClient) {
+            const command = new SendEmailCommand({
+              Source: formattedSender,
+              Destination: { ToAddresses: [recipient] },
+              Message: {
+                Subject: { Data: campaign.subject, Charset: 'UTF-8' },
+                Body: { Html: { Data: richBody, Charset: 'UTF-8' } }
+              }
+            });
+            await sesClient.send(command);
+          } else {
+            // Simulación
+            await new Promise(r => setTimeout(r, 60));
+          }
+          successCount++;
+        } catch (err) {
+          console.error(`Error enviando correo programado a ${recipient}:`, err);
+          failures.push({ email: recipient, error: err.message });
+        }
+
+        if (i < recipients.length - 1) await new Promise(r => setTimeout(r, 95));
+      }
+
+      // Marcar campaña como enviada con la cantidad de éxitos y fecha de envío final
+      await sql`
+        UPDATE campaigns 
+        SET status = 'sent', total_sent = ${successCount}, sent_at = CURRENT_TIMESTAMP 
+        WHERE id = ${campaign.id}
+      `;
+    }
+
+    res.json({ success: true, processed: scheduledCampaigns.length });
+  } catch (err) {
+    console.error('Error en Cron de envíos programados:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 
 // ======================== AWS SNS WEBHOOKS ========================
 // Webhook para gestionar rebotes (bounces) y quejas de spam (complaints) automáticamente
