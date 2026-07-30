@@ -1823,7 +1823,19 @@
         selectedContacts = [];
         await fetchLists();
         const res = await fetch('/api/contacts');
-        contacts = await res.json();
+        
+        contacts = (await res.json()).map(c => {
+          let tagsArray = [];
+          if (Array.isArray(c.tags)) {
+            tagsArray = c.tags;
+          } else if (typeof c.tags === 'string') {
+            tagsArray = c.tags.replace(/^\{|\}$/g, '')
+                              .split(',')
+                              .map(t => t.trim().replace(/^"|"$/g, ''))
+                              .filter(Boolean);
+          }
+          return { ...c, tags: tagsArray };
+        });
         
         availableCustomFields.clear();
         contacts.forEach(c => {
