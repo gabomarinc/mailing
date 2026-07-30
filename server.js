@@ -225,6 +225,17 @@ app.get('/api/setup-db', async (req, res) => {
     await sql`CREATE INDEX IF NOT EXISTS idx_contacts_kinde_id ON contacts(kinde_id);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_campaigns_kinde_id ON campaigns(kinde_id);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_senders_kinde_id ON senders(kinde_id);`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS campaign_opens (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          campaign_id UUID NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+          email VARCHAR(255) NOT NULL,
+          opened_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(campaign_id, email)
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_campaign_opens_campaign_id ON campaign_opens(campaign_id);`;
+
     
     // Tabla de sesiones para connect-pg-simple
     await sql`

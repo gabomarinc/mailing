@@ -378,6 +378,11 @@
           <!-- Head Title Row (Greeting from Kônsul Bills reference) -->
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div class="flex flex-col gap-1">
+              <div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                <span>Inicio</span>
+                <i data-lucide="chevron-right" class="w-3 h-3 text-slate-300"></i>
+                <span class="text-brand-accent">Dashboard</span>
+              </div>
               <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#27bea5]/10 text-[#27bea5] text-[10px] font-bold uppercase tracking-widest w-fit">
                 <span class="w-1.5 h-1.5 rounded-full bg-[#27bea5] animate-pulse"></span>
                 <span id="current-day-badge">MARTES, 21 DE JULIO</span>
@@ -621,7 +626,11 @@
         <section id="tab-contacts" class="tab-content hidden flex flex-col gap-6">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">AUDIENCIA</span>
+              <div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                <span>Inicio</span>
+                <i data-lucide="chevron-right" class="w-3 h-3 text-slate-300"></i>
+                <span class="text-brand-accent">Base de Suscriptores</span>
+              </div>
               <h1 class="text-3xl font-black text-[#1c2938]">Base de Suscriptores</h1>
             </div>
             <div class="flex gap-3">
@@ -778,7 +787,11 @@
         <section id="tab-campaigns" class="tab-content hidden flex flex-col gap-6">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
-              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Creador de Campaña</span>
+              <div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                <span>Inicio</span>
+                <i data-lucide="chevron-right" class="w-3 h-3 text-slate-300"></i>
+                <span class="text-brand-accent">Campañas</span>
+              </div>
               <h1 class="text-3xl font-black text-[#1c2938]" id="campaign-tab-title-text">NUEVA CAMPAÑA</h1>
             </div>
             
@@ -1194,6 +1207,11 @@
         <!-- ================= TAB: FORMS ================= -->
         <section id="tab-forms" class="tab-content hidden flex flex-col gap-6">
           <div>
+            <div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+              <span>Inicio</span>
+              <i data-lucide="chevron-right" class="w-3 h-3 text-slate-300"></i>
+              <span class="text-brand-accent">Formularios de Captación</span>
+            </div>
             <h1 class="text-2xl font-extrabold text-[#1B2939]">Captación de Contactos</h1>
             <p class="text-xs text-brand-gray mt-1 font-medium">Generador de cajas de registro incrustables en tus landing pages.</p>
           </div>
@@ -1245,7 +1263,11 @@
         <section id="tab-senders" class="tab-content hidden flex flex-col gap-6">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ADMINISTRACIÓN</span>
+              <div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                <span>Inicio</span>
+                <i data-lucide="chevron-right" class="w-3 h-3 text-slate-300"></i>
+                <span class="text-brand-accent">Remitentes & Dominios</span>
+              </div>
               <h1 class="text-3xl font-black text-[#1c2938]">Remitentes y Dominios</h1>
             </div>
             <div class="flex gap-3">
@@ -1833,11 +1855,18 @@
     async function fetchCampaigns() {
       try {
         const res = await fetch('/api/campaigns');
-        campaigns = await res.json();
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          campaigns = data;
+        } else {
+          console.error('La respuesta de campañas no es un array:', data);
+          campaigns = [];
+        }
         renderCampaigns();
         updateDashboardStats();
       } catch (err) {
         console.error('Error cargando campañas:', err);
+        campaigns = [];
       }
     }
 
