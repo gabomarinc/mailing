@@ -2360,7 +2360,6 @@
       //   checkCampaignLimitSafety();
       // });
 
-      document.getElementById('camp-send-btn').addEventListener('click', executeCampaignSend);
 
       const formTitleInput = document.getElementById('form-title');
       const formTagInput = document.getElementById('form-tag');
@@ -3849,6 +3848,7 @@
       }
 
       const sendBtn = document.getElementById('camp-send-btn');
+      if (sendBtn.disabled) return;
       const progressArea = document.getElementById('camp-progress-area');
       const progressBar = document.getElementById('camp-progress-bar');
       const progressPct = document.getElementById('camp-progress-pct');
