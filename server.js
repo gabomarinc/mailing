@@ -5,7 +5,6 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { SESClient, SendEmailCommand, VerifyDomainIdentityCommand, VerifyDomainDkimCommand, GetIdentityVerificationAttributesCommand, GetIdentityDkimAttributesCommand } = require('@aws-sdk/client-ses');
 const { neon } = require('@neondatabase/serverless');
-const { Pool } = require('pg');
 require('dotenv').config();
 
 const app = express();
@@ -14,7 +13,6 @@ const PORT = process.env.PORT || 3000;
 // Configurar base de datos Neon
 const dbUrl = process.env.DATABASE_URL || 'postgresql://user:pass@ep-host.neon.tech/db?sslmode=require';
 const sql = neon(dbUrl);
-const pool = new Pool({ connectionString: dbUrl });
 
 // Utilidades
 function isValidEmail(email) {
