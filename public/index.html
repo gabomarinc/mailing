@@ -2851,10 +2851,17 @@
         } else {
           const sorted = [...campaigns].sort((a, b) => new Date(b.sentDate || b.scheduledFor) - new Date(a.sentDate || a.scheduledFor));
           sorted.forEach(c => {
-            const tr = document.createElement('tr');
-            tr.className = "border-b border-brand-border text-brand-dark font-medium";
-            
-            const dateStr = new Date(c.sentDate || c.scheduledFor).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            let displayDate = new Date();
+            if (c.sentDate) {
+              displayDate = new Date(c.sentDate);
+            } else if (c.scheduledFor) {
+              displayDate = new Date(c.scheduledFor);
+            }
+            let dateStr = "Sin fecha";
+            try {
+              dateStr = displayDate.toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            } catch(e) {}
+
             const successCount = c.successCount || c.totalSent || 0;
             const openRate = successCount > 0 ? Math.round((c.opens / successCount) * 100) : 0;
             
@@ -2863,6 +2870,8 @@
               badge = `<span class="bg-amber-50 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-100 text-[10px]">Programado</span>`;
             } else if (c.status === 'sending') {
               badge = `<span class="bg-blue-50 text-blue-800 font-bold px-2 py-0.5 rounded-full border border-blue-100 text-[10px] animate-pulse">Enviando...</span>`;
+            } else if (c.status === 'failed') {
+              badge = `<span class="bg-red-50 text-red-800 font-bold px-2 py-0.5 rounded-full border border-red-100 text-[10px]">Fallido</span>`;
             }
 
             tr.innerHTML = `
@@ -2889,13 +2898,24 @@
             const tr = document.createElement('tr');
             tr.className = "border-b border-brand-border text-brand-dark font-medium text-xs";
             
-            const dateStr = new Date(c.sentDate || c.scheduledFor).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            let displayDate = new Date();
+            if (c.sentDate) {
+              displayDate = new Date(c.sentDate);
+            } else if (c.scheduledFor) {
+              displayDate = new Date(c.scheduledFor);
+            }
+            let dateStr = "Sin fecha";
+            try {
+              dateStr = displayDate.toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            } catch(e) {}
             
             let badge = `<span class="bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-100 text-[10px]">Enviado</span>`;
             if (c.status === 'scheduled') {
               badge = `<span class="bg-amber-50 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-100 text-[10px]">Programado</span>`;
             } else if (c.status === 'sending') {
               badge = `<span class="bg-blue-50 text-blue-800 font-bold px-2 py-0.5 rounded-full border border-blue-100 text-[10px] animate-pulse">Enviando...</span>`;
+            } else if (c.status === 'failed') {
+              badge = `<span class="bg-red-50 text-red-800 font-bold px-2 py-0.5 rounded-full border border-red-100 text-[10px]">Fallido</span>`;
             }
 
             const sender = c.senderEmail ? `${c.senderName || ''} <${c.senderEmail}>` : 'Por defecto (SES)';
@@ -3950,7 +3970,7 @@
     }
 
     // Helper functions for campaign management
-    window.switchCampaignSubTab = function(tab) {
+    window.switchCampaignSubTab = async function(tab) {
       const composeDiv = document.getElementById('campaign-sub-compose');
       const historyDiv = document.getElementById('campaign-sub-history');
       const btnCompose = document.getElementById('btn-camp-sub-compose');
@@ -3974,7 +3994,7 @@
         
         btnHistory.className = 'px-4 py-2 rounded-full text-xs font-bold bg-[#1c2938] text-white transition-all';
         btnCompose.className = 'px-4 py-2 rounded-full text-xs font-bold bg-brand-light text-brand-gray hover:bg-brand-border transition-all';
-        renderCampaigns();
+        await fetchCampaigns();
       }
     };
 

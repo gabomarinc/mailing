@@ -861,6 +861,14 @@ app.post('/api/settings/cadence', protectRoute, async (req, res) => {
 app.get('/api/campaigns', protectRoute, async (req, res) => {
   try {
     const userId = req.user.id;
+    
+    // Auto-fail campaigns stuck in 'sending' for more than 5 minutes
+    await sql`
+      UPDATE campaigns 
+      SET status = 'failed' 
+      WHERE kinde_id = ${userId} AND status = 'sending' AND sent_at < NOW() - INTERVAL '5 minutes'
+    `;
+
     const campaigns = await sql`
       SELECT c.*, 
         (SELECT COUNT(DISTINCT email)::int FROM campaign_opens WHERE campaign_id = c.id) as opens_count
@@ -1022,6 +1030,13 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
 
   } catch (error) {
     console.error('Error en /api/send-bulk:', error);
+    if (typeof campaignId !== 'undefined') {
+      try {
+        await sql`UPDATE campaigns SET status = 'failed' WHERE id = ${campaignId}`;
+      } catch (dbErr) {
+        console.error('Error al actualizar estado de campaña a failed:', dbErr);
+      }
+    }
     res.status(500).json({ success: false, message: 'Error procesando campaña.', error: error.message });
   }
 });
