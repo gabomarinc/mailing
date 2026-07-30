@@ -876,7 +876,7 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
       WHERE kinde_id = ${userId} AND status != 'unsubscribe' 
       AND email = ANY(${cleanRecipients})
     `;
-    const activeEmails = activeContacts.map(c => c.email);
+    const activeEmails = [...new Set(activeContacts.map(c => c.email))];
 
     if (activeEmails.length === 0) {
       return res.status(400).json({ success: false, message: 'No hay destinatarios válidos activos.' });
@@ -1051,10 +1051,12 @@ app.get('/unsubscribe/:campaignId/:email', async (req, res) => {
 app.get('/api/cron/send-scheduled', async (req, res) => {
   try {
     const now = new Date();
-    // Obtener campañas programadas cuya fecha de envío ya haya pasado
+    // Obtener campañas programadas cuya fecha de envío ya haya pasado de manera atómica
     const scheduledCampaigns = await sql`
-      SELECT * FROM campaigns 
+      UPDATE campaigns 
+      SET status = 'sending'
       WHERE status = 'scheduled' AND scheduled_for <= ${now}
+      RETURNING *
     `;
 
     if (scheduledCampaigns.length === 0) {
@@ -1065,8 +1067,7 @@ app.get('/api/cron/send-scheduled', async (req, res) => {
     const sesClient = hasAwsCreds ? new SESClient({ region: process.env.AWS_REGION || 'us-east-1' }) : null;
 
     for (const campaign of scheduledCampaigns) {
-      // Cambiar estado a 'sending' para evitar envíos duplicados en ejecuciones paralelas del cron
-      await sql`UPDATE campaigns SET status = 'sending' WHERE id = ${campaign.id}`;
+      // (El estado ya se cambió a 'sending' de forma atómica arriba)
 
       // Buscar destinatarios activos asociados a las etiquetas de la campaña (o todos si no tiene etiquetas)
       let targetContacts;
@@ -1083,7 +1084,7 @@ app.get('/api/cron/send-scheduled', async (req, res) => {
         `;
       }
       
-      const recipients = targetContacts.map(c => c.email);
+      const recipients = [...new Set(targetContacts.map(c => c.email))];
       let successCount = 0;
       let failures = [];
 
