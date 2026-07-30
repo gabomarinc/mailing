@@ -4024,12 +4024,223 @@
       lucide.createIcons();
     };
 
-    window.openCampaignDetail = function(id) {
+    let currentCampaignReport = null;
+    let activeReportTab = 'stats';
+
+    window.switchReportTab = function(tab) {
+      activeReportTab = tab;
+      
+      // Update tab buttons styles
+      const tabs = ['stats', 'locations', 'clicks', 'devices', 'errors', 'preview'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`btn-report-tab-${t}`);
+        const view = document.getElementById(`report-view-${t}`);
+        if (t === tab) {
+          btn.className = 'px-4 py-2 text-xs font-bold border-b-2 border-[#27bea5] text-[#27bea5] transition-all whitespace-nowrap';
+          view.classList.remove('hidden');
+        } else {
+          btn.className = 'px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap';
+          view.classList.add('hidden');
+        }
+      });
+    };
+
+    function showReportLoading() {
+      const loader = document.getElementById('report-loading-container');
+      if (loader) loader.classList.remove('hidden');
+    }
+
+    function showReportError(msg) {
+      const loader = document.getElementById('report-loading-container');
+      if (loader) {
+        loader.innerHTML = `
+          <i data-lucide="alert-triangle" class="w-8 h-8 text-red-500"></i>
+          <span class="text-xs text-red-500 font-bold">${msg}</span>
+        `;
+        lucide.createIcons();
+      }
+    }
+
+    function renderReportData() {
+      if (!currentCampaignReport) return;
+      const data = currentCampaignReport;
+      const c = data.campaign;
+
+      const delivered = c.successCount;
+      const errors = c.failedCount;
+      const total = c.totalSent;
+      
+      const deliveredPct = total > 0 ? ((delivered / total) * 100).toFixed(2) : '0.00';
+      const errorsPct = total > 0 ? ((errors / total) * 100).toFixed(2) : '0.00';
+
+      const openRate = delivered > 0 ? ((c.opensCount / delivered) * 100).toFixed(2) : '0.00';
+      const clickRate = delivered > 0 ? ((c.clicksCount / delivered) * 100).toFixed(2) : '0.00';
+
+      // 1. Stats view
+      document.getElementById('rep-stat-total').textContent = total;
+      document.getElementById('rep-stat-delivered').innerHTML = `${delivered} <span class="text-xs text-[#27bea5]/70">(${deliveredPct}%)</span>`;
+      document.getElementById('rep-stat-errors').innerHTML = `${errors} <span class="text-xs text-red-500/70">(${errorsPct}%)</span>`;
+
+      document.getElementById('rep-bar-opens').style.width = `${Math.min(100, openRate)}%`;
+      document.getElementById('rep-bar-opens-text').textContent = `Abierto: ${openRate}%`;
+      document.getElementById('rep-count-opens').textContent = c.opensCount;
+
+      document.getElementById('rep-bar-clicks').style.width = `${Math.min(100, clickRate)}%`;
+      document.getElementById('rep-bar-clicks-text').textContent = `Clics: ${clickRate}%`;
+      document.getElementById('rep-count-clicks').textContent = c.clicksCount;
+
+      // Donut Chart SVG
+      const openCountVal = c.opensCount;
+      const unopenedCountVal = Math.max(0, delivered - openCountVal);
+      const totalDonutVal = delivered || 1;
+      
+      const openOffset = (openCountVal / totalDonutVal) * 226.2;
+      const unopenedOffset = 226.2 - openOffset;
+      
+      const donutSvg = document.getElementById('rep-donut-chart');
+      if (donutSvg) {
+        donutSvg.innerHTML = `
+          <svg viewBox="0 0 100 100" class="w-full h-full transform -rotate-90">
+            <circle cx="50" cy="50" r="36" fill="transparent" stroke="#f1f5f9" stroke-width="12" />
+            <circle cx="50" cy="50" r="36" fill="transparent" stroke="#27bea5" stroke-width="12"
+                    stroke-dasharray="${openOffset} 226.2" />
+            <circle cx="50" cy="50" r="36" fill="transparent" stroke="#f43f5e" stroke-width="12"
+                    stroke-dasharray="${unopenedOffset} 226.2" stroke-dashoffset="-${openOffset}" />
+          </svg>
+          <div class="absolute inset-0 flex flex-col items-center justify-center">
+            <span class="text-[10px] uppercase font-bold text-slate-400 leading-none">Abierto</span>
+            <span class="text-xl font-black text-[#1c2938] mt-1">${openCountVal}</span>
+          </div>
+        `;
+      }
+      document.getElementById('rep-total-microcopy').textContent = `Total enviado: ${delivered} correos electrónicos`;
+
+      // 2. Locations view
+      const locBody = document.getElementById('rep-locations-table-body');
+      locBody.innerHTML = '';
+      if (data.locations.length === 0) {
+        locBody.innerHTML = `<tr><td colspan="3" class="py-8 text-center text-slate-400 text-xs font-bold">No hay datos de ubicación disponibles todavía.</td></tr>`;
+      } else {
+        const maxLocOpens = Math.max(...data.locations.map(l => l.count)) || 1;
+        data.locations.forEach(l => {
+          const pct = c.opensCount > 0 ? ((l.count / c.opensCount) * 100).toFixed(1) : '0.0';
+          const barPct = ((l.count / maxLocOpens) * 100).toFixed(0);
+          locBody.innerHTML += `
+            <tr class="border-b border-slate-50 text-slate-600 font-bold">
+              <td class="py-3.5 px-4 flex items-center gap-2">
+                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-slate-400"></i> ${l.country}
+              </td>
+              <td class="py-3.5 px-4 w-1/2">
+                <div class="flex items-center gap-3">
+                  <div class="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div class="bg-[#27bea5] h-full rounded-full" style="width: ${barPct}%"></div>
+                  </div>
+                  <span class="text-[10px] text-slate-400 font-bold w-10 text-right">${pct}%</span>
+                </div>
+              </td>
+              <td class="py-3.5 px-4 text-right font-black text-[#1c2938]">${l.count}</td>
+            </tr>
+          `;
+        });
+      }
+
+      // 3. Clicks view
+      const clickBody = document.getElementById('rep-clicks-table-body');
+      clickBody.innerHTML = '';
+      if (data.clicks.length === 0) {
+        clickBody.innerHTML = `<tr><td colspan="3" class="py-8 text-center text-slate-400 text-xs font-bold">No se registraron clics en enlaces para esta campaña.</td></tr>`;
+      } else {
+        const maxClicks = Math.max(...data.clicks.map(l => l.count)) || 1;
+        data.clicks.forEach(l => {
+          const ctr = delivered > 0 ? ((l.count / delivered) * 100).toFixed(1) : '0.0';
+          const barPct = ((l.count / maxClicks) * 100).toFixed(0);
+          clickBody.innerHTML += `
+            <tr class="border-b border-slate-50 text-slate-600 font-bold">
+              <td class="py-3.5 px-4 font-mono text-[10px] text-left truncate max-w-xs">
+                <a href="${l.url}" target="_blank" class="text-blue-500 hover:underline flex items-center gap-1">
+                  <i data-lucide="external-link" class="w-3 h-3 flex-shrink-0"></i> ${l.url}
+                </a>
+              </td>
+              <td class="py-3.5 px-4 w-1/3">
+                <div class="flex items-center gap-3">
+                  <div class="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div class="bg-purple-500 h-full rounded-full" style="width: ${barPct}%"></div>
+                  </div>
+                  <span class="text-[10px] text-slate-400 font-bold w-12 text-right">CTR: ${ctr}%</span>
+                </div>
+              </td>
+              <td class="py-3.5 px-4 text-right font-black text-[#1c2938]">${l.count}</td>
+            </tr>
+          `;
+        });
+      }
+
+      // 4. Devices view
+      const devBody = document.getElementById('rep-devices-container');
+      devBody.innerHTML = '';
+      if (data.devices.length === 0) {
+        devBody.innerHTML = `<p class="py-8 text-center text-slate-400 text-xs font-bold w-full col-span-3">No hay datos de dispositivos para mostrar.</p>`;
+      } else {
+        data.devices.forEach(d => {
+          const pct = c.opensCount > 0 ? ((d.count / c.opensCount) * 100).toFixed(1) : '0.0';
+          let icon = 'monitor';
+          let color = 'text-blue-500 bg-blue-50 border-blue-100';
+          if (d.device.toLowerCase() === 'mobile') {
+            icon = 'smartphone';
+            color = 'text-emerald-500 bg-emerald-50 border-emerald-100';
+          } else if (d.device.toLowerCase() === 'tablet') {
+            icon = 'tablet';
+            color = 'text-purple-500 bg-purple-50 border-purple-100';
+          }
+          devBody.innerHTML += `
+            <div class="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm flex items-center gap-4">
+              <div class="${color} border p-3.5 rounded-2xl">
+                <i data-lucide="${icon}" class="w-6 h-6"></i>
+              </div>
+              <div class="flex-1">
+                <h4 class="text-xs font-bold text-slate-400 uppercase leading-none">${d.device}</h4>
+                <p class="text-2xl font-black text-[#1c2938] mt-1.5">${pct}%</p>
+                <p class="text-[10px] text-brand-gray font-bold mt-0.5">${d.count} aperturas</p>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      // 5. Errors view
+      const errBody = document.getElementById('rep-errors-table-body');
+      errBody.innerHTML = '';
+      if (data.campaign.errorDetails.length === 0) {
+        errBody.innerHTML = `<tr><td colspan="2" class="py-8 text-center text-slate-400 text-xs font-bold">No se registraron errores de envío en esta campaña. ¡Todo entregado!</td></tr>`;
+      } else {
+        data.campaign.errorDetails.forEach(e => {
+          errBody.innerHTML += `
+            <tr class="border-b border-slate-50 text-slate-600 font-bold text-xs">
+              <td class="py-3.5 px-4">${e.email}</td>
+              <td class="py-3.5 px-4 text-red-500">${e.error}</td>
+            </tr>
+          `;
+        });
+      }
+
+      lucide.createIcons();
+      document.getElementById('report-loading-container').classList.add('hidden');
+      switchReportTab('stats');
+    }
+
+    window.openCampaignDetail = async function(id) {
+      openModal('modal-campaign-detail');
+      
+      const modal = document.getElementById('modal-campaign-detail');
+      requestAnimationFrame(() => {
+        modal.classList.remove('opacity-0');
+        modal.children[0].classList.remove('scale-95');
+      });
+
       const campaign = campaigns.find(c => c.id === id);
       if (!campaign) return;
 
       document.getElementById('detail-camp-subject').textContent = campaign.subject;
-      
       const dateStr = new Date(campaign.sentDate || campaign.scheduledFor).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
       const sender = campaign.senderEmail ? `${campaign.senderName || ''} <${campaign.senderEmail}>` : 'Por defecto (SES)';
       document.getElementById('detail-camp-meta').textContent = `Remitente: ${sender} | Fecha: ${dateStr}`;
@@ -4042,33 +4253,36 @@
       } else if (campaign.status === 'sending') {
         statusBadge.className = 'bg-blue-50 text-blue-800 font-bold px-2.5 py-0.5 rounded-full border border-blue-100 text-[10px] animate-pulse';
         statusBadge.textContent = 'Enviando...';
+      } else if (campaign.status === 'failed') {
+        statusBadge.className = 'bg-red-50 text-red-800 font-bold px-2.5 py-0.5 rounded-full border border-red-100 text-[10px]';
+        statusBadge.textContent = 'Fallado';
       } else {
         statusBadge.className = 'bg-emerald-50 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full border border-emerald-100 text-[10px]';
         statusBadge.textContent = 'Enviado';
       }
 
-      // Métricas
-      const successCount = campaign.successCount || campaign.totalSent || 0;
-      const openRate = successCount > 0 ? Math.round((campaign.opens / successCount) * 100) : 0;
-      document.getElementById('detail-metric-sent').textContent = successCount;
-      document.getElementById('detail-metric-opens').textContent = `${campaign.opens} (${openRate}%)`;
-      document.getElementById('detail-metric-clicks').textContent = campaign.clicks;
-
-      // Vista previa HTML
+      // Vista previa HTML inicial
       const iframe = document.getElementById('detail-camp-body-preview');
       const doc = iframe.contentDocument || iframe.contentWindow.document;
       doc.open();
       doc.write(campaign.body);
       doc.close();
 
-      openModal('modal-campaign-detail');
-      
-      // Activar animación modal
-      const modal = document.getElementById('modal-campaign-detail');
-      requestAnimationFrame(() => {
-        modal.classList.remove('opacity-0');
-        modal.children[0].classList.remove('scale-95');
-      });
+      showReportLoading();
+
+      try {
+        const res = await fetch(`/api/campaigns/${id}/report`);
+        const report = await res.json();
+        if (report.success) {
+          currentCampaignReport = report;
+          renderReportData();
+        } else {
+          showReportError('No se pudo cargar el reporte.');
+        }
+      } catch (err) {
+        console.error(err);
+        showReportError('Error al conectar con el servidor.');
+      }
     };
 
     async function checkSettingsStatus() {
@@ -4707,26 +4921,155 @@
         </button>
       </div>
 
-      <!-- Quick Metrics Grid -->
-      <div class="grid grid-cols-3 gap-4">
-        <div class="bg-slate-50 border border-slate-100 p-4 rounded-2xl text-center">
-          <span class="text-[10px] font-bold text-slate-400 uppercase">Enviados</span>
-          <p id="detail-metric-sent" class="text-2xl font-black text-[#1c2938]">0</p>
-        </div>
-        <div class="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl text-center">
-          <span class="text-[10px] font-bold text-emerald-800 uppercase">Aperturas</span>
-          <p id="detail-metric-opens" class="text-2xl font-black text-emerald-700">0</p>
-        </div>
-        <div class="bg-purple-50 border border-purple-100 p-4 rounded-2xl text-center">
-          <span class="text-[10px] font-bold text-purple-800 uppercase">Clicks</span>
-          <p id="detail-metric-clicks" class="text-2xl font-black text-purple-700">0</p>
-        </div>
+      <!-- Tabs Selector -->
+      <div class="flex border-b border-slate-100 overflow-x-auto gap-2 select-none scrollbar-none pb-1">
+        <button onclick="switchReportTab('stats')" id="btn-report-tab-stats" class="px-4 py-2 text-xs font-bold border-b-2 border-[#27bea5] text-[#27bea5] transition-all whitespace-nowrap">
+          Estadísticas de la campaña
+        </button>
+        <button onclick="switchReportTab('locations')" id="btn-report-tab-locations" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
+          Aperturas por ubicación
+        </button>
+        <button onclick="switchReportTab('clicks')" id="btn-report-tab-clicks" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
+          Mapa de clics
+        </button>
+        <button onclick="switchReportTab('devices')" id="btn-report-tab-devices" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
+          Dispositivos
+        </button>
+        <button onclick="switchReportTab('errors')" id="btn-report-tab-errors" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
+          Estadísticas de error
+        </button>
+        <button onclick="switchReportTab('preview')" id="btn-report-tab-preview" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
+          Contenido Enviado
+        </button>
       </div>
 
-      <!-- Body Preview Area -->
-      <div class="flex-1 flex flex-col border border-slate-100 rounded-2xl overflow-hidden bg-slate-50">
-        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest p-3 bg-white border-b border-slate-100">Contenido Enviado</span>
-        <iframe id="detail-camp-body-preview" class="w-full flex-1 border-none bg-white"></iframe>
+      <!-- Content Area Wrapper -->
+      <div class="flex-1 flex flex-col overflow-hidden relative min-h-[350px]">
+        
+        <!-- Loading overlay -->
+        <div id="report-loading-container" class="absolute inset-0 bg-white flex flex-col items-center justify-center gap-3 z-50">
+          <div class="w-8 h-8 border-4 border-slate-100 border-t-[#27bea5] rounded-full animate-spin"></div>
+          <span class="text-xs text-slate-400 font-bold">Cargando estadísticas de campaña...</span>
+        </div>
+
+        <!-- View 1: Stats -->
+        <div id="report-view-stats" class="flex-1 overflow-y-auto pr-1 space-y-6">
+          <div class="grid grid-cols-3 gap-4">
+            <div class="bg-blue-50/50 border border-blue-100/50 p-4 rounded-2xl text-center">
+              <span class="text-[9px] font-bold text-blue-500 uppercase tracking-wider block">Enviado</span>
+              <p id="rep-stat-total" class="text-2xl font-black text-[#1c2938] mt-1">0</p>
+            </div>
+            <div class="bg-[#27bea5]/5 border border-[#27bea5]/10 p-4 rounded-2xl text-center">
+              <span class="text-[9px] font-bold text-[#27bea5] uppercase tracking-wider block">Entregado</span>
+              <p id="rep-stat-delivered" class="text-2xl font-black text-[#1c2938] mt-1">0</p>
+            </div>
+            <div class="bg-red-50/50 border border-red-100/50 p-4 rounded-2xl text-center">
+              <span class="text-[9px] font-bold text-red-500 uppercase tracking-wider block">Errores</span>
+              <p id="rep-stat-errors" class="text-2xl font-black text-[#1c2938] mt-1">0</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
+            <!-- Left: Donut chart SVG wrapper -->
+            <div class="flex flex-col items-center justify-center">
+              <div id="rep-donut-chart" class="relative w-44 h-44">
+                <!-- Programmatically generated -->
+              </div>
+              <p id="rep-total-microcopy" class="text-[10px] font-bold text-slate-400 mt-3 text-center"></p>
+            </div>
+            
+            <!-- Right: Progress lines -->
+            <div class="space-y-4">
+              <!-- Opens bar -->
+              <div class="space-y-2">
+                <div class="flex justify-between items-center text-xs font-bold text-[#1c2938]">
+                  <span id="rep-bar-opens-text">Abierto: 0%</span>
+                  <span class="text-[#27bea5]" id="rep-count-opens">0</span>
+                </div>
+                <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden border border-slate-100">
+                  <div id="rep-bar-opens" class="bg-[#27bea5] h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+              </div>
+
+              <!-- Clicks bar -->
+              <div class="space-y-2">
+                <div class="flex justify-between items-center text-xs font-bold text-[#1c2938]">
+                  <span id="rep-bar-clicks-text">Clics: 0%</span>
+                  <span class="text-purple-500" id="rep-count-clicks">0</span>
+                </div>
+                <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden border border-slate-100">
+                  <div id="rep-bar-clicks" class="bg-purple-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- View 2: Locations -->
+        <div id="report-view-locations" class="flex-1 overflow-y-auto pr-1 hidden">
+          <div class="border border-slate-100 rounded-3xl overflow-hidden bg-white">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase text-[9px] tracking-wider">
+                  <th class="py-3 px-4">Ubicación (País)</th>
+                  <th class="py-3 px-4">Porcentaje</th>
+                  <th class="py-3 px-4 text-right">Aperturas Únicas</th>
+                </tr>
+              </thead>
+              <tbody id="rep-locations-table-body">
+                <!-- Dynamically loaded -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- View 3: Clicks -->
+        <div id="report-view-clicks" class="flex-1 overflow-y-auto pr-1 hidden">
+          <div class="border border-slate-100 rounded-3xl overflow-hidden bg-white">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase text-[9px] tracking-wider">
+                  <th class="py-3 px-4">Enlace</th>
+                  <th class="py-3 px-4">Tasa de Clics (CTR)</th>
+                  <th class="py-3 px-4 text-right">Clicks Totales</th>
+                </tr>
+              </thead>
+              <tbody id="rep-clicks-table-body">
+                <!-- Dynamically loaded -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- View 4: Devices -->
+        <div id="report-view-devices" class="flex-1 overflow-y-auto pr-1 hidden">
+          <div id="rep-devices-container" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <!-- Loaded dynamically -->
+          </div>
+        </div>
+
+        <!-- View 5: Errors -->
+        <div id="report-view-errors" class="flex-1 overflow-y-auto pr-1 hidden">
+          <div class="border border-slate-100 rounded-3xl overflow-hidden bg-white">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase text-[9px] tracking-wider">
+                  <th class="py-3 px-4">Destinatario</th>
+                  <th class="py-3 px-4">Razón del Error</th>
+                </tr>
+              </thead>
+              <tbody id="rep-errors-table-body">
+                <!-- Dynamically loaded -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- View 6: Sent Content -->
+        <div id="report-view-preview" class="flex-1 flex flex-col hidden min-h-[300px]">
+          <iframe id="detail-camp-body-preview" class="w-full flex-1 border border-slate-100 rounded-2xl bg-white min-h-[300px]"></iframe>
+        </div>
+
       </div>
     </div>
   </div>
