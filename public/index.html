@@ -876,7 +876,7 @@
                 <div class="space-y-4">
                   <div class="space-y-2">
                     <label class="text-xs font-bold text-[#1c2938]">Segmento / Lista Destinataria</label>
-                    <select id="campaign-segment-select" onchange="updateCampaignAudienceCount()" class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all cursor-pointer">
+                    <select id="campaign-segment-select" class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all cursor-pointer">
                       <option value="all">Todos los contactos activos</option>
                     </select>
                   </div>
@@ -905,17 +905,24 @@
                       <div class="space-y-1.5">
                         <label class="text-[11px] font-bold text-slate-500">Filtrar por Campo Custom</label>
                         <div class="flex gap-2">
-                          <select id="campaign-filter-custom-key" onchange="updateCampaignAudienceCount()" class="w-1/2 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5]">
+                          <select id="campaign-filter-custom-key" class="w-1/2 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5]">
                             <option value="">Ninguno</option>
                           </select>
-                          <input type="text" id="campaign-filter-custom-val" placeholder="Valor a buscar..." oninput="updateCampaignAudienceCount()" class="w-1/2 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5]">
+                          <input type="text" id="campaign-filter-custom-val" placeholder="Valor a buscar..." class="w-1/2 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5]">
                         </div>
                       </div>
 
                       <div class="space-y-1.5">
                         <label class="text-[11px] font-bold text-slate-500">Creados Después De</label>
-                        <input type="date" id="campaign-filter-date" onchange="updateCampaignAudienceCount()" class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5]">
+                        <input type="date" id="campaign-filter-date" class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5]">
                       </div>
+                    </div>
+
+                    <!-- Botón Aplicar Filtros -->
+                    <div class="flex justify-end pt-2">
+                      <button type="button" onclick="updateCampaignAudienceCount(); showToast('Filtros y segmentos aplicados.', 'success');" class="px-4 py-2 bg-brand-dark hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5">
+                        <i data-lucide="filter" class="w-3.5 h-3.5"></i> Aplicar Filtros
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -2351,7 +2358,6 @@
         });
       }
 
-      document.getElementById('campaign-segment-select').addEventListener('change', updateCampaignAudienceCount);
 
       // Límite fijo de 10000
       // const campSlider = document.getElementById('camp-slider');
