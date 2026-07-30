@@ -139,6 +139,18 @@ async function initDB() {
       ALTER TABLE contacts ADD COLUMN IF NOT EXISTS custom_fields JSONB DEFAULT '{}'::jsonb;
     `;
 
+    // Table to log unique opens
+    await sql`
+      CREATE TABLE IF NOT EXISTS campaign_opens (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          campaign_id UUID NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+          email VARCHAR(255) NOT NULL,
+          opened_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(campaign_id, email)
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_campaign_opens_campaign_id ON campaign_opens(campaign_id);`;
+
     console.log('Tablas inicializadas/verificadas en Neon');
   } catch (err) {
     console.error("Error al inicializar la base de datos:", err);
@@ -836,7 +848,13 @@ app.post('/api/settings/cadence', protectRoute, async (req, res) => {
 app.get('/api/campaigns', protectRoute, async (req, res) => {
   try {
     const userId = req.user.id;
-    const campaigns = await sql`SELECT * FROM campaigns WHERE kinde_id = ${userId} ORDER BY sent_at DESC`;
+    const campaigns = await sql`
+      SELECT c.*, 
+        (SELECT COUNT(DISTINCT email)::int FROM campaign_opens WHERE campaign_id = c.id) as opens_count
+      FROM campaigns c 
+      WHERE c.kinde_id = ${userId} 
+      ORDER BY c.sent_at DESC
+    `;
     res.json(campaigns.map(c => ({
       id: c.id,
       subject: c.subject,
@@ -849,7 +867,7 @@ app.get('/api/campaigns', protectRoute, async (req, res) => {
       scheduledFor: c.scheduled_for,
       senderName: c.sender_name,
       senderEmail: c.sender_email,
-      opens: 0,
+      opens: parseInt(c.opens_count || 0, 10),
       clicks: 0
     })));
   } catch (err) {
@@ -996,6 +1014,21 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
 
 // 4. Tracking & Unsubscribe
 app.get('/api/campaigns/:id/track-open', async (req, res) => {
+  const { id } = req.params;
+  const { email } = req.query;
+  
+  if (id && email) {
+    try {
+      await sql`
+        INSERT INTO campaign_opens (campaign_id, email)
+        VALUES (${id}, ${email.toLowerCase().trim()})
+        ON CONFLICT (campaign_id, email) DO NOTHING
+      `;
+    } catch (err) {
+      console.error('Error registrando apertura para campaña:', id, err);
+    }
+  }
+
   const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
   res.writeHead(200, {
     'Content-Type': 'image/gif',
