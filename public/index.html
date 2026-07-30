@@ -1002,7 +1002,7 @@
               <div id="camp-step-panel-3" class="hidden flex flex-col gap-6">
                 
                 <!-- Inner split: left customizers, right live preview -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                   
                   <!-- Left: Designer customization inputs -->
                   <div class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm space-y-6">
@@ -1163,7 +1163,7 @@
                   </div>
 
                   <!-- Right: Live Visual Preview Card -->
-                  <div class="bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-sm flex flex-col h-[calc(100vh-280px)] lg:max-h-[750px] sticky top-6">
+                  <div class="bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-sm flex flex-col h-full min-h-[500px] sticky top-6">
                     <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Previsualización en Vivo</span>
                     
                     <div class="border border-slate-100 rounded-2xl flex-1 overflow-hidden bg-slate-50 h-full">
@@ -3064,7 +3064,8 @@
       // Actualizar resumen del panel superior
       document.getElementById('campaign-recipients-count').textContent = finalTargets.length;
       
-      const listName = select.options[select.selectedIndex].text;
+      const selectedOption = select.options[select.selectedIndex];
+      const listName = selectedOption ? selectedOption.text : 'Todos los contactos activos';
       document.getElementById('top-summary-list').textContent = listName;
       
       let filtersText = [];

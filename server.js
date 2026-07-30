@@ -812,26 +812,70 @@ app.post('/api/upload-proxy', protectRoute, async (req, res) => {
     const buffer = Buffer.from(matches[2], 'base64');
     const mimeType = matches[1];
 
-    const formData = new FormData();
-    formData.append('reqtype', 'fileupload');
+    let imageUrl = '';
     
-    const blob = new Blob([buffer], { type: mimeType });
-    formData.append('fileToUpload', blob, filename || 'upload.jpg');
+    // INTENTO 1: Telegraph (súper rápido y sin bloqueos de IP en Vercel)
+    try {
+      const formData = new FormData();
+      const file = typeof File !== 'undefined' 
+        ? new File([buffer], filename || 'upload.jpg', { type: mimeType })
+        : new Blob([buffer], { type: mimeType });
+        
+      formData.append('file', file, filename || 'upload.jpg');
 
-    const catboxRes = await fetch('https://catbox.moe/user/api.php', {
-      method: 'POST',
-      body: formData
-    });
+      const telRes = await fetch('https://telegra.ph/upload', {
+        method: 'POST',
+        body: formData
+      });
 
-    if (!catboxRes.ok) {
-      throw new Error('La respuesta del servidor de alojamiento falló.');
+      if (telRes.ok) {
+        const telData = await telRes.json();
+        if (Array.isArray(telData) && telData.length > 0 && telData[0].src) {
+          imageUrl = `https://telegra.ph${telData[0].src}`;
+        }
+      } else {
+        console.error('Telegraph upload error status:', telRes.status);
+      }
+    } catch (telErr) {
+      console.error('Fallo de subida en Telegraph, intentando Catbox:', telErr);
     }
 
-    const imageUrl = await catboxRes.text();
-    res.json({ success: true, url: imageUrl.trim() });
+    // INTENTO 2: Catbox.moe (como fallback)
+    if (!imageUrl) {
+      try {
+        const formData = new FormData();
+        formData.append('reqtype', 'fileupload');
+        const file = typeof File !== 'undefined'
+          ? new File([buffer], filename || 'upload.jpg', { type: mimeType })
+          : new Blob([buffer], { type: mimeType });
+          
+        formData.append('fileToUpload', file, filename || 'upload.jpg');
+
+        const catboxRes = await fetch('https://catbox.moe/user/api.php', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (catboxRes.ok) {
+          const text = await catboxRes.text();
+          imageUrl = text.trim();
+        } else {
+          const errText = await catboxRes.text();
+          console.error('Fallo en Catbox status:', catboxRes.status, errText);
+        }
+      } catch (catboxErr) {
+        console.error('Fallo de subida en Catbox:', catboxErr);
+      }
+    }
+
+    if (!imageUrl) {
+      throw new Error('Todos los servidores de alojamiento de imágenes (Telegraph y Catbox) fallaron.');
+    }
+
+    res.json({ success: true, url: imageUrl });
   } catch (err) {
-    console.error('Error en upload-proxy:', err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error('Error en /api/upload-proxy:', err);
+    res.status(500).json({ success: false, message: err.message, stack: err.stack });
   }
 });
 
