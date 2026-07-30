@@ -20,6 +20,8 @@ function isValidEmail(email) {
   return re.test(String(email).toLowerCase());
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // Inicializar tablas en Neon
 async function initDB() {
   try {
@@ -1019,7 +1021,8 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Error procesando campaña.' });
+    console.error('Error en /api/send-bulk:', error);
+    res.status(500).json({ success: false, message: 'Error procesando campaña.', error: error.message });
   }
 });
 
