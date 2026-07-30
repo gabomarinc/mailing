@@ -876,7 +876,7 @@
                 <div class="space-y-4">
                   <div class="space-y-2">
                     <label class="text-xs font-bold text-[#1c2938]">Segmento / Lista Destinataria</label>
-                    <select id="campaign-segment-select" class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all cursor-pointer">
+                    <select id="campaign-segment-select" onchange="updateCampaignAudienceCount()" class="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] focus:bg-white transition-all cursor-pointer">
                       <option value="all">Todos los contactos activos</option>
                     </select>
                   </div>
@@ -2628,7 +2628,7 @@
         lists.forEach(tag => {
           const opt = document.createElement('option');
           opt.value = tag;
-          opt.textContent = `Segmento: ${tag}`;
+          opt.textContent = `Lista: ${tag}`;
           select.appendChild(opt);
         });
         select.value = prevVal;
