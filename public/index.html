@@ -2851,6 +2851,9 @@
         } else {
           const sorted = [...campaigns].sort((a, b) => new Date(b.sentDate || b.scheduledFor) - new Date(a.sentDate || a.scheduledFor));
           sorted.forEach(c => {
+            const tr = document.createElement('tr');
+            tr.className = "border-b border-brand-border text-brand-dark font-medium";
+            
             let displayDate = new Date();
             if (c.sentDate) {
               displayDate = new Date(c.sentDate);
