@@ -1441,36 +1441,78 @@ app.get('/unsubscribe/:campaignId/:email', async (req, res) => {
     const { campaignId, email } = req.params;
     const cleanEmail = decodeURIComponent(email).toLowerCase();
     
-    // Buscar la campaña para obtener el kinde_id
-    const campaignData = await sql`SELECT kinde_id FROM campaigns WHERE id = ${campaignId}`;
-    
-    if (campaignData.length > 0) {
-      const userId = campaignData[0].kinde_id;
-      await sql`UPDATE contacts SET status = 'unsubscribe' WHERE kinde_id = ${userId} AND email = ${cleanEmail}`;
-    }
-
+    // Mostrar página de confirmación para evitar falsas bajas por bots/antivirus
     res.send(`
       <!DOCTYPE html>
       <html lang="es">
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Suscripción Cancelada | Kônsul</title>
+        <title>Cancelar Suscripción | Kônsul</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
         <style> body { font-family: 'Outfit', sans-serif; background-color: #FAF8F5; } </style>
       </head>
       <body class="min-h-screen flex items-center justify-center p-6 text-[#1B2939]">
-        <div class="max-w-md w-full bg-white border border-[#EAE6DF] rounded-3xl p-8 text-center shadow-sm">
-          <div class="text-4xl mb-4">🍃</div>
-          <h1 class="text-2xl font-bold mb-2">Suscripción cancelada</h1>
-          <p class="text-sm text-[#6E7A8A] mb-6">Hemos removido a <strong>${cleanEmail}</strong> de nuestra lista.</p>
+        <div class="max-w-md w-full bg-white border border-[#EAE6DF] rounded-3xl p-8 text-center shadow-sm" id="confirm-box">
+          <div class="text-4xl mb-4">👋</div>
+          <h2 class="text-2xl font-semibold mb-2">¿Quieres cancelar tu suscripción?</h2>
+          <p class="text-[#6E7A8A] text-sm mb-6">El correo <b>${cleanEmail}</b> dejará de recibir nuestras actualizaciones.</p>
+          <button onclick="confirmUnsubscribe()" class="w-full bg-[#1B2939] hover:bg-[#2A3F54] text-white font-semibold py-3 px-6 rounded-xl transition-colors">
+            Sí, darme de baja
+          </button>
         </div>
+        
+        <div class="max-w-md w-full bg-white border border-[#EAE6DF] rounded-3xl p-8 text-center shadow-sm hidden" id="success-box">
+          <div class="text-4xl mb-4">🍃</div>
+          <h2 class="text-2xl font-semibold mb-2">Suscripción Cancelada</h2>
+          <p class="text-[#6E7A8A] text-sm mb-6">Tu correo <b>${cleanEmail}</b> ha sido removido de forma exitosa.</p>
+          <p class="text-xs text-[#909CAE]">Si fue un error, puedes volver a suscribirte en nuestra web.</p>
+        </div>
+
+        <script>
+          async function confirmUnsubscribe() {
+            try {
+              const res = await fetch('/api/unsubscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ campaignId: '${campaignId}', email: '${cleanEmail}' })
+              });
+              if (res.ok) {
+                document.getElementById('confirm-box').classList.add('hidden');
+                document.getElementById('success-box').classList.remove('hidden');
+              } else {
+                alert('Ocurrió un error. Intenta nuevamente.');
+              }
+            } catch(e) {
+              alert('Ocurrió un error de conexión.');
+            }
+          }
+        </script>
       </body>
       </html>
     `);
   } catch (err) {
     res.status(500).send("Error procesando baja.");
+  }
+});
+
+app.post('/api/unsubscribe', async (req, res) => {
+  try {
+    const { campaignId, email } = req.body;
+    if (!campaignId || !email) return res.status(400).json({ error: 'Faltan datos' });
+    
+    const cleanEmail = email.toLowerCase().trim();
+    const campaignData = await sql`SELECT kinde_id FROM campaigns WHERE id = ${campaignId}`;
+    
+    if (campaignData.length > 0) {
+      const userId = campaignData[0].kinde_id;
+      await sql`UPDATE contacts SET status = 'unsubscribe' WHERE kinde_id = ${userId} AND email = ${cleanEmail}`;
+    }
+    res.json({ success: true });
+  } catch(err) {
+    console.error('Error procesando baja en API:', err);
+    res.status(500).json({ error: 'Error interno' });
   }
 });
 
