@@ -897,6 +897,22 @@
                     </div>
                   </div>
 
+                  <!-- Segment Filter Estimated Display -->
+                  <div id="camp-stats-filtered-container" class="hidden mt-2 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-between transition-all">
+                    <div class="flex items-center gap-3">
+                      <div class="bg-indigo-100 text-indigo-600 p-2 rounded-xl">
+                        <i data-lucide="filter" class="w-5 h-5"></i>
+                      </div>
+                      <div>
+                        <h4 class="text-[11px] font-bold text-indigo-800 uppercase tracking-wide">Destinatarios Estimados</h4>
+                        <p class="text-[10px] text-indigo-600/80 font-medium leading-tight">Cantidad a enviar tras aplicar los filtros de segmento</p>
+                      </div>
+                    </div>
+                    <div class="text-right">
+                      <p id="camp-stats-filtered-count" class="text-2xl font-black text-indigo-700">0</p>
+                    </div>
+                  </div>
+
                   <!-- Advanced filters for Sending -->
                   <div class="border-t border-slate-100 pt-4 space-y-4">
                     <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Filtros de Segmento Adicionales (Opcional)</span>
@@ -919,7 +935,10 @@
                     </div>
 
                     <!-- Botón Aplicar Filtros -->
-                    <div class="flex justify-end pt-2">
+                    <div class="flex justify-end gap-2 pt-2">
+                      <button type="button" onclick="clearCampaignFilters()" id="btn-clear-filters" class="hidden px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5">
+                        <i data-lucide="x" class="w-3.5 h-3.5"></i> Limpiar Filtros
+                      </button>
                       <button type="button" onclick="updateCampaignAudienceCount(); showToast('Filtros y segmentos aplicados.', 'success');" class="px-4 py-2 bg-brand-dark hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5">
                         <i data-lucide="filter" class="w-3.5 h-3.5"></i> Aplicar Filtros
                       </button>
@@ -3073,9 +3092,29 @@
       if (dateVal) filtersText.push(`Desde: ${dateVal}`);
       document.getElementById('top-summary-filters').textContent = filtersText.length > 0 ? filtersText.join(' | ') : 'Ninguno';
       
+      const isFiltered = filtersText.length > 0;
+      const filterDisplay = document.getElementById('camp-stats-filtered-container');
+      const clearBtn = document.getElementById('btn-clear-filters');
+      
+      if (isFiltered) {
+        filterDisplay.classList.remove('hidden');
+        clearBtn.classList.remove('hidden');
+        document.getElementById('camp-stats-filtered-count').textContent = finalTargets.length;
+      } else {
+        filterDisplay.classList.add('hidden');
+        clearBtn.classList.add('hidden');
+      }
 
       checkCampaignLimitSafety();
     }
+
+    window.clearCampaignFilters = function() {
+      document.getElementById('campaign-filter-custom-key').value = '';
+      document.getElementById('campaign-filter-custom-val').value = '';
+      document.getElementById('campaign-filter-date').value = '';
+      updateCampaignAudienceCount();
+      showToast('Filtros limpiados.', 'success');
+    };
 
     function checkCampaignLimitSafety() {
       const limitVal = 10000;
