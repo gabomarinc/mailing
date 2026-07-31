@@ -821,7 +821,7 @@ app.post('/api/ips', protectRoute, async (req, res) => {
   }
 });
 
-// Proxy para subida de imágenes anónima a Catbox.moe (Soluciona problemas de CORS en navegador)
+// Proxy para subida de imágenes a Imgur (Primario) y Catbox (Secundario)
 app.post('/api/upload-proxy', protectRoute, async (req, res) => {
   try {
     const { fileData, filename } = req.body;
@@ -834,40 +834,44 @@ app.post('/api/upload-proxy', protectRoute, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Formato base64 no válido.' });
     }
 
-    const buffer = Buffer.from(matches[2], 'base64');
+    const base64String = matches[2];
     const mimeType = matches[1];
 
     let imageUrl = '';
     
-    // INTENTO 1: Telegraph (súper rápido y sin bloqueos de IP en Vercel)
+    // INTENTO 1: Imgur API (Acepta Base64 nativo y no bloquea Vercel)
     try {
-      const formData = new FormData();
-      const file = typeof File !== 'undefined' 
-        ? new File([buffer], filename || 'upload.jpg', { type: mimeType })
-        : new Blob([buffer], { type: mimeType });
-        
-      formData.append('file', file, filename || 'upload.jpg');
+      const formData = new URLSearchParams();
+      formData.append('image', base64String);
+      formData.append('type', 'base64');
+      if (filename) formData.append('name', filename);
 
-      const telRes = await fetch('https://telegra.ph/upload', {
+      // Client ID público genérico
+      const imgurRes = await fetch('https://api.imgur.com/3/image', {
         method: 'POST',
-        body: formData
+        body: formData,
+        headers: {
+          'Authorization': 'Client-ID 546c25a59c58ad7',
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
       });
 
-      if (telRes.ok) {
-        const telData = await telRes.json();
-        if (Array.isArray(telData) && telData.length > 0 && telData[0].src) {
-          imageUrl = `https://telegra.ph${telData[0].src}`;
+      if (imgurRes.ok) {
+        const imgurData = await imgurRes.json();
+        if (imgurData.success && imgurData.data && imgurData.data.link) {
+          imageUrl = imgurData.data.link;
         }
       } else {
-        console.error('Telegraph upload error status:', telRes.status);
+        console.error('Imgur upload error status:', imgurRes.status, await imgurRes.text());
       }
-    } catch (telErr) {
-      console.error('Fallo de subida en Telegraph, intentando Catbox:', telErr);
+    } catch (imgurErr) {
+      console.error('Fallo de subida en Imgur, intentando Catbox:', imgurErr);
     }
 
-    // INTENTO 2: Catbox.moe (como fallback)
+    // INTENTO 2: Catbox.moe (como fallback, puede ser bloqueado por AWS/Vercel)
     if (!imageUrl) {
       try {
+        const buffer = Buffer.from(base64String, 'base64');
         const formData = new FormData();
         formData.append('reqtype', 'fileupload');
         const file = typeof File !== 'undefined'
@@ -894,7 +898,7 @@ app.post('/api/upload-proxy', protectRoute, async (req, res) => {
     }
 
     if (!imageUrl) {
-      throw new Error('Todos los servidores de alojamiento de imágenes (Telegraph y Catbox) fallaron.');
+      throw new Error('Todos los servidores de alojamiento de imágenes (Imgur y Catbox) fallaron.');
     }
 
     res.json({ success: true, url: imageUrl });
