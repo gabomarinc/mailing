@@ -369,7 +369,7 @@ app.get('/api/auth/kinde_callback', async (req, res) => {
       id: profile.id, 
       email: profile.email || profile.preferred_email,
       given_name: profile.given_name 
-    }, JWT_SECRET, { expiresIn: '30d' });
+    }, JWT_SECRET, { expiresIn: '12h' });
 
     // 5. Redirigir al frontend con el token
     res.redirect(`${baseUrl}/?token=${encodeURIComponent(token)}`);

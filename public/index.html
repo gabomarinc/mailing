@@ -1675,7 +1675,7 @@
     const urlParams = new URLSearchParams(window.location.search);
     const jwtToken = urlParams.get('token');
     if (jwtToken) {
-      localStorage.setItem('kns_token', jwtToken);
+      sessionStorage.setItem('kns_token', jwtToken);
       window.history.replaceState({}, document.title, window.location.pathname);
     }
 
@@ -1684,7 +1684,7 @@
     window.fetch = async function() {
       let [resource, config] = arguments;
       if (typeof resource === 'string' && resource.startsWith('/api/')) {
-        const token = localStorage.getItem('kns_token');
+        const token = sessionStorage.getItem('kns_token');
         if (token) {
           config = config || {};
           config.headers = config.headers || {};
@@ -1693,7 +1693,7 @@
       }
       const response = await originalFetch(resource, config);
       if (response.status === 401 && resource !== '/api/auth/me') {
-        localStorage.removeItem('kns_token');
+        sessionStorage.removeItem('kns_token');
         window.location.href = '/api/auth/login';
       }
       return response;
@@ -1701,7 +1701,7 @@
     // ========================================================
     
     window.logoutUser = function() {
-      localStorage.removeItem('kns_token');
+      sessionStorage.removeItem('kns_token');
       window.location.href = '/api/auth/logout';
     };
 
@@ -3595,7 +3595,7 @@
         reader.readAsDataURL(file);
         reader.onload = async () => {
           try {
-            const token = localStorage.getItem('konsul_token') || '';
+            const token = sessionStorage.getItem('kns_token') || '';
             const response = await fetch('/api/upload-proxy', {
               method: 'POST',
               headers: {
@@ -4493,7 +4493,7 @@
     async function fetchDomains() {
       try {
         const res = await fetch('/api/domains', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('kns_token')}` }
+          headers: { 'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}` }
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error);
@@ -4619,7 +4619,7 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('kns_token')}`
+            'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}`
           },
           body: JSON.stringify({ domain_name })
         });
@@ -4646,7 +4646,7 @@
       try {
         const res = await fetch(`/api/domains/${id}`, {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('kns_token')}` }
+          headers: { 'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}` }
         });
         const data = await res.json();
         if (data.success) {
@@ -4661,7 +4661,7 @@
     async function fetchIps() {
       try {
         const res = await fetch('/api/ips', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('kns_token')}` }
+          headers: { 'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}` }
         });
         ips = await res.json();
         renderIps();
@@ -4709,7 +4709,7 @@
       try {
         const res = await fetch('/api/ips', {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('kns_token')}` }
+          headers: { 'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}` }
         });
         const data = await res.json();
         if (data.success) {
@@ -4725,7 +4725,7 @@
     async function fetchCadence() {
       try {
         const res = await fetch('/api/settings/cadence', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('kns_token')}` }
+          headers: { 'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}` }
         });
         const data = await res.json();
         
@@ -4759,7 +4759,7 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('kns_token')}`
+            'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}`
           },
           body: JSON.stringify({ hourly_limit: limit, warmup_mode: warmup })
         });
@@ -4785,7 +4785,7 @@
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('kns_token')}`
+              'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}`
             },
             body: JSON.stringify({ companyName, monthlyVolume })
           });
