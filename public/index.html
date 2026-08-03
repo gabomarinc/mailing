@@ -1596,8 +1596,8 @@
         <div id="drop-zone" class="border-2 border-dashed border-slate-300 rounded-2xl p-10 flex flex-col items-center justify-center bg-slate-50 hover:bg-blue-50/50 hover:border-[#27bea5] transition-all cursor-pointer relative">
           <i data-lucide="upload-cloud" class="w-10 h-10 text-slate-400 mb-3 pointer-events-none"></i>
           <p class="text-sm font-bold text-[#1B2939] pointer-events-none">Haz clic o arrastra tu archivo aquí</p>
-          <p class="text-xs text-brand-gray mt-1 pointer-events-none">Soporta .csv, .xlsx, .xls (Max 10MB)</p>
-          <input type="file" id="import-file-input" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".csv, .xlsx, .xls, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel">
+          <p class="text-xs text-brand-gray mt-1 pointer-events-none">Soporta .csv, .xlsx, .xls, .ods, .numbers (Max 10MB)</p>
+          <input type="file" id="import-file-input" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".csv, .xlsx, .xls, .ods, .numbers, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, application/vnd.oasis.opendocument.spreadsheet">
         </div>
       </div>
 
@@ -2220,7 +2220,7 @@
               showToast('Error al leer el archivo CSV.', 'error');
             }
           });
-        } else if (ext === 'xlsx' || ext === 'xls') {
+        } else if (ext === 'xlsx' || ext === 'xls' || ext === 'ods' || ext === 'numbers') {
           const reader = new FileReader();
           reader.onload = function(e) {
             const data = new Uint8Array(e.target.result);
