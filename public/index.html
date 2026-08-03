@@ -2834,24 +2834,46 @@
 
         activeFormFields.forEach((field, index) => {
           const div = document.createElement('div');
-          div.className = "flex items-center justify-between bg-slate-50 border border-slate-100 p-2.5 rounded-xl text-xs font-bold text-brand-dark";
+          div.className = "flex flex-col gap-2 bg-slate-50 border border-slate-200/60 p-3 rounded-2xl text-xs font-bold text-brand-dark shadow-sm";
           div.innerHTML = `
-            <div class="flex items-center gap-2">
-              <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-400 cursor-grab"></i>
-              <span>${field.label} <span class="text-[10px] text-slate-400 font-mono">(${field.type})</span></span>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1.5">
+                <i data-lucide="grip-vertical" class="w-3.5 h-3.5 text-slate-400"></i>
+                <span class="text-[11px] font-bold text-slate-600 uppercase tracking-wide">${field.id} <span class="text-[9px] text-slate-400 font-mono">(${field.type})</span></span>
+              </div>
+              <div class="flex items-center gap-2">
+                ${!field.locked ? `
+                  <button type="button" onclick="removeFormField(${index})" class="text-rose-500 hover:text-rose-700 p-1">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                ` : '<span class="text-[8px] text-slate-400 font-bold uppercase tracking-wider bg-slate-200/50 px-2 py-0.5 rounded-md">Requerido</span>'}
+              </div>
             </div>
-            <div class="flex items-center gap-2">
-              ${!field.locked ? `
-                <button type="button" onclick="removeFormField(${index})" class="text-rose-500 hover:text-rose-700 p-1">
-                  <i data-lucide="trash-2" class="w-4 h-4"></i>
-                </button>
-              ` : '<span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider bg-slate-200/50 px-2 py-0.5 rounded-md">Requerido</span>'}
+            <div class="grid grid-cols-2 gap-2 mt-0.5">
+              <div class="flex flex-col gap-1">
+                <span class="text-[9px] font-bold text-[#1c2938]">Etiqueta / Label</span>
+                <input type="text" value="${field.label || ''}" oninput="updateFormFieldLabel(${index}, this.value)" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-semibold text-brand-dark focus:border-[#27bea5] outline-none" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <span class="text-[9px] font-bold text-[#1c2938]">Placeholder / Sugerencia</span>
+                <input type="text" value="${field.placeholder || ''}" oninput="updateFormFieldPlaceholder(${index}, this.value)" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-semibold text-brand-dark focus:border-[#27bea5] outline-none" />
+              </div>
             </div>
           `;
           container.appendChild(div);
         });
         lucide.createIcons();
       }
+
+      window.updateFormFieldLabel = function(index, value) {
+        activeFormFields[index].label = value;
+        updateFormGenerator();
+      };
+
+      window.updateFormFieldPlaceholder = function(index, value) {
+        activeFormFields[index].placeholder = value;
+        updateFormGenerator();
+      };
 
       window.addFormField = function() {
         const select = document.getElementById('form-add-field-select');
@@ -3304,7 +3326,10 @@
         let fieldsPreviewHtml = '';
         activeFormFields.forEach(f => {
           fieldsPreviewHtml += `
-            <input type="${f.type}" placeholder="${f.placeholder}" disabled class="px-4 py-2.5 rounded-xl border border-slate-200 text-xs w-full bg-slate-50 font-medium text-brand-dark" style="border-radius: ${radius}px;" />
+            <div class="flex flex-col gap-1 text-left w-full">
+              <label class="text-[10px] font-bold text-slate-500">${f.label}</label>
+              <input type="${f.type}" placeholder="${f.placeholder}" disabled class="px-4 py-2.5 rounded-xl border border-slate-200 text-xs w-full bg-slate-50 font-medium text-brand-dark" style="border-radius: ${radius}px;" />
+            </div>
           `;
         });
 
@@ -3356,6 +3381,7 @@
         let fieldsHtml = '';
         activeFormFields.forEach(f => {
           fieldsHtml += `    <div style="display: flex; flex-direction: column; gap: 4px; text-align: left; width: 100%;">
+      <label style="font-size: 11px; font-weight: 700; opacity: 0.85;">${f.label}</label>
       <input type="${f.type}" name="${f.id}" placeholder="${f.placeholder}" ${f.required ? 'required' : ''} style="padding: 12px 16px; border: 1px solid #E2E8F0; border-radius: ${radius}px; font-size: 13px; outline: none; background-color: #F8FAFC; color: #1E293B; width: 100%; box-sizing: border-box; font-family: inherit; font-weight: 500; transition: border-color 0.2s;" />
     </div>\n`;
         });

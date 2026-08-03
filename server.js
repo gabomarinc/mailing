@@ -2320,6 +2320,7 @@ app.get('/form-frame', async (req, res) => {
       config.dbFields.forEach(f => {
         fieldsHtml += `
           <div style="display: flex; flex-direction: column; gap: 4px; text-align: left; width: 100%;">
+            <label style="font-size: 11px; font-weight: 700; opacity: 0.85; color: inherit;">${f.label}</label>
             <input type="${f.type}" name="${f.id}" placeholder="${f.placeholder}" ${f.required ? 'required' : ''} style="padding: 12px 16px; border: 1px solid #E2E8F0; border-radius: ${borderRadius}px; font-size: 13px; outline: none; background-color: #F8FAFC; color: #1E293B; width: 100%; box-sizing: border-box; font-family: inherit; font-weight: 500; transition: border-color 0.2s;" />
           </div>
         `;
