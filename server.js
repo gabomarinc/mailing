@@ -1980,6 +1980,191 @@ app.post('/api/webhooks/sns', async (req, res) => {
   }
 });
 
+// Public endpoint for embedded subscription forms
+app.post('/api/contacts/subscribe', async (req, res) => {
+  try {
+    const { kinde_id, name, email, tags, ...rest } = req.body;
+    
+    if (!kinde_id) {
+      return res.status(400).send('Error: Identificador de cuenta faltante.');
+    }
+    if (!email || !isValidEmail(email)) {
+      return res.status(400).send('Error: Correo electrónico no válido.');
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const contactName = name ? name.trim() : 'Suscriptor';
+    
+    let contactTags = ['Suscripción Directa'];
+    if (tags) {
+      contactTags = Array.isArray(tags) ? tags : [tags];
+    }
+
+    const custom_fields = {};
+    for (const key in rest) {
+      if (['redirect_url'].includes(key)) continue;
+      custom_fields[key] = rest[key];
+    }
+
+    // Validate email domain MX and disposable status before adding
+    const domain = cleanEmail.split('@')[1];
+    let isDisposable = disposableDomains.has(domain);
+    let hasMX = await checkMX(domain);
+    
+    let status = 'active';
+    if (isDisposable || !hasMX) {
+      status = 'invalid';
+    }
+
+    // Check if contact already exists
+    const existing = await sql`SELECT id, tags, custom_fields FROM contacts WHERE kinde_id = ${kinde_id} AND email = ${cleanEmail}`;
+    
+    if (existing.length > 0) {
+      const mergedTags = [...new Set([...(existing[0].tags || []), ...contactTags])];
+      const mergedCustom = { ...(existing[0].custom_fields || {}), ...custom_fields };
+      
+      await sql`
+        UPDATE contacts 
+        SET status = ${status}, name = ${contactName}, tags = ${mergedTags},
+            custom_fields = ${JSON.stringify(mergedCustom)}::jsonb
+        WHERE id = ${existing[0].id}
+      `;
+    } else {
+      await sql`
+        INSERT INTO contacts (kinde_id, name, email, tags, custom_fields, status)
+        VALUES (${kinde_id}, ${contactName}, ${cleanEmail}, ${contactTags}, ${JSON.stringify(custom_fields)}::jsonb, ${status})
+      `;
+    }
+
+    // Redirect user if redirect_url is provided, otherwise show standard success page
+    const redirectUrl = req.body.redirect_url;
+    if (redirectUrl) {
+      return res.redirect(redirectUrl);
+    }
+
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Registro Completado | Kônsul</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+        <style> body { font-family: 'Outfit', sans-serif; background-color: #FAF8F5; } </style>
+      </head>
+      <body class="min-h-screen flex items-center justify-center p-6 text-[#1B2939]">
+        <div class="max-w-md w-full bg-white border border-[#EAE6DF] rounded-3xl p-8 text-center shadow-sm">
+          <div class="text-4xl mb-4">🎉</div>
+          <h2 class="text-2xl font-semibold mb-2">¡Suscripción Completada!</h2>
+          <p class="text-[#6E7A8A] text-sm mb-6">Te has registrado exitosamente con el correo <b>${cleanEmail}</b>.</p>
+          <p class="text-xs text-[#909CAE]">Ya puedes cerrar esta ventana.</p>
+        </div>
+      </body>
+      </html>
+    `);
+  } catch (err) {
+    console.error('Error public subscribe:', err);
+    res.status(500).send('Error interno al registrar la suscripción.');
+  }
+});
+
+app.get('/form-frame', (req, res) => {
+  const { kinde_id, tag, title, desc, btn, layout, primary, bg, text, radius, fields, redirect } = req.query;
+
+  const colorPrimary = primary || '#1c2938';
+  const colorBg = bg || '#ffffff';
+  const colorText = text || '#1c2938';
+  const borderRadius = radius || '16';
+  const formTitle = title || 'Únete a nuestra lista';
+  const formDesc = desc || 'Ingresa tus datos para mantenerte informado.';
+  const btnText = btn || 'Suscribirme';
+  const activeFields = (fields || 'email,name').split(',');
+
+  let fieldsHtml = '';
+  activeFields.forEach(f => {
+    let type = 'text';
+    let placeholder = 'Tu dato';
+    
+    if (f === 'email') {
+      type = 'email';
+      placeholder = 'Tu correo electrónico';
+    } else if (f === 'name') {
+      placeholder = 'Tu nombre completo';
+    } else if (f === 'phone') {
+      type = 'tel';
+      placeholder = 'Tu teléfono';
+    } else if (f === 'company') {
+      placeholder = 'Tu empresa';
+    } else if (f === 'city') {
+      placeholder = 'Tu ciudad';
+    }
+
+    fieldsHtml += `
+      <div style="display: flex; flex-direction: column; gap: 4px; text-align: left; width: 100%;">
+        <input type="${type}" name="${f}" placeholder="${placeholder}" ${f === 'email' ? 'required' : ''} style="padding: 12px 16px; border: 1px solid #E2E8F0; border-radius: ${borderRadius}px; font-size: 13px; outline: none; background-color: #F8FAFC; color: #1E293B; width: 100%; box-sizing: border-box; font-family: inherit; font-weight: 500; transition: border-color 0.2s;" />
+      </div>
+    `;
+  });
+
+  const borderStyle = layout === 'minimal' ? 'border: none; background-color: transparent; border-radius: 0px;' : `border: 1px solid #E2E8F0; border-radius: ${borderRadius}px; background-color: ${colorBg};`;
+  let styleAttributes = `font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 100%; height: 100vh; padding: 24px; text-align: center; color: ${colorText}; ${borderStyle} box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;`;
+
+  if (layout === 'glassmorphic') {
+    styleAttributes = `font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 100%; height: 100vh; padding: 24px; text-align: center; color: #1E293B; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: ${borderRadius}px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;`;
+  }
+
+  let bodyHtml = '';
+  if (layout === 'horizontal') {
+    bodyHtml = `
+      <form action="/api/contacts/subscribe" method="POST" style="display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; width: 100%;">
+        <input type="hidden" name="kinde_id" value="${kinde_id}" />
+        <input type="hidden" name="tags" value="${tag || 'Suscripción Directa'}" />
+        ${redirect ? `<input type="hidden" name="redirect_url" value="${redirect}" />` : ''}
+        <div style="flex: 1; min-width: 160px; text-align: left;">
+          <h3 style="margin-top: 0; margin-bottom: 4px; font-size: 16px; font-weight: 800; line-height: 1.2;">${formTitle}</h3>
+          <p style="font-size: 11px; margin: 0; opacity: 0.8; line-height: 1.3;">${formDesc}</p>
+        </div>
+        <div style="display: flex; flex-direction: row; gap: 10px; flex: 1.5; min-width: 260px; width: 100%;">
+          ${fieldsHtml.trim()}
+          <button type="submit" style="background-color: ${colorPrimary}; color: #FFFFFF; font-weight: 700; padding: 12px 20px; border: none; border-radius: ${borderRadius}px; font-size: 12px; cursor: pointer; transition: opacity 0.2s; white-space: nowrap; font-family: inherit;">${btnText}</button>
+        </div>
+      </form>
+    `;
+  } else {
+    bodyHtml = `
+      <h3 style="margin-top: 0; margin-bottom: 6px; font-size: 18px; font-weight: 800; line-height: 1.2;">${formTitle}</h3>
+      <p style="font-size: 12px; margin-top: 0; margin-bottom: 20px; opacity: 0.8; line-height: 1.4;">${formDesc}</p>
+      <form action="/api/contacts/subscribe" method="POST" style="display: flex; flex-direction: column; gap: 12px;">
+        <input type="hidden" name="kinde_id" value="${kinde_id}" />
+        <input type="hidden" name="tags" value="${tag || 'Suscripción Directa'}" />
+        ${redirect ? `<input type="hidden" name="redirect_url" value="${redirect}" />` : ''}
+        ${fieldsHtml.trim()}
+        <button type="submit" style="background-color: ${colorPrimary}; color: #FFFFFF; font-weight: 700; padding: 14px; border: none; border-radius: ${borderRadius}px; font-size: 13px; cursor: pointer; transition: opacity 0.2s; font-family: inherit; margin-top: 4px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">${btnText}</button>
+      </form>
+    `;
+  }
+
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+        input:focus { border-color: ${colorPrimary} !important; }
+        button:hover { opacity: 0.9; }
+      </style>
+    </head>
+    <body>
+      <div style="${styleAttributes}">
+        ${bodyHtml}
+      </div>
+    </body>
+    </html>
+  `);
+});
+
 // Fallback para el frontend (SPA)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

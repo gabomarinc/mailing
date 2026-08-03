@@ -1245,48 +1245,166 @@
               <i data-lucide="chevron-right" class="w-3 h-3 text-slate-300"></i>
               <span class="text-brand-accent">Formularios de Captación</span>
             </div>
-            <h1 class="text-2xl font-extrabold text-[#1B2939]">Captación de Contactos</h1>
-            <p class="text-xs text-brand-gray mt-1 font-medium">Generador de cajas de registro incrustables en tus landing pages.</p>
+            <h1 class="text-3xl font-black text-[#1c2938]">Captación de Contactos</h1>
+            <p class="text-xs text-brand-gray mt-1 font-medium">Diseña formularios de registro incrustables con nuestra lógica lego y drag-and-drop visual.</p>
           </div>
 
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div class="bg-white border border-brand-border rounded-[28px] p-6 md:p-8 shadow-sm flex flex-col gap-4">
-              <h2 class="text-sm font-bold text-[#1B2939] uppercase tracking-wider border-b border-brand-border pb-2">Diseño del Formulario</h2>
+          <div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+            
+            <!-- Left Column: Form Builder Controls (5 cols) -->
+            <div class="xl:col-span-5 flex flex-col gap-6">
               
-              <div class="flex flex-col gap-1">
-                <label for="form-title" class="text-xs font-semibold text-[#1B2939]">Título del Formulario</label>
-                <input type="text" id="form-title" value="Únete a nuestra lista de correo" class="w-full px-4 py-2 rounded-xl border border-brand-border text-xs font-medium">
+              <!-- 1. CONTENIDO & CAMPOS -->
+              <div class="bg-white border border-slate-100 rounded-[2.5rem] p-6 md:p-8 shadow-sm flex flex-col gap-5">
+                <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <div class="bg-indigo-50 text-indigo-600 p-1.5 rounded-lg">
+                    <i data-lucide="layout-template" class="w-4 h-4"></i>
+                  </div>
+                  <h3 class="text-xs font-bold text-[#1B2939] uppercase tracking-wider">1. Contenido y Campos (Lego)</h3>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-[11px] font-bold text-[#1c2938]">Título del Formulario</label>
+                  <input type="text" id="form-title" value="Únete a nuestro boletín" oninput="updateFormGenerator()" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-brand-dark focus:border-[#27bea5] outline-none transition-all">
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-[11px] font-bold text-[#1c2938]">Descripción</label>
+                  <input type="text" id="form-desc" value="Recibe actualizaciones semanales directamente en tu bandeja." oninput="updateFormGenerator()" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-brand-dark focus:border-[#27bea5] outline-none transition-all">
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-[11px] font-bold text-[#1c2938]">Tag por Defecto</label>
+                  <input type="text" id="form-tag" value="Suscripción Directa" oninput="updateFormGenerator()" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-brand-dark focus:border-[#27bea5] outline-none transition-all">
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-[11px] font-bold text-[#1c2938]">Texto del Botón</label>
+                  <input type="text" id="form-btn-text" value="Suscribirme" oninput="updateFormGenerator()" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-brand-dark focus:border-[#27bea5] outline-none transition-all">
+                </div>
+
+                <div class="space-y-3">
+                  <label class="text-[11px] font-bold text-[#1c2938] block">Campos del Formulario (Lego)</label>
+                  <div id="form-builder-fields-list" class="space-y-2">
+                    <!-- Dynamically populated list of active fields -->
+                  </div>
+
+                  <!-- Add field selector -->
+                  <div class="pt-2 border-t border-slate-100 flex gap-2">
+                    <select id="form-add-field-select" class="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-[#1c2938] outline-none">
+                      <option value="name">Nombre Completo</option>
+                      <option value="phone">Teléfono</option>
+                      <option value="company">Empresa</option>
+                      <option value="city">Ciudad</option>
+                    </select>
+                    <button type="button" onclick="addFormField()" class="px-3 py-2 bg-[#27bea5] hover:bg-[#22a890] text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1">
+                      <i data-lucide="plus" class="w-3.5 h-3.5"></i> Añadir
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              <div class="flex flex-col gap-1">
-                <label for="form-tag" class="text-xs font-semibold text-[#1B2939]">Tag asignado por defecto</label>
-                <input type="text" id="form-tag" value="Suscripción Directa" class="w-full px-4 py-2 rounded-xl border border-brand-border text-xs font-medium">
-              </div>
+              <!-- 2. ESTILOS & DISEÑO -->
+              <div class="bg-white border border-slate-100 rounded-[2.5rem] p-6 md:p-8 shadow-sm flex flex-col gap-5">
+                <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <div class="bg-indigo-50 text-indigo-600 p-1.5 rounded-lg">
+                    <i data-lucide="palette" class="w-4 h-4"></i>
+                  </div>
+                  <h3 class="text-xs font-bold text-[#1B2939] uppercase tracking-wider">2. Estilos y Diseño</h3>
+                </div>
 
-              <div class="flex flex-col gap-1">
-                <label for="form-btn-text" class="text-xs font-semibold text-[#1B2939]">Texto del Botón</label>
-                <input type="text" id="form-btn-text" value="Suscribirme" class="w-full px-4 py-2 rounded-xl border border-brand-border text-xs font-medium">
-              </div>
+                <div class="grid grid-cols-2 gap-4">
+                  <div class="flex flex-col gap-1.5 col-span-2">
+                    <label class="text-[11px] font-bold text-[#1c2938]">Estilo de Diseño</label>
+                    <select id="form-layout" onchange="updateFormGenerator()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-[#1c2938] outline-none">
+                      <option value="vertical">Caja Vertical (Clásico)</option>
+                      <option value="horizontal">Barra Horizontal (In-line)</option>
+                      <option value="minimal">Minimalista (Sin fondos)</option>
+                      <option value="glassmorphic">Efecto Cristal (Glassmorphism)</option>
+                    </select>
+                  </div>
 
-              <div class="flex flex-col gap-1">
-                <label class="text-xs font-semibold text-[#1B2939]">Código HTML de Integración</label>
-                <textarea id="form-embed-code" readonly class="w-full min-h-[120px] p-3 rounded-xl border border-brand-border bg-brand-light font-mono text-[10px] text-brand-gray select-all outline-none"></textarea>
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-[11px] font-bold text-[#1c2938]">Color del Botón</label>
+                    <div class="flex gap-2 items-center">
+                      <input type="color" id="form-color-primary" value="#1c2938" oninput="updateFormGenerator()" class="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 overflow-hidden bg-transparent">
+                      <input type="text" id="form-color-primary-text" value="#1c2938" oninput="syncColorInput('form-color-primary', this.value)" class="w-full px-2 py-1 rounded-lg border border-slate-200 font-mono text-[10px] text-[#1c2938] uppercase">
+                    </div>
+                  </div>
+
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-[11px] font-bold text-[#1c2938]">Fondo Formulario</label>
+                    <div class="flex gap-2 items-center">
+                      <input type="color" id="form-color-bg" value="#ffffff" oninput="updateFormGenerator()" class="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 overflow-hidden bg-transparent">
+                      <input type="text" id="form-color-bg-text" value="#ffffff" oninput="syncColorInput('form-color-bg', this.value)" class="w-full px-2 py-1 rounded-lg border border-slate-200 font-mono text-[10px] text-[#1c2938] uppercase">
+                    </div>
+                  </div>
+
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-[11px] font-bold text-[#1c2938]">Color de Texto</label>
+                    <div class="flex gap-2 items-center">
+                      <input type="color" id="form-color-text" value="#1c2938" oninput="updateFormGenerator()" class="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 overflow-hidden bg-transparent">
+                      <input type="text" id="form-color-text-text" value="#1c2938" oninput="syncColorInput('form-color-text', this.value)" class="w-full px-2 py-1 rounded-lg border border-slate-200 font-mono text-[10px] text-[#1c2938] uppercase">
+                    </div>
+                  </div>
+
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-[11px] font-bold text-[#1c2938]">Esquinas Redondeadas</label>
+                    <div class="flex items-center gap-2">
+                      <input type="range" id="form-radius" min="0" max="32" value="16" oninput="updateFormGenerator()" class="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-[#27bea5]">
+                      <span id="form-radius-val" class="text-[10px] font-mono font-bold text-slate-400 w-8 text-right">16px</span>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-col gap-1.5 col-span-2">
+                    <label class="text-[11px] font-bold text-[#1c2938]">URL de Redirección (Opcional)</label>
+                    <input type="text" id="form-redirect-url" placeholder="https://tuweb.com/gracias" oninput="updateFormGenerator()" class="w-full px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-brand-dark focus:border-[#27bea5] outline-none transition-all">
+                    <span class="text-[9px] text-slate-400 leading-tight">Redirige automáticamente al usuario a tu propia página después de registrarse.</span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <!-- Live Form Preview -->
-            <div class="bg-brand-light border border-brand-border rounded-[28px] p-6 md:p-8 flex flex-col justify-center items-center">
-              <span class="text-xs font-bold text-brand-accent uppercase tracking-wider mb-4">Vista Previa Real</span>
+            <!-- Right Column: Live Preview & Code Export (7 cols) -->
+            <div class="xl:col-span-7 flex flex-col gap-6 sticky top-6">
               
-              <div class="w-full max-w-xs bg-white border border-brand-border p-6 rounded-2xl shadow-sm text-center">
-                <h3 id="prev-form-title" class="font-bold text-sm mb-2 text-[#1B2939]">Únete a nuestra lista de correo</h3>
-                <p class="text-[10px] text-brand-gray mb-4 font-medium">Ingresa tus datos para mantenerte informado.</p>
-                
-                <div class="flex flex-col gap-2.5">
-                  <input type="text" placeholder="Tu nombre" disabled class="px-3 py-2 rounded-xl border border-brand-border text-[11px] w-full bg-brand-light font-medium">
-                  <input type="email" placeholder="Tu correo electrónico" disabled class="px-3 py-2 rounded-xl border border-brand-border text-[11px] w-full bg-brand-light font-medium">
-                  <button id="prev-form-btn" class="bg-brand-dark text-white font-semibold py-2 rounded-xl text-[11px] w-full">Suscribirme</button>
+              <!-- 3. LIVE PREVIEW -->
+              <div class="bg-slate-50 border border-slate-200 rounded-[2.5rem] p-6 md:p-8 flex flex-col items-center min-h-[300px] justify-center relative overflow-hidden">
+                <span class="absolute top-4 left-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Vista Previa Interactiva</span>
+                <div id="form-live-preview-container" class="w-full max-w-md transition-all">
+                  <!-- Injected via JavaScript -->
                 </div>
+              </div>
+
+              <!-- 4. EMBED CODE EXPORT -->
+              <div class="bg-white border border-slate-100 rounded-[2.5rem] p-6 md:p-8 shadow-sm flex flex-col gap-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div class="flex items-center gap-2">
+                    <div class="bg-indigo-50 text-indigo-600 p-1.5 rounded-lg">
+                      <i data-lucide="code-2" class="w-4 h-4"></i>
+                    </div>
+                    <h3 class="text-xs font-bold text-[#1B2939] uppercase tracking-wider">3. Código de Integración</h3>
+                  </div>
+                  <!-- Switch code type buttons -->
+                  <div class="flex bg-slate-50 p-1 rounded-xl border border-slate-100">
+                    <button onclick="switchEmbedCodeTab('html')" id="btn-embed-html" class="px-3 py-1 rounded-lg text-[10px] font-bold bg-[#1c2938] text-white transition-all shadow-sm">HTML & CSS Completo</button>
+                    <button onclick="switchEmbedCodeTab('script')" id="btn-embed-script" class="px-3 py-1 rounded-lg text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-all">Script Rápido</button>
+                  </div>
+                </div>
+
+                <div class="relative">
+                  <textarea id="form-embed-code" readonly class="w-full min-h-[160px] p-4 rounded-2xl border border-slate-100 bg-slate-50 font-mono text-[10px] text-slate-500 select-all outline-none focus:border-[#27bea5] transition-all leading-normal"></textarea>
+                  
+                  <div class="absolute right-3 bottom-3 flex gap-2">
+                    <button onclick="copyFormEmbedCode()" class="bg-white hover:bg-slate-50 border border-slate-200 text-brand-dark px-3 py-1.5 rounded-xl text-[10px] font-bold shadow-sm transition-all flex items-center gap-1.5">
+                      <i data-lucide="copy" class="w-3.5 h-3.5 text-slate-400"></i> Copiar Código
+                    </button>
+                  </div>
+                </div>
+                <p class="text-[10px] text-slate-400 leading-normal">
+                  <i data-lucide="help-circle" class="w-3 h-3 inline mr-1 text-slate-400"></i>
+                  <span id="embed-code-help">Copia este bloque HTML e insértalo en cualquier parte del código de tu sitio web para renderizar el formulario.</span>
+                </p>
               </div>
             </div>
           </div>
@@ -2578,37 +2696,259 @@
       // });
 
 
-      const formTitleInput = document.getElementById('form-title');
-      const formTagInput = document.getElementById('form-tag');
-      const formBtnInput = document.getElementById('form-btn-text');
+      // ==========================================
+      // GENERADOR DE FORMULARIOS AVANZADO (LEGO)
+      // ==========================================
+      let activeFormFields = [
+        { id: 'email', label: 'Email', placeholder: 'Tu correo electrónico', type: 'email', required: true, locked: true },
+        { id: 'name', label: 'Nombre Completo', placeholder: 'Tu nombre completo', type: 'text', required: true, locked: false }
+      ];
+      let activeEmbedTab = 'html';
+      let currentUserKindeId = '';
 
-      const updateFormGenerator = () => {
-        const title = formTitleInput.value.trim() || 'Únete a nuestra lista';
-        const tag = formTagInput.value.trim() || 'Suscripción Directa';
-        const btnText = formBtnInput.value.trim() || 'Suscribirme';
+      function renderFormFieldsList() {
+        const container = document.getElementById('form-builder-fields-list');
+        if (!container) return;
+        container.innerHTML = '';
 
-        document.getElementById('prev-form-title').textContent = title;
-        document.getElementById('prev-form-btn').textContent = btnText;
+        activeFormFields.forEach((field, index) => {
+          const div = document.createElement('div');
+          div.className = "flex items-center justify-between bg-slate-50 border border-slate-100 p-2.5 rounded-xl text-xs font-bold text-brand-dark";
+          div.innerHTML = `
+            <div class="flex items-center gap-2">
+              <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-400 cursor-grab"></i>
+              <span>${field.label} <span class="text-[10px] text-slate-400 font-mono">(${field.type})</span></span>
+            </div>
+            <div class="flex items-center gap-2">
+              ${!field.locked ? `
+                <button type="button" onclick="removeFormField(${index})" class="text-rose-500 hover:text-rose-700 p-1">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              ` : '<span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider bg-slate-200/50 px-2 py-0.5 rounded-md">Requerido</span>'}
+            </div>
+          `;
+          container.appendChild(div);
+        });
+        lucide.createIcons();
+      }
 
-        const serverUrl = window.location.origin;
-        const embedCode = `<!-- Formulario de Suscripción Kônsul -->
-<div style="font-family: sans-serif; max-width: 360px; margin: 0 auto; border: 1px solid #EAE6DF; border-radius: 16px; padding: 24px; text-align: center; background-color: #FFFFFF;">
-  <h3 style="margin-top: 0; margin-bottom: 8px; font-size: 18px; color: #1B2939;">${title}</h3>
-  <p style="font-size: 12px; color: #6E7A8A; margin-bottom: 16px;">Ingresa tus datos para mantenerte informado.</p>
-  <form action="${serverUrl}/api/contacts" method="POST" style="display: flex; flex-direction: column; gap: 10px;">
-    <input type="text" name="name" placeholder="Tu nombre" required style="padding: 10px; border: 1px solid #EAE6DF; border-radius: 8px; font-size: 13px;" />
-    <input type="email" name="email" placeholder="Tu correo electrónico" required style="padding: 10px; border: 1px solid #EAE6DF; border-radius: 8px; font-size: 13px;" />
-    <input type="hidden" name="tags" value="${tag}" />
-    <button type="submit" style="background-color: #1B2939; color: #FFFFFF; font-weight: 600; padding: 10px; border: none; border-radius: 8px; font-size: 13px; cursor: pointer;">${btnText}</button>
-  </form>
-</div>`;
-        document.getElementById('form-embed-code').value = embedCode;
+      window.addFormField = function() {
+        const select = document.getElementById('form-add-field-select');
+        const fieldType = select.value;
+        
+        if (fieldType === 'name' && activeFormFields.some(f => f.id === 'name')) {
+          showToast('El campo Nombre ya está añadido.', 'warning');
+          return;
+        }
+
+        const labels = {
+          name: { label: 'Nombre Completo', placeholder: 'Tu nombre completo', type: 'text' },
+          phone: { label: 'Teléfono', placeholder: 'Tu teléfono', type: 'tel' },
+          company: { label: 'Empresa', placeholder: 'Tu empresa', type: 'text' },
+          city: { label: 'Ciudad', placeholder: 'Tu ciudad', type: 'text' }
+        };
+
+        const config = labels[fieldType];
+        activeFormFields.push({
+          id: fieldType,
+          label: config.label,
+          placeholder: config.placeholder,
+          type: config.type,
+          required: false,
+          locked: false
+        });
+
+        renderFormFieldsList();
+        updateFormGenerator();
       };
 
-      formTitleInput.addEventListener('input', updateFormGenerator);
-      formTagInput.addEventListener('input', updateFormGenerator);
-      formBtnInput.addEventListener('input', updateFormGenerator);
-      updateFormGenerator();
+      window.removeFormField = function(index) {
+        if (activeFormFields[index].locked) return;
+        activeFormFields.splice(index, 1);
+        renderFormFieldsList();
+        updateFormGenerator();
+      };
+
+      window.syncColorInput = function(inputId, value) {
+        const input = document.getElementById(inputId);
+        if (input && /^#[0-9A-F]{6}$/i.test(value)) {
+          input.value = value;
+          updateFormGenerator();
+        }
+      };
+
+      window.switchEmbedCodeTab = function(tab) {
+        activeEmbedTab = tab;
+        document.getElementById('btn-embed-html').className = tab === 'html' 
+          ? 'px-3 py-1 rounded-lg text-[10px] font-bold bg-[#1c2938] text-white transition-all shadow-sm' 
+          : 'px-3 py-1 rounded-lg text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-all';
+        document.getElementById('btn-embed-script').className = tab === 'script' 
+          ? 'px-3 py-1 rounded-lg text-[10px] font-bold bg-[#1c2938] text-white transition-all shadow-sm' 
+          : 'px-3 py-1 rounded-lg text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-all';
+        
+        document.getElementById('embed-code-help').textContent = tab === 'html'
+          ? 'Copia este bloque HTML e insértalo en cualquier parte del código de tu sitio web para renderizar el formulario.'
+          : 'Copia este script e insértalo donde quieras cargar dinámicamente el widget del formulario.';
+          
+        updateFormGenerator();
+      };
+
+      window.copyFormEmbedCode = function() {
+        const textarea = document.getElementById('form-embed-code');
+        textarea.select();
+        document.execCommand('copy');
+        showToast('¡Código copiado al portapapeles!', 'success');
+      };
+
+      const updateFormGenerator = () => {
+        const title = document.getElementById('form-title').value.trim() || 'Únete a nuestra lista';
+        const desc = document.getElementById('form-desc').value.trim() || 'Ingresa tus datos para mantenerte informado.';
+        const tag = document.getElementById('form-tag').value.trim() || 'Suscripción Directa';
+        const btnText = document.getElementById('form-btn-text').value.trim() || 'Suscribirme';
+        
+        const layout = document.getElementById('form-layout').value;
+        const colorPrimary = document.getElementById('form-color-primary').value;
+        const colorBg = document.getElementById('form-color-bg').value;
+        const colorText = document.getElementById('form-color-text').value;
+        const radius = document.getElementById('form-radius').value;
+        const redirectUrl = document.getElementById('form-redirect-url').value.trim();
+
+        document.getElementById('form-color-primary-text').value = colorPrimary.toUpperCase();
+        document.getElementById('form-color-bg-text').value = colorBg.toUpperCase();
+        document.getElementById('form-color-text-text').value = colorText.toUpperCase();
+        document.getElementById('form-radius-val').textContent = `${radius}px`;
+
+        const serverUrl = window.location.origin;
+
+        if (!currentUserKindeId) {
+          if (typeof onboardingData !== 'undefined' && onboardingData) {
+            currentUserKindeId = onboardingData.kinde_id || '';
+          } else if (typeof contacts !== 'undefined' && contacts.length > 0) {
+            currentUserKindeId = contacts[0].kinde_id || '';
+          }
+        }
+
+        let fieldsHtml = '';
+        let fieldsPreviewHtml = '';
+        
+        activeFormFields.forEach(f => {
+          fieldsHtml += `    <div style="display: flex; flex-direction: column; gap: 4px; text-align: left; width: 100%;">
+      <input type="${f.type}" name="${f.id}" placeholder="${f.placeholder}" ${f.required ? 'required' : ''} style="padding: 12px 16px; border: 1px solid #E2E8F0; border-radius: ${radius}px; font-size: 13px; outline: none; background-color: #F8FAFC; color: #1E293B; width: 100%; box-sizing: border-box; font-family: inherit; font-weight: 500; transition: border-color 0.2s;" />
+    </div>\n`;
+
+          fieldsPreviewHtml += `
+            <input type="${f.type}" placeholder="${f.placeholder}" disabled class="px-4 py-2.5 rounded-xl border border-slate-200 text-xs w-full bg-slate-50 font-medium text-brand-dark" style="border-radius: ${radius}px;" />
+          `;
+        });
+
+        const previewContainer = document.getElementById('form-live-preview-container');
+        if (previewContainer) {
+          let previewHtml = '';
+          const borderStyle = layout === 'minimal' ? 'border: none; background-color: transparent; border-radius: 0px;' : `border: 1px solid #EAE6DF; border-radius: ${radius}px; background-color: ${colorBg};`;
+          let cardStyle = `padding: 28px; text-align: center; color: ${colorText}; transition: all 0.3s; box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); ${borderStyle}`;
+          
+          if (layout === 'glassmorphic') {
+            cardStyle = `padding: 28px; text-align: center; color: #1c2938; background: rgba(255, 255, 255, 0.45); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: ${radius}px;`;
+          }
+
+          if (layout === 'horizontal') {
+            previewHtml = `
+              <div style="${cardStyle}" class="flex flex-col md:flex-row items-center gap-4 w-full">
+                <div class="text-left flex-1">
+                  <h3 class="font-extrabold text-sm mb-1">${title}</h3>
+                  <p class="text-[10px] opacity-80 leading-normal">${desc}</p>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-2 flex-1 w-full justify-end">
+                  ${fieldsPreviewHtml}
+                  <button class="font-bold py-2.5 px-6 text-xs text-white" style="background-color: ${colorPrimary}; border-radius: ${radius}px; white-space: nowrap;">${btnText}</button>
+                </div>
+              </div>
+            `;
+          } else {
+            previewHtml = `
+              <div style="${cardStyle}" class="flex flex-col gap-4">
+                <div>
+                  <h3 class="font-extrabold text-base mb-1.5">${title}</h3>
+                  <p class="text-[11px] opacity-80 leading-relaxed">${desc}</p>
+                </div>
+                <div class="flex flex-col gap-2.5">
+                  ${fieldsPreviewHtml}
+                  <button class="font-bold py-3 text-xs text-white w-full transition-all" style="background-color: ${colorPrimary}; border-radius: ${radius}px;">${btnText}</button>
+                </div>
+              </div>
+            `;
+          }
+          previewContainer.innerHTML = previewHtml;
+        }
+
+        let generatedCode = '';
+        if (activeEmbedTab === 'html') {
+          const borderStyle = layout === 'minimal' ? 'border: none; background-color: transparent; border-radius: 0px;' : `border: 1px solid #E2E8F0; border-radius: ${radius}px; background-color: ${colorBg};`;
+          let styleAttributes = `font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: ${layout === 'horizontal' ? '800px' : '380px'}; margin: 0 auto; padding: 32px; text-align: center; color: ${colorText}; ${borderStyle} box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); box-sizing: border-box;`;
+          
+          if (layout === 'glassmorphic') {
+            styleAttributes = `font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: ${layout === 'horizontal' ? '800px' : '380px'}; margin: 0 auto; padding: 32px; text-align: center; color: #1E293B; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: ${radius}px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); box-sizing: border-box;`;
+          }
+
+          if (layout === 'horizontal') {
+            generatedCode = `<!-- Formulario de Suscripción Kônsul -->
+<div style="${styleAttributes}">
+  <form action="${serverUrl}/api/contacts/subscribe" method="POST" style="display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; width: 100%;">
+    <input type="hidden" name="kinde_id" value="${currentUserKindeId}" />
+    <input type="hidden" name="tags" value="${tag}" />
+    ${redirectUrl ? `<input type="hidden" name="redirect_url" value="${redirectUrl}" />` : ''}
+    <div style="flex: 1; min-width: 200px; text-align: left;">
+      <h3 style="margin-top: 0; margin-bottom: 6px; font-size: 18px; font-weight: 800; line-height: 1.2;">${title}</h3>
+      <p style="font-size: 12px; margin: 0; opacity: 0.8; line-height: 1.4;">${desc}</p>
+    </div>
+    <div style="display: flex; flex-direction: row; gap: 10px; flex: 1.5; min-width: 280px; width: 100%;">
+      ${fieldsHtml.trim()}
+      <button type="submit" style="background-color: ${colorPrimary}; color: #FFFFFF; font-weight: 700; padding: 12px 24px; border: none; border-radius: ${radius}px; font-size: 13px; cursor: pointer; transition: opacity 0.2s; white-space: nowrap; font-family: inherit;">${btnText}</button>
+    </div>
+  </form>
+</div>`;
+          } else {
+            generatedCode = `<!-- Formulario de Suscripción Kônsul -->
+<div style="${styleAttributes}">
+  <h3 style="margin-top: 0; margin-bottom: 8px; font-size: 18px; font-weight: 800; line-height: 1.2;">${title}</h3>
+  <p style="font-size: 12px; margin-top: 0; margin-bottom: 24px; opacity: 0.8; line-height: 1.4;">${desc}</p>
+  <form action="${serverUrl}/api/contacts/subscribe" method="POST" style="display: flex; flex-direction: column; gap: 12px;">
+    <input type="hidden" name="kinde_id" value="${currentUserKindeId}" />
+    <input type="hidden" name="tags" value="${tag}" />
+    ${redirectUrl ? `<input type="hidden" name="redirect_url" value="${redirectUrl}" />` : ''}
+    ${fieldsHtml.trim()}
+    <button type="submit" style="background-color: ${colorPrimary}; color: #FFFFFF; font-weight: 700; padding: 14px; border: none; border-radius: ${radius}px; font-size: 13px; cursor: pointer; transition: opacity 0.2s; font-family: inherit; margin-top: 4px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">${btnText}</button>
+  </form>
+</div>`;
+          }
+        } else {
+          const fieldsArray = activeFormFields.map(f => f.id).join(',');
+          generatedCode = `<!-- Widget de Suscripción Kônsul -->
+<div id="konsul-subscription-form"></div>
+<script>
+  (function() {
+    var container = document.getElementById('konsul-subscription-form');
+    if (!container) return;
+    var iframe = document.createElement('iframe');
+    iframe.src = "${serverUrl}/form-frame?kinde_id=${currentUserKindeId}&tag=${encodeURIComponent(tag)}&title=${encodeURIComponent(title)}&desc=${encodeURIComponent(desc)}&btn=${encodeURIComponent(btnText)}&layout=${layout}&primary=${encodeURIComponent(colorPrimary)}&bg=${encodeURIComponent(colorBg)}&text=${encodeURIComponent(colorText)}&radius=${radius}&fields=${fieldsArray}${redirectUrl ? '&redirect=' + encodeURIComponent(redirectUrl) : ''}";
+    iframe.style.width = "100%";
+    iframe.style.height = "${layout === 'horizontal' ? '120px' : '450px'}";
+    iframe.style.border = "none";
+    iframe.style.overflow = "hidden";
+    container.appendChild(iframe);
+  })();
+<\/script>`;
+        }
+        
+        document.getElementById('form-embed-code').value = generatedCode;
+      };
+
+      window.updateFormGenerator = updateFormGenerator;
+
+      setTimeout(() => {
+        renderFormFieldsList();
+        updateFormGenerator();
+      }, 500);
     }
 
     // UI Renders
