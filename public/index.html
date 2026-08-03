@@ -1239,172 +1239,299 @@
 
         <!-- ================= TAB: FORMS ================= -->
         <section id="tab-forms" class="tab-content hidden flex flex-col gap-6">
-          <div>
-            <div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-              <span>Inicio</span>
-              <i data-lucide="chevron-right" class="w-3 h-3 text-slate-300"></i>
-              <span class="text-brand-accent">Formularios de Captación</span>
+          
+          <!-- A. DASHBOARD / LIST VIEW -->
+          <div id="forms-dashboard" class="flex flex-col gap-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                  <span>Inicio</span>
+                  <i data-lucide="chevron-right" class="w-3 h-3 text-slate-300"></i>
+                  <span class="text-brand-accent">Formularios de Captación</span>
+                </div>
+                <h1 class="text-3xl font-black text-[#1c2938]">Formularios de Captación</h1>
+                <p class="text-xs text-brand-gray mt-1 font-medium">Administra tus formularios incrustables y mide su efectividad en tiempo real.</p>
+              </div>
+              <div>
+                <button onclick="startCreateNewForm()" class="bg-[#1c2938] text-white font-bold px-6 py-3 rounded-2xl hover:bg-[#27bea5] transition-all text-xs flex items-center gap-2 shadow-lg shadow-slate-200">
+                  <i data-lucide="plus" class="w-4 h-4"></i> Crear Nuevo Formulario
+                </button>
+              </div>
             </div>
-            <h1 class="text-3xl font-black text-[#1c2938]">Captación de Contactos</h1>
-            <p class="text-xs text-brand-gray mt-1 font-medium">Diseña formularios de registro incrustables con nuestra lógica lego y drag-and-drop visual.</p>
+
+            <!-- Stats Overview Row -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div class="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm flex items-center gap-4">
+                <div class="bg-blue-50 text-blue-500 p-3 rounded-2xl">
+                  <i data-lucide="eye" class="w-6 h-6"></i>
+                </div>
+                <div>
+                  <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Visualizaciones Totales</p>
+                  <h3 id="forms-total-views" class="text-2xl font-black text-[#1B2939] mt-0.5">0</h3>
+                </div>
+              </div>
+              <div class="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm flex items-center gap-4">
+                <div class="bg-emerald-50 text-[#27bea5] p-3 rounded-2xl">
+                  <i data-lucide="user-plus" class="w-6 h-6"></i>
+                </div>
+                <div>
+                  <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Registros Totales</p>
+                  <h3 id="forms-total-submissions" class="text-2xl font-black text-[#1B2939] mt-0.5">0</h3>
+                </div>
+              </div>
+              <div class="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm flex items-center gap-4">
+                <div class="bg-indigo-50 text-indigo-500 p-3 rounded-2xl">
+                  <i data-lucide="percent" class="w-6 h-6"></i>
+                </div>
+                <div>
+                  <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tasa de Conversión Promedio</p>
+                  <h3 id="forms-average-conversion" class="text-2xl font-black text-[#1B2939] mt-0.5">0%</h3>
+                </div>
+              </div>
+            </div>
+
+            <!-- Forms Table -->
+            <div class="bg-white border border-slate-100 rounded-[2.5rem] overflow-hidden shadow-sm">
+              <div class="p-6 border-b border-slate-50 flex items-center justify-between">
+                <h3 class="text-xs font-bold text-[#1B2939] uppercase tracking-wider">Tus Formularios Activos</h3>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="border-b border-slate-100 text-slate-400 font-bold uppercase text-[10px] tracking-widest bg-slate-50/50">
+                      <th class="py-4 px-6">Formulario / Lista</th>
+                      <th class="py-4 px-6 text-center">Impresiones (Vistas)</th>
+                      <th class="py-4 px-6 text-center">Suscritos (Enviados)</th>
+                      <th class="py-4 px-6 text-center">Tasa de Conversión</th>
+                      <th class="py-4 px-6 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="forms-table-body" class="divide-y divide-slate-50 text-xs font-semibold text-[#1c2938]">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
 
-          <div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+          <!-- B. WIZARD / BUILDER VIEW -->
+          <div id="forms-editor" class="hidden flex flex-col gap-6">
             
-            <!-- Left Column: Form Builder Controls (5 cols) -->
-            <div class="xl:col-span-5 flex flex-col gap-6">
+            <!-- Editor Header -->
+            <div class="flex items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <div class="flex items-center gap-3">
+                <button onclick="backToFormsDashboard()" class="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-[#1B2939] transition-all">
+                  <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                </button>
+                <div>
+                  <h2 id="form-editor-title" class="text-lg font-black text-[#1B2939]">Crear Nuevo Formulario</h2>
+                  <p class="text-[10px] text-brand-gray">Sigue los pasos a la izquierda mientras visualizas el resultado a la derecha.</p>
+                </div>
+              </div>
+
+              <!-- Stepper Header -->
+              <div class="flex items-center bg-slate-50 border border-slate-200/60 p-1.5 rounded-2xl gap-1">
+                <div id="step-pill-1" class="px-3 py-1.5 rounded-xl text-[10px] font-bold bg-[#1c2938] text-white transition-all">1. Campos</div>
+                <div id="step-pill-2" class="px-3 py-1.5 rounded-xl text-[10px] font-bold text-slate-400 transition-all">2. Diseño</div>
+                <div id="step-pill-3" class="px-3 py-1.5 rounded-xl text-[10px] font-bold text-slate-400 transition-all">3. Integración</div>
+              </div>
+            </div>
+
+            <!-- Wizard Core Grid -->
+            <div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
               
-              <!-- 1. CONTENIDO & CAMPOS -->
-              <div class="bg-white border border-slate-100 rounded-[2.5rem] p-6 md:p-8 shadow-sm flex flex-col gap-5">
-                <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
-                  <div class="bg-indigo-50 text-indigo-600 p-1.5 rounded-lg">
-                    <i data-lucide="layout-template" class="w-4 h-4"></i>
-                  </div>
-                  <h3 class="text-xs font-bold text-[#1B2939] uppercase tracking-wider">1. Contenido y Campos (Lego)</h3>
-                </div>
-
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-[11px] font-bold text-[#1c2938]">Título del Formulario</label>
-                  <input type="text" id="form-title" value="Únete a nuestro boletín" oninput="updateFormGenerator()" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-brand-dark focus:border-[#27bea5] outline-none transition-all">
-                </div>
-
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-[11px] font-bold text-[#1c2938]">Descripción</label>
-                  <input type="text" id="form-desc" value="Recibe actualizaciones semanales directamente en tu bandeja." oninput="updateFormGenerator()" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-brand-dark focus:border-[#27bea5] outline-none transition-all">
-                </div>
-
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-[11px] font-bold text-[#1c2938]">Tag por Defecto</label>
-                  <input type="text" id="form-tag" value="Suscripción Directa" oninput="updateFormGenerator()" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-brand-dark focus:border-[#27bea5] outline-none transition-all">
-                </div>
-
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-[11px] font-bold text-[#1c2938]">Texto del Botón</label>
-                  <input type="text" id="form-btn-text" value="Suscribirme" oninput="updateFormGenerator()" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-brand-dark focus:border-[#27bea5] outline-none transition-all">
-                </div>
-
-                <div class="space-y-3">
-                  <label class="text-[11px] font-bold text-[#1c2938] block">Campos del Formulario (Lego)</label>
-                  <div id="form-builder-fields-list" class="space-y-2">
-                    <!-- Dynamically populated list of active fields -->
+              <!-- Left Column: Steps (5 cols) -->
+              <div class="xl:col-span-5 flex flex-col gap-6">
+                
+                <!-- STEP 1: GENERAL & FIELDS -->
+                <div id="wizard-step-1" class="bg-white border border-slate-100 rounded-[2.5rem] p-6 md:p-8 shadow-sm flex flex-col gap-5">
+                  <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+                    <div class="bg-indigo-50 text-indigo-600 p-1.5 rounded-lg">
+                      <i data-lucide="layout-template" class="w-4 h-4"></i>
+                    </div>
+                    <h3 class="text-xs font-bold text-[#1B2939] uppercase tracking-wider">Paso 1: Configuración y Campos</h3>
                   </div>
 
-                  <!-- Add field selector -->
-                  <div class="pt-2 border-t border-slate-100 flex gap-2">
-                    <select id="form-add-field-select" class="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-[#1c2938] outline-none">
-                      <option value="name">Nombre Completo</option>
-                      <option value="phone">Teléfono</option>
-                      <option value="company">Empresa</option>
-                      <option value="city">Ciudad</option>
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-[11px] font-bold text-[#1c2938]">Nombre del Formulario (Interno)</label>
+                    <input type="text" id="form-name-internal" placeholder="Ej: Registro Footer Web" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-brand-dark focus:border-[#27bea5] outline-none transition-all">
+                  </div>
+
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-[11px] font-bold text-[#1c2938]">Lista / Tag Destino</label>
+                    <select id="form-target-list" onchange="onTargetListChanged()" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-[#1c2938] outline-none">
+                      <!-- Populated dynamically with lists/tags -->
                     </select>
-                    <button type="button" onclick="addFormField()" class="px-3 py-2 bg-[#27bea5] hover:bg-[#22a890] text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1">
-                      <i data-lucide="plus" class="w-3.5 h-3.5"></i> Añadir
+                    <span class="text-[9px] text-slate-400">Los contactos captados por este formulario se guardarán en esta lista y heredarán sus campos.</span>
+                  </div>
+
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-[11px] font-bold text-[#1c2938]">Título del Formulario (Público)</label>
+                    <input type="text" id="form-title" value="Únete a nuestro boletín" oninput="updateFormGenerator()" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-brand-dark focus:border-[#27bea5] outline-none transition-all">
+                  </div>
+
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-[11px] font-bold text-[#1c2938]">Descripción</label>
+                    <input type="text" id="form-desc" value="Recibe actualizaciones semanales directamente en tu bandeja." oninput="updateFormGenerator()" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-brand-dark focus:border-[#27bea5] outline-none transition-all">
+                  </div>
+
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-[11px] font-bold text-[#1c2938]">Texto del Botón</label>
+                    <input type="text" id="form-btn-text" value="Suscribirme" oninput="updateFormGenerator()" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-brand-dark focus:border-[#27bea5] outline-none transition-all">
+                  </div>
+
+                  <div class="space-y-3">
+                    <label class="text-[11px] font-bold text-[#1c2938] block">Campos del Formulario (Lego)</label>
+                    <div id="form-builder-fields-list" class="space-y-2">
+                      <!-- Dynamically populated list of active fields -->
+                    </div>
+
+                    <!-- Add field selector -->
+                    <div class="pt-2 border-t border-slate-100 flex gap-2">
+                      <select id="form-add-field-select" class="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-[#1c2938] outline-none">
+                        <!-- Custom fields loaded dynamically -->
+                      </select>
+                      <button type="button" onclick="addFormField()" class="px-4 py-2 bg-[#27bea5] hover:bg-[#22a890] text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Añadir
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Step buttons -->
+                  <div class="flex justify-end pt-4 border-t border-slate-50">
+                    <button onclick="goToFormStep(2)" class="bg-[#1c2938] text-white text-xs font-bold px-6 py-2.5 rounded-xl hover:bg-[#27bea5] transition-all flex items-center gap-1.5 shadow-sm">
+                      Siguiente: Diseño <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
                     </button>
                   </div>
                 </div>
-              </div>
 
-              <!-- 2. ESTILOS & DISEÑO -->
-              <div class="bg-white border border-slate-100 rounded-[2.5rem] p-6 md:p-8 shadow-sm flex flex-col gap-5">
-                <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
-                  <div class="bg-indigo-50 text-indigo-600 p-1.5 rounded-lg">
-                    <i data-lucide="palette" class="w-4 h-4"></i>
+                <!-- STEP 2: STYLES & DESIGN -->
+                <div id="wizard-step-2" class="hidden bg-white border border-slate-100 rounded-[2.5rem] p-6 md:p-8 shadow-sm flex flex-col gap-5">
+                  <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+                    <div class="bg-indigo-50 text-indigo-600 p-1.5 rounded-lg">
+                      <i data-lucide="palette" class="w-4 h-4"></i>
+                    </div>
+                    <h3 class="text-xs font-bold text-[#1B2939] uppercase tracking-wider">Paso 2: Estilos y Diseño</h3>
                   </div>
-                  <h3 class="text-xs font-bold text-[#1B2939] uppercase tracking-wider">2. Estilos y Diseño</h3>
+
+                  <div class="grid grid-cols-2 gap-4">
+                    <div class="flex flex-col gap-1.5 col-span-2">
+                      <label class="text-[11px] font-bold text-[#1c2938]">Estilo de Diseño</label>
+                      <select id="form-layout" onchange="updateFormGenerator()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-[#1c2938] outline-none">
+                        <option value="vertical">Caja Vertical (Clásico)</option>
+                        <option value="horizontal">Barra Horizontal (In-line)</option>
+                        <option value="minimal">Minimalista (Sin fondos)</option>
+                        <option value="glassmorphic">Efecto Cristal (Glassmorphism)</option>
+                      </select>
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                      <label class="text-[11px] font-bold text-[#1c2938]">Color del Botón</label>
+                      <div class="flex gap-2 items-center">
+                        <input type="color" id="form-color-primary" value="#1c2938" oninput="updateFormGenerator()" class="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 overflow-hidden bg-transparent">
+                        <input type="text" id="form-color-primary-text" value="#1c2938" oninput="syncColorInput('form-color-primary', this.value)" class="w-full px-2 py-1 rounded-lg border border-slate-200 font-mono text-[10px] text-[#1c2938] uppercase">
+                      </div>
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                      <label class="text-[11px] font-bold text-[#1c2938]">Fondo Formulario</label>
+                      <div class="flex gap-2 items-center">
+                        <input type="color" id="form-color-bg" value="#ffffff" oninput="updateFormGenerator()" class="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 overflow-hidden bg-transparent">
+                        <input type="text" id="form-color-bg-text" value="#ffffff" oninput="syncColorInput('form-color-bg', this.value)" class="w-full px-2 py-1 rounded-lg border border-slate-200 font-mono text-[10px] text-[#1c2938] uppercase">
+                      </div>
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                      <label class="text-[11px] font-bold text-[#1c2938]">Color de Texto</label>
+                      <div class="flex gap-2 items-center">
+                        <input type="color" id="form-color-text" value="#1c2938" oninput="updateFormGenerator()" class="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 overflow-hidden bg-transparent">
+                        <input type="text" id="form-color-text-text" value="#1c2938" oninput="syncColorInput('form-color-text', this.value)" class="w-full px-2 py-1 rounded-lg border border-slate-200 font-mono text-[10px] text-[#1c2938] uppercase">
+                      </div>
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                      <label class="text-[11px] font-bold text-[#1c2938]">Esquinas Redondeadas</label>
+                      <div class="flex items-center gap-2">
+                        <input type="range" id="form-radius" min="0" max="32" value="16" oninput="updateFormGenerator()" class="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-[#27bea5]">
+                        <span id="form-radius-val" class="text-[10px] font-mono font-bold text-slate-400 w-8 text-right">16px</span>
+                      </div>
+                    </div>
+
+                    <div class="flex flex-col gap-1.5 col-span-2">
+                      <label class="text-[11px] font-bold text-[#1c2938]">URL de Redirección (Opcional)</label>
+                      <input type="text" id="form-redirect-url" placeholder="https://tuweb.com/gracias" oninput="updateFormGenerator()" class="w-full px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-brand-dark focus:border-[#27bea5] outline-none transition-all">
+                      <span class="text-[9px] text-slate-400 leading-tight">Redirige automáticamente al usuario a tu propia página después de registrarse.</span>
+                    </div>
+                  </div>
+
+                  <!-- Step buttons -->
+                  <div class="flex justify-between pt-4 border-t border-slate-50">
+                    <button onclick="goToFormStep(1)" class="bg-slate-100 hover:bg-slate-200 text-brand-dark text-xs font-bold px-5 py-2.5 rounded-xl transition-all flex items-center gap-1.5 shadow-sm">
+                      <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Anterior
+                    </button>
+                    <button onclick="goToFormStep(3)" class="bg-[#1c2938] text-white text-xs font-bold px-6 py-2.5 rounded-xl hover:bg-[#27bea5] transition-all flex items-center gap-1.5 shadow-sm">
+                      Siguiente: Integración <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                  <div class="flex flex-col gap-1.5 col-span-2">
-                    <label class="text-[11px] font-bold text-[#1c2938]">Estilo de Diseño</label>
-                    <select id="form-layout" onchange="updateFormGenerator()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-[#1c2938] outline-none">
-                      <option value="vertical">Caja Vertical (Clásico)</option>
-                      <option value="horizontal">Barra Horizontal (In-line)</option>
-                      <option value="minimal">Minimalista (Sin fondos)</option>
-                      <option value="glassmorphic">Efecto Cristal (Glassmorphism)</option>
-                    </select>
-                  </div>
-
-                  <div class="flex flex-col gap-1.5">
-                    <label class="text-[11px] font-bold text-[#1c2938]">Color del Botón</label>
-                    <div class="flex gap-2 items-center">
-                      <input type="color" id="form-color-primary" value="#1c2938" oninput="updateFormGenerator()" class="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 overflow-hidden bg-transparent">
-                      <input type="text" id="form-color-primary-text" value="#1c2938" oninput="syncColorInput('form-color-primary', this.value)" class="w-full px-2 py-1 rounded-lg border border-slate-200 font-mono text-[10px] text-[#1c2938] uppercase">
-                    </div>
-                  </div>
-
-                  <div class="flex flex-col gap-1.5">
-                    <label class="text-[11px] font-bold text-[#1c2938]">Fondo Formulario</label>
-                    <div class="flex gap-2 items-center">
-                      <input type="color" id="form-color-bg" value="#ffffff" oninput="updateFormGenerator()" class="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 overflow-hidden bg-transparent">
-                      <input type="text" id="form-color-bg-text" value="#ffffff" oninput="syncColorInput('form-color-bg', this.value)" class="w-full px-2 py-1 rounded-lg border border-slate-200 font-mono text-[10px] text-[#1c2938] uppercase">
-                    </div>
-                  </div>
-
-                  <div class="flex flex-col gap-1.5">
-                    <label class="text-[11px] font-bold text-[#1c2938]">Color de Texto</label>
-                    <div class="flex gap-2 items-center">
-                      <input type="color" id="form-color-text" value="#1c2938" oninput="updateFormGenerator()" class="w-8 h-8 rounded-lg cursor-pointer border border-slate-200 overflow-hidden bg-transparent">
-                      <input type="text" id="form-color-text-text" value="#1c2938" oninput="syncColorInput('form-color-text', this.value)" class="w-full px-2 py-1 rounded-lg border border-slate-200 font-mono text-[10px] text-[#1c2938] uppercase">
-                    </div>
-                  </div>
-
-                  <div class="flex flex-col gap-1.5">
-                    <label class="text-[11px] font-bold text-[#1c2938]">Esquinas Redondeadas</label>
-                    <div class="flex items-center gap-2">
-                      <input type="range" id="form-radius" min="0" max="32" value="16" oninput="updateFormGenerator()" class="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-[#27bea5]">
-                      <span id="form-radius-val" class="text-[10px] font-mono font-bold text-slate-400 w-8 text-right">16px</span>
-                    </div>
-                  </div>
-
-                  <div class="flex flex-col gap-1.5 col-span-2">
-                    <label class="text-[11px] font-bold text-[#1c2938]">URL de Redirección (Opcional)</label>
-                    <input type="text" id="form-redirect-url" placeholder="https://tuweb.com/gracias" oninput="updateFormGenerator()" class="w-full px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-brand-dark focus:border-[#27bea5] outline-none transition-all">
-                    <span class="text-[9px] text-slate-400 leading-tight">Redirige automáticamente al usuario a tu propia página después de registrarse.</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Right Column: Live Preview & Code Export (7 cols) -->
-            <div class="xl:col-span-7 flex flex-col gap-6 sticky top-6">
-              
-              <!-- 3. LIVE PREVIEW -->
-              <div class="bg-slate-50 border border-slate-200 rounded-[2.5rem] p-6 md:p-8 flex flex-col items-center min-h-[300px] justify-center relative overflow-hidden">
-                <span class="absolute top-4 left-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Vista Previa Interactiva</span>
-                <div id="form-live-preview-container" class="w-full max-w-md transition-all">
-                  <!-- Injected via JavaScript -->
-                </div>
-              </div>
-
-              <!-- 4. EMBED CODE EXPORT -->
-              <div class="bg-white border border-slate-100 rounded-[2.5rem] p-6 md:p-8 shadow-sm flex flex-col gap-4">
-                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <div class="flex items-center gap-2">
+                <!-- STEP 3: INTEGRATION & SAVE -->
+                <div id="wizard-step-3" class="hidden bg-white border border-slate-100 rounded-[2.5rem] p-6 md:p-8 shadow-sm flex flex-col gap-5">
+                  <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
                     <div class="bg-indigo-50 text-indigo-600 p-1.5 rounded-lg">
                       <i data-lucide="code-2" class="w-4 h-4"></i>
                     </div>
-                    <h3 class="text-xs font-bold text-[#1B2939] uppercase tracking-wider">3. Código de Integración</h3>
+                    <h3 class="text-xs font-bold text-[#1B2939] uppercase tracking-wider">Paso 3: Guardar y Obtener Código</h3>
                   </div>
-                  <!-- Switch code type buttons -->
-                  <div class="flex bg-slate-50 p-1 rounded-xl border border-slate-100">
-                    <button onclick="switchEmbedCodeTab('html')" id="btn-embed-html" class="px-3 py-1 rounded-lg text-[10px] font-bold bg-[#1c2938] text-white transition-all shadow-sm">HTML & CSS Completo</button>
-                    <button onclick="switchEmbedCodeTab('script')" id="btn-embed-script" class="px-3 py-1 rounded-lg text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-all">Script Rápido</button>
-                  </div>
-                </div>
 
-                <div class="relative">
-                  <textarea id="form-embed-code" readonly class="w-full min-h-[160px] p-4 rounded-2xl border border-slate-100 bg-slate-50 font-mono text-[10px] text-slate-500 select-all outline-none focus:border-[#27bea5] transition-all leading-normal"></textarea>
-                  
-                  <div class="absolute right-3 bottom-3 flex gap-2">
-                    <button onclick="copyFormEmbedCode()" class="bg-white hover:bg-slate-50 border border-slate-200 text-brand-dark px-3 py-1.5 rounded-xl text-[10px] font-bold shadow-sm transition-all flex items-center gap-1.5">
-                      <i data-lucide="copy" class="w-3.5 h-3.5 text-slate-400"></i> Copiar Código
+                  <p class="text-xs text-brand-gray leading-relaxed">
+                    Guarda la configuración del formulario para registrarlo en tu cuenta y activar la medición de estadísticas. Después podrás copiar el código para colocarlo en tu web.
+                  </p>
+
+                  <button id="btn-save-form" onclick="saveFormConfig()" class="w-full bg-[#27bea5] hover:bg-[#22a890] text-white font-bold py-3 rounded-2xl text-xs transition-all shadow-md shadow-emerald-100 flex items-center justify-center gap-2">
+                    <i data-lucide="save" class="w-4 h-4"></i> Guardar Formulario
+                  </button>
+
+                  <div id="form-embed-section" class="hidden space-y-4 pt-4 border-t border-slate-100">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[11px] font-bold text-[#1B2939] uppercase tracking-wider">Código de Inserción</span>
+                      <div class="flex bg-slate-50 p-1 rounded-xl border border-slate-100">
+                        <button onclick="switchEmbedCodeTab('html')" id="btn-embed-html" class="px-3 py-1 rounded-lg text-[10px] font-bold bg-[#1c2938] text-white transition-all shadow-sm">HTML & CSS Completo</button>
+                        <button onclick="switchEmbedCodeTab('script')" id="btn-embed-script" class="px-3 py-1 rounded-lg text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-all">Script Rápido</button>
+                      </div>
+                    </div>
+
+                    <div class="relative">
+                      <textarea id="form-embed-code" readonly class="w-full min-h-[140px] p-4 rounded-2xl border border-slate-100 bg-slate-50 font-mono text-[10px] text-slate-500 select-all outline-none focus:border-[#27bea5] transition-all leading-normal"></textarea>
+                      <div class="absolute right-3 bottom-3">
+                        <button onclick="copyFormEmbedCode()" class="bg-white hover:bg-slate-50 border border-slate-200 text-brand-dark px-3 py-1.5 rounded-xl text-[10px] font-bold shadow-sm transition-all flex items-center gap-1.5">
+                          <i data-lucide="copy" class="w-3.5 h-3.5 text-slate-400"></i> Copiar Código
+                        </button>
+                      </div>
+                    </div>
+                    <p class="text-[9px] text-slate-400 leading-normal">
+                      <i data-lucide="help-circle" class="w-3 h-3 inline mr-0.5 text-slate-400"></i>
+                      <span id="embed-code-help">Copia este bloque HTML e insértalo en cualquier parte del código de tu sitio web para renderizar el formulario.</span>
+                    </p>
+                  </div>
+
+                  <!-- Step buttons -->
+                  <div class="flex justify-between pt-4 border-t border-slate-50">
+                    <button onclick="goToFormStep(2)" class="bg-slate-100 hover:bg-slate-200 text-brand-dark text-xs font-bold px-5 py-2.5 rounded-xl transition-all flex items-center gap-1.5 shadow-sm">
+                      <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Anterior
                     </button>
                   </div>
                 </div>
-                <p class="text-[10px] text-slate-400 leading-normal">
-                  <i data-lucide="help-circle" class="w-3 h-3 inline mr-1 text-slate-400"></i>
-                  <span id="embed-code-help">Copia este bloque HTML e insértalo en cualquier parte del código de tu sitio web para renderizar el formulario.</span>
-                </p>
+              </div>
+
+              <!-- Right Column: Live Preview (7 cols) - Persistent in Wizard -->
+              <div class="xl:col-span-7 flex flex-col gap-6 sticky top-6">
+                <div class="bg-slate-50 border border-slate-200 rounded-[2.5rem] p-6 md:p-8 flex flex-col items-center min-h-[340px] justify-center relative overflow-hidden">
+                  <span class="absolute top-4 left-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Vista Previa Interactiva</span>
+                  <div id="form-live-preview-container" class="w-full max-w-md transition-all">
+                    <!-- Injected via JavaScript -->
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -2170,8 +2297,12 @@
         checkSettingsStatus();
       }
       if (tabId === 'campaigns') {
-        goToStep(1);
+        // We use window.goToCampaignStep to avoid name conflict with form builder goToStep
+        if (window.goToCampaignStep) window.goToCampaignStep(1);
         switchCampaignSubTab('compose');
+      }
+      if (tabId === 'forms') {
+        if (window.backToFormsDashboard) window.backToFormsDashboard();
       }
     }
 
@@ -2687,24 +2818,14 @@
         });
       }
 
-
-      // Límite fijo de 10000
-      // const campSlider = document.getElementById('camp-slider');
-      // campSlider.addEventListener('input', (e) => {
-      //   updateCampSliderBadge(e.target.value);
-      //   checkCampaignLimitSafety();
-      // });
-
-
       // ==========================================
-      // GENERADOR DE FORMULARIOS AVANZADO (LEGO)
+      // GENERADOR Y ADMINISTRADOR DE FORMULARIOS (LEGO + WIZARD)
       // ==========================================
-      let activeFormFields = [
-        { id: 'email', label: 'Email', placeholder: 'Tu correo electrónico', type: 'email', required: true, locked: true },
-        { id: 'name', label: 'Nombre Completo', placeholder: 'Tu nombre completo', type: 'text', required: true, locked: false }
-      ];
+      let activeFormFields = [];
       let activeEmbedTab = 'html';
       let currentUserKindeId = '';
+      let formsList = [];
+      let editingFormId = null;
 
       function renderFormFieldsList() {
         const container = document.getElementById('form-builder-fields-list');
@@ -2736,8 +2857,8 @@
         const select = document.getElementById('form-add-field-select');
         const fieldType = select.value;
         
-        if (fieldType === 'name' && activeFormFields.some(f => f.id === 'name')) {
-          showToast('El campo Nombre ya está añadido.', 'warning');
+        if (activeFormFields.some(f => f.id === fieldType || f.id === fieldType.replace('custom_', ''))) {
+          showToast('Este campo ya está añadido al formulario.', 'warning');
           return;
         }
 
@@ -2748,9 +2869,16 @@
           city: { label: 'Ciudad', placeholder: 'Tu ciudad', type: 'text' }
         };
 
-        const config = labels[fieldType];
+        let config;
+        if (fieldType.startsWith('custom_')) {
+          const fieldKey = fieldType.replace('custom_', '');
+          config = { label: fieldKey, placeholder: `Tu ${fieldKey}`, type: 'text' };
+        } else {
+          config = labels[fieldType];
+        }
+
         activeFormFields.push({
-          id: fieldType,
+          id: fieldType.startsWith('custom_') ? fieldType.replace('custom_', '') : fieldType,
           label: config.label,
           placeholder: config.placeholder,
           type: config.type,
@@ -2800,10 +2928,355 @@
         showToast('¡Código copiado al portapapeles!', 'success');
       };
 
+      window.goToFormStep = function(step) {
+        if (step > 1) {
+          const internalName = document.getElementById('form-name-internal').value.trim();
+          const publicTitle = document.getElementById('form-title').value.trim();
+          if (!internalName || !publicTitle) {
+            showToast('Por favor, ingresa el nombre interno y el título del formulario.', 'warning');
+            return;
+          }
+        }
+
+        for (let s = 1; s <= 3; s++) {
+          const pill = document.getElementById(`step-pill-${s}`);
+          const stepDiv = document.getElementById(`wizard-step-${s}`);
+          
+          if (s === step) {
+            pill.className = "px-3 py-1.5 rounded-xl text-[10px] font-bold bg-[#1c2938] text-white transition-all shadow-sm";
+            if (stepDiv) stepDiv.classList.remove('hidden');
+          } else {
+            pill.className = "px-3 py-1.5 rounded-xl text-[10px] font-bold text-slate-400 transition-all";
+            if (stepDiv) stepDiv.classList.add('hidden');
+          }
+        }
+
+        const embedSec = document.getElementById('form-embed-section');
+        if (embedSec) {
+          if (editingFormId && step === 3) {
+            embedSec.classList.remove('hidden');
+          } else {
+            embedSec.classList.add('hidden');
+          }
+        }
+
+        updateFormGenerator();
+      };
+
+      function populateTargetLists() {
+        const select = document.getElementById('form-target-list');
+        if (!select) return;
+        select.innerHTML = '';
+
+        if (Array.isArray(lists) && lists.length > 0) {
+          lists.forEach(list => {
+            const opt = document.createElement('option');
+            opt.value = list.name;
+            opt.textContent = `${list.name} (${list.count} contactos)`;
+            select.appendChild(opt);
+          });
+        } else {
+          const opt = document.createElement('option');
+          opt.value = 'Suscripción Directa';
+          opt.textContent = 'Suscripción Directa (0 contactos)';
+          select.appendChild(opt);
+        }
+      }
+
+      window.onTargetListChanged = async function() {
+        const selectTag = document.getElementById('form-target-list');
+        if (!selectTag) return;
+        const selectedTag = selectTag.value;
+
+        const selectField = document.getElementById('form-add-field-select');
+        if (!selectField) return;
+
+        selectField.innerHTML = `
+          <option value="name">Nombre Completo</option>
+          <option value="phone">Teléfono</option>
+          <option value="company">Empresa</option>
+          <option value="city">Ciudad</option>
+        `;
+
+        try {
+          const res = await fetch(`/api/contacts/custom-fields?tag=${encodeURIComponent(selectedTag)}`);
+          const data = await res.json();
+          if (data.success && Array.isArray(data.keys)) {
+            data.keys.forEach(key => {
+              if (!['name', 'email', 'phone', 'company', 'city'].includes(key.toLowerCase())) {
+                const opt = document.createElement('option');
+                opt.value = `custom_${key}`;
+                opt.textContent = `Campo: ${key}`;
+                selectField.appendChild(opt);
+              }
+            });
+          }
+        } catch (err) {
+          console.error('Error cargando campos personalizados para lista:', err);
+        }
+      };
+
+      window.startCreateNewForm = function() {
+        editingFormId = null;
+        document.getElementById('form-editor-title').textContent = 'Crear Nuevo Formulario';
+        
+        document.getElementById('form-name-internal').value = '';
+        document.getElementById('form-title').value = 'Únete a nuestro boletín';
+        document.getElementById('form-desc').value = 'Recibe actualizaciones semanales directamente en tu bandeja.';
+        document.getElementById('form-btn-text').value = 'Suscribirme';
+        document.getElementById('form-layout').value = 'vertical';
+        document.getElementById('form-color-primary').value = '#1c2938';
+        document.getElementById('form-color-bg').value = '#ffffff';
+        document.getElementById('form-color-text').value = '#1c2938';
+        document.getElementById('form-radius').value = '16';
+        document.getElementById('form-redirect-url').value = '';
+
+        activeFormFields = [
+          { id: 'email', label: 'Email', placeholder: 'Tu correo electrónico', type: 'email', required: true, locked: true },
+          { id: 'name', label: 'Nombre Completo', placeholder: 'Tu nombre completo', type: 'text', required: true, locked: false }
+        ];
+
+        populateTargetLists();
+        window.onTargetListChanged().then(() => {
+          renderFormFieldsList();
+          document.getElementById('forms-dashboard').classList.add('hidden');
+          document.getElementById('forms-editor').classList.remove('hidden');
+          goToFormStep(1);
+        });
+      };
+
+      window.startEditForm = function(formId) {
+        const form = formsList.find(f => f.id === formId);
+        if (!form) return;
+
+        editingFormId = form.id;
+        document.getElementById('form-editor-title').textContent = `Editar Formulario: ${form.name}`;
+
+        document.getElementById('form-name-internal').value = form.name;
+        document.getElementById('form-title').value = form.title;
+        document.getElementById('form-desc').value = form.description || '';
+        document.getElementById('form-btn-text').value = form.button_text || 'Suscribirme';
+        document.getElementById('form-layout').value = form.layout || 'vertical';
+        document.getElementById('form-color-primary').value = form.primary_color || '#1c2938';
+        document.getElementById('form-color-bg').value = form.bg_color || '#ffffff';
+        document.getElementById('form-color-text').value = form.text_color || '#1c2938';
+        document.getElementById('form-radius').value = form.border_radius || 16;
+        document.getElementById('form-redirect-url').value = form.redirect_url || '';
+
+        activeFormFields = form.fields || [
+          { id: 'email', label: 'Email', placeholder: 'Tu correo electrónico', type: 'email', required: true, locked: true }
+        ];
+
+        populateTargetLists();
+        document.getElementById('form-target-list').value = form.target_tag;
+        
+        window.onTargetListChanged().then(() => {
+          renderFormFieldsList();
+          document.getElementById('forms-dashboard').classList.add('hidden');
+          document.getElementById('forms-editor').classList.remove('hidden');
+          goToFormStep(1);
+        });
+      };
+
+      window.deleteFormConfig = async function(id) {
+        if (!confirm('¿Estás seguro de que deseas eliminar este formulario? Se perderán todas sus estadísticas.')) return;
+        try {
+          const res = await fetch(`/api/forms/${id}`, { method: 'DELETE' });
+          const data = await res.json();
+          if (data.success) {
+            showToast('Formulario eliminado.', 'success');
+            fetchForms();
+          } else {
+            showToast('Error al eliminar: ' + (data.error || ''), 'error');
+          }
+        } catch (err) {
+          console.error('Error deleting form:', err);
+          showToast('Error al eliminar formulario.', 'error');
+        }
+      };
+
+      window.saveFormConfig = async function() {
+        const name = document.getElementById('form-name-internal').value.trim();
+        const title = document.getElementById('form-title').value.trim();
+        const description = document.getElementById('form-desc').value.trim();
+        const target_tag = document.getElementById('form-target-list').value;
+        const button_text = document.getElementById('form-btn-text').value.trim() || 'Suscribirme';
+        
+        const layout = document.getElementById('form-layout').value;
+        const primary_color = document.getElementById('form-color-primary').value;
+        const bg_color = document.getElementById('form-color-bg').value;
+        const text_color = document.getElementById('form-color-text').value;
+        const border_radius = parseInt(document.getElementById('form-radius').value, 10);
+        const redirect_url = document.getElementById('form-redirect-url').value.trim();
+
+        const btnSave = document.getElementById('btn-save-form');
+        btnSave.disabled = true;
+        btnSave.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Guardando...`;
+        lucide.createIcons();
+
+        try {
+          const res = await fetch('/api/forms', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: editingFormId,
+              name,
+              title,
+              description,
+              target_tag,
+              button_text,
+              fields: activeFormFields,
+              layout,
+              primary_color,
+              bg_color,
+              text_color,
+              border_radius,
+              redirect_url
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            editingFormId = data.form.id;
+            showToast('Formulario guardado exitosamente.', 'success');
+            
+            const embedSec = document.getElementById('form-embed-section');
+            if (embedSec) embedSec.classList.remove('hidden');
+            
+            updateFormGenerator();
+            fetchForms();
+          } else {
+            showToast('Error al guardar: ' + (data.error || ''), 'error');
+          }
+        } catch (err) {
+          console.error('Error saving form:', err);
+          showToast('Error de red al guardar el formulario.', 'error');
+        } finally {
+          btnSave.disabled = false;
+          btnSave.innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Guardar Formulario`;
+          lucide.createIcons();
+        }
+      };
+
+      window.copyFormDirectScript = function(id) {
+        const serverUrl = window.location.origin;
+        const code = `<!-- Widget de Suscripción Kônsul -->
+<div id="konsul-subscription-form"></div>
+<script>
+  (function() {
+    var container = document.getElementById('konsul-subscription-form');
+    if (!container) return;
+    var iframe = document.createElement('iframe');
+    iframe.src = "${serverUrl}/form-frame?id=${id}";
+    iframe.style.width = "100%";
+    iframe.style.height = "450px";
+    iframe.style.border = "none";
+    iframe.style.overflow = "hidden";
+    container.appendChild(iframe);
+  })();
+<\/script>`;
+        navigator.clipboard.writeText(code).then(() => {
+          showToast('Código de Widget copiado al portapapeles.', 'success');
+        });
+      };
+
+      async function fetchForms() {
+        try {
+          const res = await fetch('/api/forms');
+          const data = await res.json();
+          if (data.success && Array.isArray(data.forms)) {
+            formsList = data.forms;
+            renderFormsTable();
+            renderFormsStats();
+          }
+        } catch (err) {
+          console.error('Error fetching forms:', err);
+        }
+      }
+
+      function renderFormsTable() {
+        const tbody = document.getElementById('forms-table-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (formsList.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="5" class="py-8 text-center text-slate-400 font-bold">
+                No tienes ningún formulario creado aún. Haz clic en "Crear Nuevo Formulario" para comenzar.
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        formsList.forEach(form => {
+          const views = form.views || 0;
+          const subs = form.submissions || 0;
+          const convRate = views > 0 ? ((subs / views) * 100).toFixed(1) : '0.0';
+
+          const tr = document.createElement('tr');
+          tr.className = "hover:bg-slate-50/50 transition-colors border-b border-slate-100";
+          tr.innerHTML = `
+            <td class="py-4 px-6">
+              <div class="font-bold text-[#1B2939] text-sm">${form.name}</div>
+              <div class="text-[10px] text-slate-400 font-medium">Lista: <span class="font-semibold text-brand-accent">${form.target_tag}</span></div>
+            </td>
+            <td class="py-4 px-6 text-center font-mono font-bold">${views.toLocaleString()}</td>
+            <td class="py-4 px-6 text-center font-mono font-bold">${subs.toLocaleString()}</td>
+            <td class="py-4 px-6 text-center">
+              <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-600">
+                ${convRate}%
+              </span>
+            </td>
+            <td class="py-4 px-6 text-right">
+              <div class="flex items-center justify-end gap-2">
+                <button onclick="copyFormDirectScript('${form.id}')" class="p-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 hover:text-brand-dark transition-all" title="Copiar Script">
+                  <i data-lucide="code" class="w-4 h-4"></i>
+                </button>
+                <button onclick="startEditForm('${form.id}')" class="p-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 hover:text-indigo-600 transition-all" title="Editar Formulario">
+                  <i data-lucide="edit" class="w-4 h-4"></i>
+                </button>
+                <button onclick="deleteFormConfig('${form.id}')" class="p-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 hover:text-rose-600 transition-all" title="Eliminar Formulario">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+        lucide.createIcons();
+      }
+
+      function renderFormsStats() {
+        let totalViews = 0;
+        let totalSubs = 0;
+        
+        formsList.forEach(form => {
+          totalViews += form.views || 0;
+          totalSubs += form.submissions || 0;
+        });
+
+        const avgConv = totalViews > 0 ? ((totalSubs / totalViews) * 100).toFixed(1) : '0.0';
+
+        const viewsEl = document.getElementById('forms-total-views');
+        const subsEl = document.getElementById('forms-total-submissions');
+        const convEl = document.getElementById('forms-average-conversion');
+
+        if (viewsEl) viewsEl.textContent = totalViews.toLocaleString();
+        if (subsEl) subsEl.textContent = totalSubs.toLocaleString();
+        if (convEl) convEl.textContent = `${avgConv}%`;
+      }
+
+      window.backToFormsDashboard = function() {
+        document.getElementById('forms-dashboard').classList.remove('hidden');
+        document.getElementById('forms-editor').classList.add('hidden');
+        fetchForms();
+      };
+
       const updateFormGenerator = () => {
         const title = document.getElementById('form-title').value.trim() || 'Únete a nuestra lista';
         const desc = document.getElementById('form-desc').value.trim() || 'Ingresa tus datos para mantenerte informado.';
-        const tag = document.getElementById('form-tag').value.trim() || 'Suscripción Directa';
+        const tag = document.getElementById('form-target-list').value || 'Suscripción Directa';
         const btnText = document.getElementById('form-btn-text').value.trim() || 'Suscribirme';
         
         const layout = document.getElementById('form-layout').value;
@@ -2828,14 +3301,8 @@
           }
         }
 
-        let fieldsHtml = '';
         let fieldsPreviewHtml = '';
-        
         activeFormFields.forEach(f => {
-          fieldsHtml += `    <div style="display: flex; flex-direction: column; gap: 4px; text-align: left; width: 100%;">
-      <input type="${f.type}" name="${f.id}" placeholder="${f.placeholder}" ${f.required ? 'required' : ''} style="padding: 12px 16px; border: 1px solid #E2E8F0; border-radius: ${radius}px; font-size: 13px; outline: none; background-color: #F8FAFC; color: #1E293B; width: 100%; box-sizing: border-box; font-family: inherit; font-weight: 500; transition: border-color 0.2s;" />
-    </div>\n`;
-
           fieldsPreviewHtml += `
             <input type="${f.type}" placeholder="${f.placeholder}" disabled class="px-4 py-2.5 rounded-xl border border-slate-200 text-xs w-full bg-slate-50 font-medium text-brand-dark" style="border-radius: ${radius}px;" />
           `;
@@ -2858,7 +3325,7 @@
                   <h3 class="font-extrabold text-sm mb-1">${title}</h3>
                   <p class="text-[10px] opacity-80 leading-normal">${desc}</p>
                 </div>
-                <div class="flex flex-col sm:flex-row gap-2 flex-1 w-full justify-end">
+                <div class="flex flex-col sm:flex-row gap-2 flex-1 w-full justify-end font-medium">
                   ${fieldsPreviewHtml}
                   <button class="font-bold py-2.5 px-6 text-xs text-white" style="background-color: ${colorPrimary}; border-radius: ${radius}px; white-space: nowrap;">${btnText}</button>
                 </div>
@@ -2871,7 +3338,7 @@
                   <h3 class="font-extrabold text-base mb-1.5">${title}</h3>
                   <p class="text-[11px] opacity-80 leading-relaxed">${desc}</p>
                 </div>
-                <div class="flex flex-col gap-2.5">
+                <div class="flex flex-col gap-2.5 font-medium">
                   ${fieldsPreviewHtml}
                   <button class="font-bold py-3 text-xs text-white w-full transition-all" style="background-color: ${colorPrimary}; border-radius: ${radius}px;">${btnText}</button>
                 </div>
@@ -2881,20 +3348,36 @@
           previewContainer.innerHTML = previewHtml;
         }
 
+        if (!editingFormId) {
+          document.getElementById('form-embed-code').value = '<!-- Guarda el formulario para generar sus códigos de inserción -->';
+          return;
+        }
+
+        let fieldsHtml = '';
+        activeFormFields.forEach(f => {
+          fieldsHtml += `    <div style="display: flex; flex-direction: column; gap: 4px; text-align: left; width: 100%;">
+      <input type="${f.type}" name="${f.id}" placeholder="${f.placeholder}" ${f.required ? 'required' : ''} style="padding: 12px 16px; border: 1px solid #E2E8F0; border-radius: ${radius}px; font-size: 13px; outline: none; background-color: #F8FAFC; color: #1E293B; width: 100%; box-sizing: border-box; font-family: inherit; font-weight: 500; transition: border-color 0.2s;" />
+    </div>\n`;
+        });
+
         let generatedCode = '';
         if (activeEmbedTab === 'html') {
           const borderStyle = layout === 'minimal' ? 'border: none; background-color: transparent; border-radius: 0px;' : `border: 1px solid #E2E8F0; border-radius: ${radius}px; background-color: ${colorBg};`;
-          let styleAttributes = `font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: ${layout === 'horizontal' ? '800px' : '380px'}; margin: 0 auto; padding: 32px; text-align: center; color: ${colorText}; ${borderStyle} box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); box-sizing: border-box;`;
+          let styleAttributes = `font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: ${layout === 'horizontal' ? '800px' : '380px'}; margin: 0 auto; padding: 32px; text-align: center; color: ${colorText}; ${borderStyle} box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); box-sizing: border-box; position: relative;`;
           
           if (layout === 'glassmorphic') {
-            styleAttributes = `font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: ${layout === 'horizontal' ? '800px' : '380px'}; margin: 0 auto; padding: 32px; text-align: center; color: #1E293B; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: ${radius}px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); box-sizing: border-box;`;
+            styleAttributes = `font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: ${layout === 'horizontal' ? '800px' : '380px'}; margin: 0 auto; padding: 32px; text-align: center; color: #1E293B; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: ${radius}px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); box-sizing: border-box; position: relative;`;
           }
+
+          const trackingPixel = `<img src="${serverUrl}/api/forms/${editingFormId}/track-view" width="1" height="1" style="display:none;" />`;
 
           if (layout === 'horizontal') {
             generatedCode = `<!-- Formulario de Suscripción Kônsul -->
 <div style="${styleAttributes}">
+  ${trackingPixel}
   <form action="${serverUrl}/api/contacts/subscribe" method="POST" style="display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; width: 100%;">
     <input type="hidden" name="kinde_id" value="${currentUserKindeId}" />
+    <input type="hidden" name="form_id" value="${editingFormId}" />
     <input type="hidden" name="tags" value="${tag}" />
     ${redirectUrl ? `<input type="hidden" name="redirect_url" value="${redirectUrl}" />` : ''}
     <div style="flex: 1; min-width: 200px; text-align: left;">
@@ -2910,10 +3393,12 @@
           } else {
             generatedCode = `<!-- Formulario de Suscripción Kônsul -->
 <div style="${styleAttributes}">
+  ${trackingPixel}
   <h3 style="margin-top: 0; margin-bottom: 8px; font-size: 18px; font-weight: 800; line-height: 1.2;">${title}</h3>
   <p style="font-size: 12px; margin-top: 0; margin-bottom: 24px; opacity: 0.8; line-height: 1.4;">${desc}</p>
   <form action="${serverUrl}/api/contacts/subscribe" method="POST" style="display: flex; flex-direction: column; gap: 12px;">
     <input type="hidden" name="kinde_id" value="${currentUserKindeId}" />
+    <input type="hidden" name="form_id" value="${editingFormId}" />
     <input type="hidden" name="tags" value="${tag}" />
     ${redirectUrl ? `<input type="hidden" name="redirect_url" value="${redirectUrl}" />` : ''}
     ${fieldsHtml.trim()}
@@ -2922,7 +3407,6 @@
 </div>`;
           }
         } else {
-          const fieldsArray = activeFormFields.map(f => f.id).join(',');
           generatedCode = `<!-- Widget de Suscripción Kônsul -->
 <div id="konsul-subscription-form"></div>
 <script>
@@ -2930,7 +3414,7 @@
     var container = document.getElementById('konsul-subscription-form');
     if (!container) return;
     var iframe = document.createElement('iframe');
-    iframe.src = "${serverUrl}/form-frame?kinde_id=${currentUserKindeId}&tag=${encodeURIComponent(tag)}&title=${encodeURIComponent(title)}&desc=${encodeURIComponent(desc)}&btn=${encodeURIComponent(btnText)}&layout=${layout}&primary=${encodeURIComponent(colorPrimary)}&bg=${encodeURIComponent(colorBg)}&text=${encodeURIComponent(colorText)}&radius=${radius}&fields=${fieldsArray}${redirectUrl ? '&redirect=' + encodeURIComponent(redirectUrl) : ''}";
+    iframe.src = "${serverUrl}/form-frame?id=${editingFormId}";
     iframe.style.width = "100%";
     iframe.style.height = "${layout === 'horizontal' ? '120px' : '450px'}";
     iframe.style.border = "none";
@@ -2944,11 +3428,11 @@
       };
 
       window.updateFormGenerator = updateFormGenerator;
+      window.fetchForms = fetchForms;
 
       setTimeout(() => {
-        renderFormFieldsList();
-        updateFormGenerator();
-      }, 500);
+        fetchForms();
+      }, 800);
     }
 
     // UI Renders

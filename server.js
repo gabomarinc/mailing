@@ -250,6 +250,34 @@ async function initDB() {
       console.error('Error al aplicar restricción única en contactos:', migErr);
     }
 
+    // MIGRACION: Crear tabla de formularios (forms)
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS forms (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            kinde_id VARCHAR(255) NOT NULL REFERENCES users(kinde_id) ON DELETE CASCADE,
+            name VARCHAR(255) NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            description TEXT,
+            target_tag VARCHAR(255) NOT NULL,
+            button_text VARCHAR(255) DEFAULT 'Suscribirme',
+            fields JSONB DEFAULT '[]'::jsonb,
+            layout VARCHAR(50) DEFAULT 'vertical',
+            primary_color VARCHAR(50) DEFAULT '#1c2938',
+            bg_color VARCHAR(50) DEFAULT '#ffffff',
+            text_color VARCHAR(50) DEFAULT '#1c2938',
+            border_radius INTEGER DEFAULT 16,
+            redirect_url VARCHAR(255),
+            views INTEGER DEFAULT 0,
+            submissions INTEGER DEFAULT 0,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+      `;
+      console.log('Tabla de formularios (forms) verificada/aplicada en Neon');
+    } catch(err) {
+      console.error('Error al verificar/crear tabla de formularios (forms):', err);
+    }
+
     console.log('Tablas inicializadas/verificadas en Neon');
   } catch (err) {
     console.error("Error al inicializar la base de datos:", err);
@@ -535,6 +563,131 @@ app.get('/api/contacts', protectRoute, async (req, res) => {
     })));
   } catch (err) {
     res.status(500).json({ error: 'DB Error' });
+  }
+});
+
+// Endpoints de Formularios (Forms CRUD)
+app.get('/api/forms', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const forms = await sql`
+      SELECT * FROM forms 
+      WHERE kinde_id = ${userId} 
+      ORDER BY created_at DESC
+    `;
+    res.json({ success: true, forms });
+  } catch (err) {
+    console.error('Error fetching forms:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+app.post('/api/forms', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      id,
+      name,
+      title,
+      description,
+      target_tag,
+      button_text,
+      fields,
+      layout,
+      primary_color,
+      bg_color,
+      text_color,
+      border_radius,
+      redirect_url
+    } = req.body;
+
+    if (!name || !title || !target_tag) {
+      return res.status(400).json({ success: false, error: 'Faltan campos requeridos.' });
+    }
+
+    const fieldsJson = JSON.stringify(fields || []);
+
+    if (id) {
+      const result = await sql`
+        UPDATE forms 
+        SET name = ${name}, title = ${title}, description = ${description},
+            target_tag = ${target_tag}, button_text = ${button_text},
+            fields = ${fieldsJson}::jsonb, layout = ${layout},
+            primary_color = ${primary_color}, bg_color = ${bg_color},
+            text_color = ${text_color}, border_radius = ${border_radius},
+            redirect_url = ${redirectUrl}
+        WHERE id = ${id} AND kinde_id = ${userId}
+        RETURNING *
+      `;
+      if (result.length === 0) {
+        return res.status(404).json({ success: false, error: 'Formulario no encontrado o sin permisos.' });
+      }
+      res.json({ success: true, form: result[0] });
+    } else {
+      const result = await sql`
+        INSERT INTO forms (
+          kinde_id, name, title, description, target_tag, button_text,
+          fields, layout, primary_color, bg_color, text_color,
+          border_radius, redirect_url
+        ) VALUES (
+          ${userId}, ${name}, ${title}, ${description}, ${target_tag}, ${button_text},
+          ${fieldsJson}::jsonb, ${layout}, ${primary_color}, ${bg_color}, ${text_color},
+          ${border_radius}, ${redirectUrl}
+        ) RETURNING *
+      `;
+      res.json({ success: true, form: result[0] });
+    }
+  } catch (err) {
+    console.error('Error saving form:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+app.delete('/api/forms/:id', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    const result = await sql`
+      DELETE FROM forms 
+      WHERE id = ${id} AND kinde_id = ${userId}
+      RETURNING id
+    `;
+    if (result.length === 0) {
+      return res.status(404).json({ success: false, error: 'Formulario no encontrado o sin permisos.' });
+    }
+    res.json({ success: true, message: 'Formulario eliminado correctamente.' });
+  } catch (err) {
+    console.error('Error deleting form:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+app.get('/api/contacts/custom-fields', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { tag } = req.query;
+
+    let rows;
+    if (tag && tag !== 'all') {
+      rows = await sql`
+        SELECT DISTINCT jsonb_object_keys(custom_fields) as key 
+        FROM contacts 
+        WHERE kinde_id = ${userId} AND ${tag} = ANY(tags)
+      `;
+    } else {
+      rows = await sql`
+        SELECT DISTINCT jsonb_object_keys(custom_fields) as key 
+        FROM contacts 
+        WHERE kinde_id = ${userId}
+      `;
+    }
+
+    const keys = rows.map(r => r.key).filter(k => k);
+    res.json({ success: true, keys });
+  } catch (err) {
+    console.error('Error fetching custom fields keys:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
   }
 });
 
@@ -1983,9 +2136,30 @@ app.post('/api/webhooks/sns', async (req, res) => {
 // Public endpoint for embedded subscription forms
 app.post('/api/contacts/subscribe', async (req, res) => {
   try {
-    const { kinde_id, name, email, tags, ...rest } = req.body;
+    const { kinde_id, name, email, tags, form_id, ...rest } = req.body;
     
-    if (!kinde_id) {
+    let targetKindeId = kinde_id;
+    let contactTags = ['Suscripción Directa'];
+    let finalRedirectUrl = req.body.redirect_url;
+
+    if (form_id) {
+      try {
+        const formConfig = await sql`SELECT kinde_id, target_tag, redirect_url FROM forms WHERE id = ${form_id}`;
+        if (formConfig.length > 0) {
+          if (!targetKindeId) targetKindeId = formConfig[0].kinde_id;
+          contactTags = [formConfig[0].target_tag];
+          if (!finalRedirectUrl) finalRedirectUrl = formConfig[0].redirect_url;
+        }
+        // Increment submissions
+        await sql`UPDATE forms SET submissions = submissions + 1 WHERE id = ${form_id}`;
+      } catch (err) {
+        console.error('Error loading form config during subscribe:', err);
+      }
+    } else if (tags) {
+      contactTags = Array.isArray(tags) ? tags : [tags];
+    }
+
+    if (!targetKindeId) {
       return res.status(400).send('Error: Identificador de cuenta faltante.');
     }
     if (!email || !isValidEmail(email)) {
@@ -1994,15 +2168,10 @@ app.post('/api/contacts/subscribe', async (req, res) => {
 
     const cleanEmail = email.trim().toLowerCase();
     const contactName = name ? name.trim() : 'Suscriptor';
-    
-    let contactTags = ['Suscripción Directa'];
-    if (tags) {
-      contactTags = Array.isArray(tags) ? tags : [tags];
-    }
 
     const custom_fields = {};
     for (const key in rest) {
-      if (['redirect_url'].includes(key)) continue;
+      if (['redirect_url', 'form_id'].includes(key)) continue;
       custom_fields[key] = rest[key];
     }
 
@@ -2017,7 +2186,7 @@ app.post('/api/contacts/subscribe', async (req, res) => {
     }
 
     // Check if contact already exists
-    const existing = await sql`SELECT id, tags, custom_fields FROM contacts WHERE kinde_id = ${kinde_id} AND email = ${cleanEmail}`;
+    const existing = await sql`SELECT id, tags, custom_fields FROM contacts WHERE kinde_id = ${targetKindeId} AND email = ${cleanEmail}`;
     
     if (existing.length > 0) {
       const mergedTags = [...new Set([...(existing[0].tags || []), ...contactTags])];
@@ -2032,14 +2201,12 @@ app.post('/api/contacts/subscribe', async (req, res) => {
     } else {
       await sql`
         INSERT INTO contacts (kinde_id, name, email, tags, custom_fields, status)
-        VALUES (${kinde_id}, ${contactName}, ${cleanEmail}, ${contactTags}, ${JSON.stringify(custom_fields)}::jsonb, ${status})
+        VALUES (${targetKindeId}, ${contactName}, ${cleanEmail}, ${contactTags}, ${JSON.stringify(custom_fields)}::jsonb, ${status})
       `;
     }
 
-    // Redirect user if redirect_url is provided, otherwise show standard success page
-    const redirectUrl = req.body.redirect_url;
-    if (redirectUrl) {
-      return res.redirect(redirectUrl);
+    if (finalRedirectUrl) {
+      return res.redirect(finalRedirectUrl);
     }
 
     res.send(`
@@ -2069,100 +2236,184 @@ app.post('/api/contacts/subscribe', async (req, res) => {
   }
 });
 
-app.get('/form-frame', (req, res) => {
-  const { kinde_id, tag, title, desc, btn, layout, primary, bg, text, radius, fields, redirect } = req.query;
-
-  const colorPrimary = primary || '#1c2938';
-  const colorBg = bg || '#ffffff';
-  const colorText = text || '#1c2938';
-  const borderRadius = radius || '16';
-  const formTitle = title || 'Únete a nuestra lista';
-  const formDesc = desc || 'Ingresa tus datos para mantenerte informado.';
-  const btnText = btn || 'Suscribirme';
-  const activeFields = (fields || 'email,name').split(',');
-
-  let fieldsHtml = '';
-  activeFields.forEach(f => {
-    let type = 'text';
-    let placeholder = 'Tu dato';
+// Endpoint público para el pixel de tracking de impresiones (1x1 transparente)
+app.get('/api/forms/:id/track-view', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await sql`UPDATE forms SET views = views + 1 WHERE id = ${id}`;
     
-    if (f === 'email') {
-      type = 'email';
-      placeholder = 'Tu correo electrónico';
-    } else if (f === 'name') {
-      placeholder = 'Tu nombre completo';
-    } else if (f === 'phone') {
-      type = 'tel';
-      placeholder = 'Tu teléfono';
-    } else if (f === 'company') {
-      placeholder = 'Tu empresa';
-    } else if (f === 'city') {
-      placeholder = 'Tu ciudad';
+    const buffer = Buffer.from(
+      'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+      'base64'
+    );
+    res.writeHead(200, {
+      'Content-Type': 'image/gif',
+      'Content-Length': buffer.length,
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+    res.end(buffer);
+  } catch (err) {
+    console.error('Error tracking form view pixel:', err);
+    res.status(500).send('Error');
+  }
+});
+
+app.get('/form-frame', async (req, res) => {
+  try {
+    const { id } = req.query;
+    
+    let config = {
+      kinde_id: req.query.kinde_id || '',
+      tag: req.query.tag || 'Suscripción Directa',
+      title: req.query.title || 'Únete a nuestra lista',
+      desc: req.query.desc || 'Ingresa tus datos para mantenerte informado.',
+      btn: req.query.btn || 'Suscribirme',
+      layout: req.query.layout || 'vertical',
+      primary: req.query.primary || '#1c2938',
+      bg: req.query.bg || '#ffffff',
+      text: req.query.text || '#1c2938',
+      radius: req.query.radius || '16',
+      fields: req.query.fields || 'email,name',
+      redirect: req.query.redirect || ''
+    };
+
+    if (id) {
+      const dbForm = await sql`SELECT * FROM forms WHERE id = ${id}`;
+      if (dbForm.length > 0) {
+        const form = dbForm[0];
+        const fieldsStr = form.fields ? form.fields.map(f => f.id).join(',') : 'email,name';
+
+        config = {
+          kinde_id: form.kinde_id,
+          tag: form.target_tag,
+          title: form.title,
+          desc: form.description,
+          btn: form.button_text,
+          layout: form.layout,
+          primary: form.primary_color,
+          bg: form.bg_color,
+          text: form.text_color,
+          radius: String(form.border_radius),
+          fields: fieldsStr,
+          redirect: form.redirect_url || '',
+          dbFields: form.fields
+        };
+
+        // Increment views
+        await sql`UPDATE forms SET views = views + 1 WHERE id = ${id}`;
+      }
     }
 
-    fieldsHtml += `
-      <div style="display: flex; flex-direction: column; gap: 4px; text-align: left; width: 100%;">
-        <input type="${type}" name="${f}" placeholder="${placeholder}" ${f === 'email' ? 'required' : ''} style="padding: 12px 16px; border: 1px solid #E2E8F0; border-radius: ${borderRadius}px; font-size: 13px; outline: none; background-color: #F8FAFC; color: #1E293B; width: 100%; box-sizing: border-box; font-family: inherit; font-weight: 500; transition: border-color 0.2s;" />
-      </div>
-    `;
-  });
+    const colorPrimary = config.primary;
+    const colorBg = config.bg;
+    const colorText = config.text;
+    const borderRadius = config.radius;
+    const formTitle = config.title;
+    const formDesc = config.desc;
+    const btnText = config.btn;
+    
+    let fieldsHtml = '';
+    
+    if (config.dbFields && Array.isArray(config.dbFields)) {
+      config.dbFields.forEach(f => {
+        fieldsHtml += `
+          <div style="display: flex; flex-direction: column; gap: 4px; text-align: left; width: 100%;">
+            <input type="${f.type}" name="${f.id}" placeholder="${f.placeholder}" ${f.required ? 'required' : ''} style="padding: 12px 16px; border: 1px solid #E2E8F0; border-radius: ${borderRadius}px; font-size: 13px; outline: none; background-color: #F8FAFC; color: #1E293B; width: 100%; box-sizing: border-box; font-family: inherit; font-weight: 500; transition: border-color 0.2s;" />
+          </div>
+        `;
+      });
+    } else {
+      const activeFields = config.fields.split(',');
+      activeFields.forEach(f => {
+        let type = 'text';
+        let placeholder = 'Tu dato';
+        
+        if (f === 'email') {
+          type = 'email';
+          placeholder = 'Tu correo electrónico';
+        } else if (f === 'name') {
+          placeholder = 'Tu nombre completo';
+        } else if (f === 'phone') {
+          type = 'tel';
+          placeholder = 'Tu teléfono';
+        } else if (f === 'company') {
+          placeholder = 'Tu empresa';
+        } else if (f === 'city') {
+          placeholder = 'Tu ciudad';
+        }
 
-  const borderStyle = layout === 'minimal' ? 'border: none; background-color: transparent; border-radius: 0px;' : `border: 1px solid #E2E8F0; border-radius: ${borderRadius}px; background-color: ${colorBg};`;
-  let styleAttributes = `font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 100%; height: 100vh; padding: 24px; text-align: center; color: ${colorText}; ${borderStyle} box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;`;
+        fieldsHtml += `
+          <div style="display: flex; flex-direction: column; gap: 4px; text-align: left; width: 100%;">
+            <input type="${type}" name="${f}" placeholder="${placeholder}" ${f === 'email' ? 'required' : ''} style="padding: 12px 16px; border: 1px solid #E2E8F0; border-radius: ${borderRadius}px; font-size: 13px; outline: none; background-color: #F8FAFC; color: #1E293B; width: 100%; box-sizing: border-box; font-family: inherit; font-weight: 500; transition: border-color 0.2s;" />
+          </div>
+        `;
+      });
+    }
 
-  if (layout === 'glassmorphic') {
-    styleAttributes = `font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 100%; height: 100vh; padding: 24px; text-align: center; color: #1E293B; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: ${borderRadius}px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;`;
-  }
+    const borderStyle = config.layout === 'minimal' ? 'border: none; background-color: transparent; border-radius: 0px;' : `border: 1px solid #E2E8F0; border-radius: ${borderRadius}px; background-color: ${colorBg};`;
+    let styleAttributes = `font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 100%; height: 100vh; padding: 24px; text-align: center; color: ${colorText}; ${borderStyle} box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;`;
 
-  let bodyHtml = '';
-  if (layout === 'horizontal') {
-    bodyHtml = `
-      <form action="/api/contacts/subscribe" method="POST" style="display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; width: 100%;">
-        <input type="hidden" name="kinde_id" value="${kinde_id}" />
-        <input type="hidden" name="tags" value="${tag || 'Suscripción Directa'}" />
-        ${redirect ? `<input type="hidden" name="redirect_url" value="${redirect}" />` : ''}
-        <div style="flex: 1; min-width: 160px; text-align: left;">
-          <h3 style="margin-top: 0; margin-bottom: 4px; font-size: 16px; font-weight: 800; line-height: 1.2;">${formTitle}</h3>
-          <p style="font-size: 11px; margin: 0; opacity: 0.8; line-height: 1.3;">${formDesc}</p>
-        </div>
-        <div style="display: flex; flex-direction: row; gap: 10px; flex: 1.5; min-width: 260px; width: 100%;">
+    if (config.layout === 'glassmorphic') {
+      styleAttributes = `font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 100%; height: 100vh; padding: 24px; text-align: center; color: #1E293B; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: ${borderRadius}px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;`;
+    }
+
+    let bodyHtml = '';
+    if (config.layout === 'horizontal') {
+      bodyHtml = `
+        <form action="/api/contacts/subscribe" method="POST" style="display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; width: 100%;">
+          <input type="hidden" name="kinde_id" value="${config.kinde_id}" />
+          <input type="hidden" name="tags" value="${config.tag}" />
+          ${id ? `<input type="hidden" name="form_id" value="${id}" />` : ''}
+          ${config.redirect ? `<input type="hidden" name="redirect_url" value="${config.redirect}" />` : ''}
+          <div style="flex: 1; min-width: 160px; text-align: left;">
+            <h3 style="margin-top: 0; margin-bottom: 4px; font-size: 16px; font-weight: 800; line-height: 1.2;">${formTitle}</h3>
+            <p style="font-size: 11px; margin: 0; opacity: 0.8; line-height: 1.3;">${formDesc}</p>
+          </div>
+          <div style="display: flex; flex-direction: row; gap: 10px; flex: 1.5; min-width: 260px; width: 100%;">
+            ${fieldsHtml.trim()}
+            <button type="submit" style="background-color: ${colorPrimary}; color: #FFFFFF; font-weight: 700; padding: 12px 20px; border: none; border-radius: ${borderRadius}px; font-size: 12px; cursor: pointer; transition: opacity 0.2s; white-space: nowrap; font-family: inherit;">${btnText}</button>
+          </div>
+        </form>
+      `;
+    } else {
+      bodyHtml = `
+        <h3 style="margin-top: 0; margin-bottom: 6px; font-size: 18px; font-weight: 800; line-height: 1.2;">${formTitle}</h3>
+        <p style="font-size: 12px; margin-top: 0; margin-bottom: 20px; opacity: 0.8; line-height: 1.4;">${formDesc}</p>
+        <form action="/api/contacts/subscribe" method="POST" style="display: flex; flex-direction: column; gap: 12px;">
+          <input type="hidden" name="kinde_id" value="${config.kinde_id}" />
+          <input type="hidden" name="tags" value="${config.tag}" />
+          ${id ? `<input type="hidden" name="form_id" value="${id}" />` : ''}
+          ${config.redirect ? `<input type="hidden" name="redirect_url" value="${config.redirect}" />` : ''}
           ${fieldsHtml.trim()}
-          <button type="submit" style="background-color: ${colorPrimary}; color: #FFFFFF; font-weight: 700; padding: 12px 20px; border: none; border-radius: ${borderRadius}px; font-size: 12px; cursor: pointer; transition: opacity 0.2s; white-space: nowrap; font-family: inherit;">${btnText}</button>
-        </div>
-      </form>
-    `;
-  } else {
-    bodyHtml = `
-      <h3 style="margin-top: 0; margin-bottom: 6px; font-size: 18px; font-weight: 800; line-height: 1.2;">${formTitle}</h3>
-      <p style="font-size: 12px; margin-top: 0; margin-bottom: 20px; opacity: 0.8; line-height: 1.4;">${formDesc}</p>
-      <form action="/api/contacts/subscribe" method="POST" style="display: flex; flex-direction: column; gap: 12px;">
-        <input type="hidden" name="kinde_id" value="${kinde_id}" />
-        <input type="hidden" name="tags" value="${tag || 'Suscripción Directa'}" />
-        ${redirect ? `<input type="hidden" name="redirect_url" value="${redirect}" />` : ''}
-        ${fieldsHtml.trim()}
-        <button type="submit" style="background-color: ${colorPrimary}; color: #FFFFFF; font-weight: 700; padding: 14px; border: none; border-radius: ${borderRadius}px; font-size: 13px; cursor: pointer; transition: opacity 0.2s; font-family: inherit; margin-top: 4px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">${btnText}</button>
-      </form>
-    `;
-  }
+          <button type="submit" style="background-color: ${colorPrimary}; color: #FFFFFF; font-weight: 700; padding: 14px; border: none; border-radius: ${borderRadius}px; font-size: 13px; cursor: pointer; transition: opacity 0.2s; font-family: inherit; margin-top: 4px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">${btnText}</button>
+        </form>
+      `;
+    }
 
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <style>
-        body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
-        input:focus { border-color: ${colorPrimary} !important; }
-        button:hover { opacity: 0.9; }
-      </style>
-    </head>
-    <body>
-      <div style="${styleAttributes}">
-        ${bodyHtml}
-      </div>
-    </body>
-    </html>
-  `);
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+          input:focus { border-color: ${colorPrimary} !important; }
+          button:hover { opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div style="${styleAttributes}">
+          ${bodyHtml}
+        </div>
+      </body>
+      </html>
+    `);
+  } catch (err) {
+    console.error('Error rendering form frame:', err);
+    res.status(500).send('Error');
+  }
 });
 
 // Fallback para el frontend (SPA)
