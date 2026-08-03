@@ -634,6 +634,9 @@
               <h1 class="text-3xl font-black text-[#1c2938]">Base de Suscriptores</h1>
             </div>
             <div class="flex gap-3">
+              <button onclick="startListValidation()" id="btn-validate-list" class="bg-indigo-50 border border-indigo-100/50 text-indigo-700 font-bold px-5 py-3 rounded-2xl hover:bg-indigo-100 transition-all text-xs flex items-center gap-2 shadow-sm">
+                <i data-lucide="shield-check" class="w-4 h-4 text-indigo-600"></i> Validar Correos
+              </button>
               <button onclick="openAddContactModal()" class="bg-[#1c2938] text-white font-bold px-6 py-3 rounded-2xl hover:bg-[#27bea5] transition-all text-xs flex items-center gap-2 shadow-lg shadow-slate-200">
                 <i data-lucide="plus" class="w-4 h-4"></i> Añadir Contacto
               </button>
@@ -689,6 +692,9 @@
                   <option value="all">Cualquier Estado</option>
                   <option value="active">Activo</option>
                   <option value="unsubscribe">Baja (Desuscrito)</option>
+                  <option value="bounced">Rebotado</option>
+                  <option value="complained">Queja de Spam</option>
+                  <option value="invalid">Inválido</option>
                 </select>
               </div>
 
@@ -1718,6 +1724,17 @@
       await fetchCampaigns();
       await fetchSenders();
       setupEventListeners();
+
+      // Check if validation is already running
+      try {
+        const res = await fetch('/api/contacts/validate-status');
+        const data = await res.json();
+        if (data.running) {
+          checkValidationProgress();
+        }
+      } catch (e) {
+        console.error('Error checking initial validation status:', e);
+      }
     });
 
     // Validar sesión con backend
@@ -2506,9 +2523,20 @@
         tr.className = "border-b border-brand-border text-xs font-medium text-brand-dark";
         
         const tagsBadges = c.tags ? c.tags.map(t => `<span class="bg-brand-light px-2.5 py-0.5 border border-brand-border/60 rounded-full font-bold text-[9px] text-brand-gray mr-1">${t}</span>`).join('') : '';
-        const statusBadge = c.status === 'active' 
-          ? `<span class="bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-emerald-100">Activo</span>`
-          : `<span class="bg-rose-50 text-rose-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-rose-100 font-mono">Baja</span>`;
+        let statusBadge = '';
+        if (c.status === 'active') {
+          statusBadge = `<span class="bg-emerald-50 text-emerald-700 font-bold px-2.5 py-0.5 rounded-full text-[10px] border border-emerald-100">Activo</span>`;
+        } else if (c.status === 'unsubscribe') {
+          statusBadge = `<span class="bg-rose-50 text-rose-700 font-bold px-2.5 py-0.5 rounded-full text-[10px] border border-rose-100 font-mono">Baja</span>`;
+        } else if (c.status === 'bounced') {
+          statusBadge = `<span class="bg-amber-50 text-amber-700 font-bold px-2.5 py-0.5 rounded-full text-[10px] border border-amber-100">Rebotado</span>`;
+        } else if (c.status === 'complained') {
+          statusBadge = `<span class="bg-red-50 text-red-700 font-bold px-2.5 py-0.5 rounded-full text-[10px] border border-red-100 font-mono">Queja Spam</span>`;
+        } else if (c.status === 'invalid') {
+          statusBadge = `<span class="bg-slate-100 text-slate-600 font-bold px-2.5 py-0.5 rounded-full text-[10px] border border-slate-200">Inválido</span>`;
+        } else {
+          statusBadge = `<span class="bg-slate-50 text-slate-500 font-bold px-2.5 py-0.5 rounded-full text-[10px] border border-slate-100">${c.status}</span>`;
+        }
         const isChecked = selectedContacts.includes(c.id);
 
         let trHtml = '';
@@ -2859,6 +2887,76 @@
       } catch (err) {
         showToast('Error de red al eliminar la lista.', 'error');
       }
+    };
+
+    let validationPollInterval = null;
+
+    window.startListValidation = async function() {
+      const listName = selectedTag === 'all' ? 'Todos los contactos' : `la lista '${selectedTag}'`;
+      const confirmAction = await showConfirm(
+        `¿Deseas validar todos los correos activos de ${listName}?\n\nEsto verificará la sintaxis, filtrará correos desechables y comprobará servidores de correo (MX) en segundo plano sin costo.`
+      );
+      if (!confirmAction) return;
+
+      try {
+        const res = await fetch('/api/contacts/validate-bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag: selectedTag })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Validación iniciada en segundo plano.', 'success');
+          checkValidationProgress();
+        } else {
+          showToast(data.message || 'Error al iniciar la validación.', 'error');
+        }
+      } catch (err) {
+        showToast('Error de red al iniciar la validación.', 'error');
+      }
+    };
+
+    window.checkValidationProgress = function() {
+      if (validationPollInterval) clearInterval(validationPollInterval);
+      
+      const btn = document.getElementById('btn-validate-list');
+      if (btn) {
+        btn.disabled = true;
+        btn.className = "bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold px-5 py-3 rounded-2xl transition-all text-xs flex items-center gap-2 shadow-sm cursor-not-allowed";
+        btn.innerHTML = `<span class="flex items-center gap-1.5"><svg class="animate-spin h-3.5 w-3.5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Validando...</span>`;
+      }
+
+      validationPollInterval = setInterval(async () => {
+        try {
+          const res = await fetch('/api/contacts/validate-status');
+          const data = await res.json();
+          
+          if (!data.running) {
+            clearInterval(validationPollInterval);
+            validationPollInterval = null;
+            
+            if (btn) {
+              btn.disabled = false;
+              btn.className = "bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold px-5 py-3 rounded-2xl hover:bg-indigo-100 transition-all text-xs flex items-center gap-2 shadow-sm";
+              btn.innerHTML = `<i data-lucide="shield-check" class="w-4 h-4 text-indigo-600"></i> Validar Correos`;
+              lucide.createIcons();
+            }
+
+            if (data.lastResult) {
+              const resData = data.lastResult;
+              showToast(`Validación terminada. Válidos: ${resData.validCount}, Inválidos: ${resData.invalidCount}.`, 'success');
+              await fetchContacts();
+            }
+          } else {
+            if (btn && data.progress) {
+              const pct = Math.round((data.progress.processed / data.progress.total) * 100) || 0;
+              btn.innerHTML = `<span class="flex items-center gap-1.5"><svg class="animate-spin h-3.5 w-3.5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> ${pct}% (${data.progress.processed}/${data.progress.total})</span>`;
+            }
+          }
+        } catch (err) {
+          console.error('Error polling validation status:', err);
+        }
+      }, 3000);
     };
 
     function renderCampaigns() {

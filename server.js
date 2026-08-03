@@ -6,6 +6,10 @@ const jwt = require('jsonwebtoken');
 const { SESClient, SendEmailCommand, VerifyDomainIdentityCommand, VerifyDomainDkimCommand, GetIdentityVerificationAttributesCommand, GetIdentityDkimAttributesCommand } = require('@aws-sdk/client-ses');
 const { neon } = require('@neondatabase/serverless');
 require('dotenv').config();
+const dns = require('dns').promises;
+
+const hasAwsCreds = !!process.env.AWS_ACCESS_KEY_ID || !!process.env.AWS_REGION || !!process.env.SES_SENDER_EMAIL;
+const sesClient = new SESClient({ region: process.env.AWS_REGION || 'us-east-1' });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,6 +17,46 @@ const PORT = process.env.PORT || 3000;
 // Configurar base de datos Neon
 const dbUrl = process.env.DATABASE_URL || 'postgresql://user:pass@ep-host.neon.tech/db?sslmode=require';
 const sql = neon(dbUrl);
+
+// Dominios desechables y cache de MX para validaciones rápidas
+let disposableDomains = new Set(['yopmail.com', 'mailinator.com', '10minutemail.com', 'guerrillamail.com', 'tempmail.com', 'sharklasers.com', 'guerrillamailblock.com', 'guerrillamail.net', 'guerrillamail.org', 'guerrillamail.biz', 'pokemail.net', 'grr.la', 'trashmail.com']);
+
+async function loadDisposableDomains() {
+  try {
+    const res = await fetch('https://raw.githubusercontent.com/disposable-email-domains/disposable-email-domains/master/disposable_email_blocklist.conf');
+    if (res.ok) {
+      const text = await res.text();
+      const domains = text.split('\n').map(d => d.trim().toLowerCase()).filter(d => d && !d.startsWith('#'));
+      if (domains.length > 0) {
+        disposableDomains = new Set(domains);
+        console.log(`🚀 Cargados ${disposableDomains.size} dominios desechables desde repositorio global.`);
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️ No se pudo cargar lista de dominios desechables online, usando fallback local.');
+  }
+}
+loadDisposableDomains();
+
+const mxCache = new Map();
+const popularDomains = new Set(['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'live.com', 'aol.com', 'zoho.com', 'protonmail.com', 'proton.me', 'mail.com']);
+
+async function checkMX(domain) {
+  if (popularDomains.has(domain)) return true;
+  if (mxCache.has(domain)) return mxCache.get(domain);
+
+  try {
+    const dnsPromise = dns.resolveMx(domain);
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1000));
+    const mx = await Promise.race([dnsPromise, timeoutPromise]);
+    const exists = mx && mx.length > 0;
+    mxCache.set(domain, exists);
+    return exists;
+  } catch (err) {
+    mxCache.set(domain, false);
+    return false;
+  }
+}
 
 // Utilidades
 function isValidEmail(email) {
@@ -176,6 +220,34 @@ async function initDB() {
       await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS error_details JSONB DEFAULT '[]'::jsonb;`;
     } catch (e) {
       console.log('Campaign columns already exist.');
+    }
+
+    // MIGRACION: Limpiar duplicados y agregar constraint única en contactos
+    try {
+      await sql`
+        DELETE FROM contacts
+        WHERE id NOT IN (
+          SELECT id FROM (
+            SELECT id, ROW_NUMBER() OVER (PARTITION BY kinde_id, LOWER(TRIM(email)) ORDER BY added_at DESC) as rn
+            FROM contacts
+          ) t
+          WHERE rn = 1
+        );
+      `;
+      await sql`
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint WHERE conname = 'unique_kinde_id_email'
+            ) THEN
+                ALTER TABLE contacts ADD CONSTRAINT unique_kinde_id_email UNIQUE (kinde_id, email);
+            END IF;
+        END
+        $$;
+      `;
+      console.log('Restricción única de contactos verificada/aplicada en Neon');
+    } catch (migErr) {
+      console.error('Error al aplicar restricción única en contactos:', migErr);
     }
 
     console.log('Tablas inicializadas/verificadas en Neon');
@@ -561,52 +633,283 @@ app.post('/api/contacts', protectRoute, async (req, res) => {
   }
 });
 
+const runningValidations = {};
+
 app.post('/api/contacts/bulk', protectRoute, async (req, res) => {
   try {
     const { list } = req.body;
     if (!Array.isArray(list)) return res.status(400).json({ success: false, message: 'Debe ser un array.' });
 
     const userId = req.user.id;
-    let added = 0;
+    
+    // Group unique domains to validate
+    const domainsToCheck = new Set();
+    const preparedList = [];
 
     for (const item of list) {
       let email = typeof item === 'string' ? item : item.email;
       let name = typeof item === 'string' ? 'Suscriptor' : (item.name || 'Suscriptor');
       let tags = typeof item === 'string' ? ['Importados'] : (item.tags || ['Importados']);
-
       let custom_fields = typeof item === 'string' ? {} : (item.custom_fields || {});
 
       if (email && isValidEmail(email)) {
         email = email.trim().toLowerCase();
+        const domain = email.split('@')[1];
+        domainsToCheck.add(domain);
         
-        const existing = await sql`SELECT id, status FROM contacts WHERE kinde_id = ${userId} AND email = ${email}`;
-        
-        if (existing.length === 0) {
-          await sql`
-            INSERT INTO contacts (kinde_id, name, email, tags, custom_fields, status)
-            VALUES (${userId}, ${name}, ${email}, ${tags}, ${JSON.stringify(custom_fields)}::jsonb, 'active')
-          `;
-          added++;
-        } else {
-          // Si el contacto ya existe, actualizamos sus custom_fields de forma segura
-          await sql`
-            UPDATE contacts 
-            SET 
-              custom_fields = custom_fields || ${JSON.stringify(custom_fields)}::jsonb,
-              status = CASE WHEN status = 'unsubscribe' THEN 'active' ELSE status END
-            WHERE id = ${existing[0].id}
-          `;
-          added++;
-        }
+        preparedList.push({
+          kinde_id: userId,
+          name: name.substring(0, 255),
+          email: email,
+          tags: tags,
+          custom_fields: custom_fields,
+          status: 'active'
+        });
       }
     }
 
-    res.json({ success: true, added });
+    if (preparedList.length === 0) {
+      return res.json({ success: true, added: 0 });
+    }
+
+    // Validate unique domains in parallel
+    const domainValidity = {};
+    const domainList = Array.from(domainsToCheck);
+    
+    // Limit concurrency to 30 to be nice to DNS resolver
+    const batchSize = 30;
+    for (let i = 0; i < domainList.length; i += batchSize) {
+      const batch = domainList.slice(i, i + batchSize);
+      await Promise.all(batch.map(async (domain) => {
+        // 1. Disposable check
+        if (disposableDomains.has(domain)) {
+          domainValidity[domain] = 'disposable';
+          return;
+        }
+        
+        // 2. MX check
+        const hasMX = await checkMX(domain);
+        if (!hasMX) {
+          domainValidity[domain] = 'invalid_domain';
+          return;
+        }
+        
+        domainValidity[domain] = 'active';
+      }));
+    }
+
+    // Assign status to each contact
+    preparedList.forEach(c => {
+      const domain = c.email.split('@')[1];
+      const validity = domainValidity[domain];
+      if (validity === 'disposable' || validity === 'invalid_domain') {
+        c.status = 'invalid';
+      } else {
+        c.status = 'active';
+      }
+    });
+
+    // Bulk insert/update with ON CONFLICT using JSON parameter
+    const jsonPayload = JSON.stringify(preparedList);
+    
+    await sql`
+      INSERT INTO contacts (kinde_id, name, email, tags, custom_fields, status)
+      SELECT 
+        (rec->>'kinde_id')::varchar,
+        (rec->>'name')::varchar,
+        (rec->>'email')::varchar,
+        ARRAY(SELECT jsonb_array_elements_text(rec->'tags'))::text[],
+        (rec->'custom_fields')::jsonb,
+        (rec->>'status')::varchar
+      FROM jsonb_array_elements(${jsonPayload}::jsonb) as rec
+      ON CONFLICT (kinde_id, email) 
+      DO UPDATE SET 
+        name = EXCLUDED.name,
+        tags = ARRAY(
+          SELECT DISTINCT t 
+          FROM UNNEST(COALESCE(contacts.tags, ARRAY[]::text[]) || COALESCE(EXCLUDED.tags, ARRAY[]::text[])) t
+        ),
+        custom_fields = contacts.custom_fields || EXCLUDED.custom_fields,
+        status = CASE 
+          WHEN contacts.status = 'unsubscribe' THEN 'active'
+          WHEN EXCLUDED.status = 'invalid' THEN 'invalid'
+          ELSE contacts.status 
+        END
+    `;
+
+    res.json({ success: true, added: preparedList.length });
   } catch (err) {
     console.error('Error en bulk insert:', err);
     res.status(500).json({ error: 'DB Error', message: err.message || String(err), stack: err.stack });
   }
 });
+
+app.post('/api/contacts/validate-bulk', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userEmail = req.user.email || req.user.preferred_email || '';
+    const userName = req.user.given_name || 'Usuario';
+    const { tag } = req.body;
+
+    if (runningValidations[userId]) {
+      return res.status(400).json({ success: false, message: 'Ya hay un proceso de validación en ejecución.' });
+    }
+
+    // Fetch all active contacts to validate
+    const query = tag && tag !== 'all' 
+      ? sql`SELECT id, email FROM contacts WHERE kinde_id = ${userId} AND status = 'active' AND ${tag} = ANY(tags)`
+      : sql`SELECT id, email FROM contacts WHERE kinde_id = ${userId} AND status = 'active'`;
+      
+    const contactsToValidate = await query;
+    
+    if (contactsToValidate.length === 0) {
+      return res.json({ success: true, message: 'No hay contactos activos para validar.' });
+    }
+
+    // Start background process
+    runningValidations[userId] = {
+      total: contactsToValidate.length,
+      processed: 0,
+      status: 'running',
+      tag: tag || 'Todos'
+    };
+
+    // Run background validation asynchronously
+    runBackgroundValidation(userId, userEmail, userName, contactsToValidate);
+
+    res.json({ success: true, message: 'Validación en segundo plano iniciada.', total: contactsToValidate.length });
+  } catch (err) {
+    console.error('Error al iniciar validación en lote:', err);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+app.get('/api/contacts/validate-status', protectRoute, (req, res) => {
+  const userId = req.user.id;
+  const status = runningValidations[userId];
+  if (!status) {
+    return res.json({ running: false });
+  }
+  
+  if (status.status === 'completed' || status.status === 'error') {
+    // Clear status once read by client
+    delete runningValidations[userId];
+    return res.json({ running: false, lastResult: status });
+  }
+  
+  res.json({ running: true, progress: status });
+});
+
+async function runBackgroundValidation(userId, userEmail, userName, contactsList) {
+  try {
+    const batchSize = 100;
+    let processedCount = 0;
+    let invalidCount = 0;
+    let validCount = 0;
+    
+    const invalidIds = [];
+
+    for (let i = 0; i < contactsList.length; i += batchSize) {
+      const batch = contactsList.slice(i, i + batchSize);
+      
+      const validationPromises = batch.map(async (c) => {
+        const email = c.email.trim().toLowerCase();
+        
+        // 1. Sintaxis
+        if (!isValidEmail(email)) {
+          invalidIds.push(c.id);
+          invalidCount++;
+          return;
+        }
+
+        const domain = email.split('@')[1];
+        
+        // 2. Desechable
+        if (disposableDomains.has(domain)) {
+          invalidIds.push(c.id);
+          invalidCount++;
+          return;
+        }
+
+        // 3. MX Record check
+        const hasMX = await checkMX(domain);
+        if (!hasMX) {
+          invalidIds.push(c.id);
+          invalidCount++;
+          return;
+        }
+
+        validCount++;
+      });
+
+      await Promise.all(validationPromises);
+      
+      processedCount += batch.length;
+      if (runningValidations[userId]) {
+        runningValidations[userId].processed = processedCount;
+      }
+      
+      await sleep(100); // Friendly pause between batches
+    }
+
+    // Bulk update invalid contacts in DB
+    if (invalidIds.length > 0) {
+      await sql`
+        UPDATE contacts 
+        SET status = 'invalid' 
+        WHERE id = ANY(${invalidIds})
+      `;
+    }
+
+    if (runningValidations[userId]) {
+      runningValidations[userId].status = 'completed';
+      runningValidations[userId].invalidCount = invalidCount;
+      runningValidations[userId].validCount = validCount;
+    }
+
+    // Send email notification via Amazon SES if configured
+    if (userEmail && hasAwsCreds && sesClient) {
+      try {
+        const sender = process.env.SES_SENDER_EMAIL;
+        const subject = `📋 Validación de contactos completada | Kônsul`;
+        const body = `
+          <div style="font-family: Arial, sans-serif; color: #1B2939; padding: 20px; max-width: 600px; margin: 0 auto; background-color: #FAF8F5; border-radius: 16px;">
+            <h2 style="color: #1B2939;">¡Hola, ${userName}!</h2>
+            <p>El proceso de validación en segundo plano de tus contactos ha finalizado con éxito.</p>
+            <hr style="border: 0; border-top: 1px solid #EAE6DF; margin: 20px 0;" />
+            <div style="background-color: white; padding: 15px; border-radius: 12px; border: 1px solid #EAE6DF;">
+              <p style="margin: 5px 0;"><b>Lista procesada:</b> ${runningValidations[userId].tag}</p>
+              <p style="margin: 5px 0;"><b>Total contactos:</b> ${processedCount}</p>
+              <p style="margin: 5px 0; color: #27bea5;"><b>Válidos (Activos):</b> ${validCount}</p>
+              <p style="margin: 5px 0; color: #f43f5e;"><b>Inválidos (Removidos de envíos):</b> ${invalidCount}</p>
+            </div>
+            <p style="font-size: 12px; color: #6E7A8A; margin-top: 20px; text-align: center;">
+              Los contactos inválidos (debido a sintaxis incorrecta, correos desechables o dominios sin servidores de correo) han sido marcados como <b>Inválido</b> en tu lista y no recibirán futuras campañas.
+            </p>
+          </div>
+        `;
+        
+        const command = new SendEmailCommand({
+          Source: `Kônsul Suite <${sender}>`,
+          Destination: { ToAddresses: [userEmail] },
+          Message: {
+            Subject: { Data: subject, Charset: 'UTF-8' },
+            Body: { Html: { Data: body, Charset: 'UTF-8' } }
+          }
+        });
+        await sesClient.send(command);
+      } catch (mailErr) {
+        console.error('Error enviando correo de notificación:', mailErr);
+      }
+    }
+  } catch (err) {
+    console.error('Error en validación en segundo plano:', err);
+    if (runningValidations[userId]) {
+      runningValidations[userId].status = 'error';
+      runningValidations[userId].error = err.message;
+    }
+  }
+}
 
 app.delete('/api/contacts/:id', protectRoute, async (req, res) => {
   try {
@@ -722,7 +1025,6 @@ app.delete('/api/senders/:id', protectRoute, async (req, res) => {
 });
 
 // ======================== DOMAINS ========================
-const sesClient = new SESClient({ region: process.env.AWS_REGION || 'us-east-1' });
 
 app.get('/api/domains', protectRoute, async (req, res) => {
   try {
@@ -986,7 +1288,7 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
     // Filter active recipients from DB (select email and name for personalization)
     const activeContacts = await sql`
       SELECT email, name FROM contacts 
-      WHERE kinde_id = ${userId} AND status != 'unsubscribe' 
+      WHERE kinde_id = ${userId} AND status = 'active' 
       AND email = ANY(${cleanRecipients})
     `;
     const activeEmails = [...new Set(activeContacts.map(c => c.email.toLowerCase().trim()))];
@@ -1544,13 +1846,13 @@ app.get('/api/cron/send-scheduled', async (req, res) => {
       if (campaign.target_tags && campaign.target_tags.length > 0) {
         targetContacts = await sql`
           SELECT email FROM contacts 
-          WHERE kinde_id = ${campaign.kinde_id} AND status != 'unsubscribe' 
+          WHERE kinde_id = ${campaign.kinde_id} AND status = 'active' 
           AND tags && ${campaign.target_tags}
         `;
       } else {
         targetContacts = await sql`
           SELECT email FROM contacts 
-          WHERE kinde_id = ${campaign.kinde_id} AND status != 'unsubscribe'
+          WHERE kinde_id = ${campaign.kinde_id} AND status = 'active'
         `;
       }
       
