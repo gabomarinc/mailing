@@ -1601,6 +1601,29 @@
         </div>
       </div>
 
+      <!-- Phase 1.5: Select Sheets -->
+      <div id="import-phase-sheets" class="hidden flex flex-col gap-4">
+        <div class="bg-[#f4f7fb] p-4 rounded-xl border border-blue-100/50 flex items-start gap-3">
+          <i data-lucide="layers" class="w-5 h-5 text-blue-500 mt-0.5"></i>
+          <div>
+            <h4 class="text-sm font-bold text-[#1B2939]">Hojas Múltiples Detectadas</h4>
+            <p class="text-xs text-brand-gray mt-1">Este archivo Excel contiene más de una hoja. Selecciona las que deseas importar. Cada hoja seleccionada se importará como una lista independiente usando su nombre como etiqueta.</p>
+          </div>
+        </div>
+
+        <div class="bg-white border border-slate-200 rounded-xl overflow-hidden p-5 space-y-3">
+          <label class="text-xs font-bold text-brand-dark block mb-1">Selecciona las hojas a importar:</label>
+          <div id="excel-sheets-checkboxes" class="space-y-2.5 max-h-48 overflow-y-auto pr-2 flex flex-col gap-1">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-3 mt-4">
+          <button onclick="resetImport()" class="px-5 py-2.5 rounded-xl text-xs font-bold text-brand-gray bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors">Cancelar</button>
+          <button id="btn-import-sheets" class="bg-[#1c2938] text-white font-bold px-6 py-2.5 rounded-xl hover:bg-[#27bea5] transition-all text-xs shadow-sm">Importar Hojas Seleccionadas</button>
+        </div>
+      </div>
+
       <!-- Phase 2: Mapping -->
       <div id="import-phase-2" class="hidden flex flex-col gap-4">
         <div class="bg-[#f4f7fb] p-4 rounded-xl border border-blue-100/50 flex items-start gap-3">
@@ -2153,13 +2176,16 @@
       let importFile = null;
       let importHeaders = [];
       let importData = [];
+      let currentWorkbook = null;
 
       function resetImport() {
         importFile = null;
         importHeaders = [];
         importData = [];
+        currentWorkbook = null;
         document.getElementById('import-file-input').value = '';
         document.getElementById('import-phase-1').classList.remove('hidden');
+        document.getElementById('import-phase-sheets').classList.add('hidden');
         document.getElementById('import-phase-2').classList.add('hidden');
         document.getElementById('import-phase-3').classList.add('hidden');
         const dropZone = document.getElementById('drop-zone');
@@ -2199,22 +2225,87 @@
           reader.onload = function(e) {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, {type: 'array'});
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            const json = XLSX.utils.sheet_to_json(worksheet, {defval: ''});
             
-            if (json.length > 0) {
-              importHeaders = Object.keys(json[0]);
-              importData = json;
-              renderMappingInterface();
+            if (workbook.SheetNames.length > 1) {
+              currentWorkbook = workbook;
+              renderSheetSelection(workbook.SheetNames);
             } else {
-              showToast('El archivo Excel está vacío o es inválido.', 'error');
+              const firstSheetName = workbook.SheetNames[0];
+              const worksheet = workbook.Sheets[firstSheetName];
+              const json = XLSX.utils.sheet_to_json(worksheet, {defval: ''});
+              
+              if (json.length > 0) {
+                importHeaders = Object.keys(json[0]);
+                importData = json;
+                renderMappingInterface();
+              } else {
+                showToast('El archivo Excel está vacío o es inválido.', 'error');
+              }
             }
           };
           reader.readAsArrayBuffer(file);
         } else {
           showToast('Formato de archivo no soportado. Usa CSV o Excel.', 'error');
         }
+      }
+
+      function renderSheetSelection(sheetNames) {
+        document.getElementById('import-phase-1').classList.add('hidden');
+        document.getElementById('import-phase-sheets').classList.remove('hidden');
+
+        const container = document.getElementById('excel-sheets-checkboxes');
+        container.innerHTML = '';
+
+        sheetNames.forEach((name, idx) => {
+          const rowCount = XLSX.utils.sheet_to_json(currentWorkbook.Sheets[name]).length;
+          const div = document.createElement('div');
+          div.className = "flex items-center gap-3 p-2.5 hover:bg-slate-50 rounded-xl transition-all border border-slate-100/60";
+          div.innerHTML = `
+            <input type="checkbox" id="sheet-chk-${idx}" value="${name}" checked class="rounded text-[#27bea5] focus:ring-[#27bea5] w-4 h-4 border-slate-200 cursor-pointer">
+            <label for="sheet-chk-${idx}" class="text-xs font-bold text-[#1B2939] cursor-pointer flex-1 flex items-center justify-between">
+              <span>${name}</span>
+              <span class="text-[10px] text-slate-400 font-medium font-mono">${rowCount} contactos</span>
+            </label>
+          `;
+          container.appendChild(div);
+        });
+      }
+
+      function autoDetectFields(headers, firstRow) {
+        let emailCol = null;
+        let nameCol = null;
+        const customMappings = [];
+
+        headers.forEach(h => {
+          const cleanH = h.toLowerCase().trim();
+          if (cleanH.includes('email') || cleanH.includes('correo') || cleanH.includes('mail')) {
+            emailCol = h;
+          }
+        });
+
+        if (!emailCol && firstRow) {
+          headers.forEach(h => {
+            const val = String(firstRow[h] || '').trim();
+            if (val.includes('@') && val.includes('.')) {
+              emailCol = h;
+            }
+          });
+        }
+
+        headers.forEach(h => {
+          const cleanH = h.toLowerCase().trim();
+          if (h !== emailCol && (cleanH.includes('nombre') || cleanH.includes('name') || cleanH.includes('completo') || cleanH.includes('cliente') || cleanH.includes('contacto'))) {
+            nameCol = h;
+          }
+        });
+
+        headers.forEach(h => {
+          if (h !== emailCol && h !== nameCol) {
+            customMappings.push(h);
+          }
+        });
+
+        return { emailCol, nameCol, customMappings };
       }
 
       const fileInput = document.getElementById('import-file-input');
@@ -2392,6 +2483,89 @@
             showToast('Error de red al importar contactos.', 'error');
             resetImport();
           }
+        });
+      }
+
+      const btnImportSheets = document.getElementById('btn-import-sheets');
+      if (btnImportSheets) {
+        btnImportSheets.addEventListener('click', async () => {
+          const checkboxes = document.querySelectorAll('#excel-sheets-checkboxes input[type="checkbox"]:checked');
+          if (checkboxes.length === 0) {
+            showToast('Selecciona al menos una hoja para importar.', 'warning');
+            return;
+          }
+
+          document.getElementById('import-phase-sheets').classList.add('hidden');
+          document.getElementById('import-phase-3').classList.remove('hidden');
+          
+          const progressBar = document.getElementById('import-progress-bar');
+          const progressText = document.getElementById('import-progress-text');
+          
+          progressBar.style.width = '10%';
+          progressText.textContent = 'Iniciando importación multihas...';
+
+          let totalImported = 0;
+          const sheetNames = Array.from(checkboxes).map(chk => chk.value);
+          
+          for (let i = 0; i < sheetNames.length; i++) {
+            const sheetName = sheetNames[i];
+            progressBar.style.width = `${Math.round(((i) / sheetNames.length) * 80) + 10}%`;
+            progressText.textContent = `Procesando hoja "${sheetName}" (${i+1}/${sheetNames.length})...`;
+
+            const worksheet = currentWorkbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet, {defval: ''});
+            if (json.length === 0) continue;
+
+            const headers = Object.keys(json[0]);
+            const detection = autoDetectFields(headers, json[0]);
+
+            if (!detection.emailCol) {
+              console.warn(`No se encontró columna de email en la hoja "${sheetName}", saltando.`);
+              continue;
+            }
+
+            const payload = json
+              .filter(row => row[detection.emailCol] && row[detection.emailCol].toString().trim() !== '')
+              .map(row => {
+                let custom_fields = {};
+                detection.customMappings.forEach(h => {
+                  custom_fields[h] = row[h] ? row[h].toString().trim() : '';
+                });
+
+                return {
+                  email: row[detection.emailCol].toString().trim(),
+                  name: detection.nameCol && row[detection.nameCol] ? row[detection.nameCol].toString().trim() : 'Suscriptor',
+                  tags: [sheetName],
+                  custom_fields: custom_fields
+                };
+              });
+
+            if (payload.length === 0) continue;
+
+            try {
+              const res = await fetch('/api/contacts/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ list: payload })
+              });
+              const data = await res.json();
+              if (data.success) {
+                totalImported += data.added;
+              }
+            } catch (err) {
+              console.error(`Error importando hoja "${sheetName}":`, err);
+            }
+          }
+
+          progressBar.style.width = '100%';
+          progressText.textContent = '¡Completado!';
+          
+          setTimeout(() => {
+            closeModal('modal-import-bulk');
+            resetImport();
+            fetchContacts();
+            showToast(`¡Importación multihas completada! Se añadieron/reactivaron ${totalImported} contactos de tus hojas.`, 'success');
+          }, 600);
         });
       }
 
