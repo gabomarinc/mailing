@@ -2971,14 +2971,14 @@
         if (Array.isArray(lists) && lists.length > 0) {
           lists.forEach(list => {
             const opt = document.createElement('option');
-            opt.value = list.name;
-            opt.textContent = `${list.name} (${list.count} contactos)`;
+            opt.value = list;
+            opt.textContent = list;
             select.appendChild(opt);
           });
         } else {
           const opt = document.createElement('option');
           opt.value = 'Suscripción Directa';
-          opt.textContent = 'Suscripción Directa (0 contactos)';
+          opt.textContent = 'Suscripción Directa';
           select.appendChild(opt);
         }
       }
