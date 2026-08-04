@@ -2139,7 +2139,7 @@ app.post('/api/campaigns/:id/resume', protectRoute, async (req, res) => {
       
       await sql`
         UPDATE campaigns 
-        SET recipient_emails = ${recipientEmails}, 
+        SET recipient_emails = ${recipientEmails}::text[], 
             total_sent = ${recipientEmails.length}
         WHERE id = ${campaignId}
       `;
@@ -2158,7 +2158,7 @@ app.post('/api/campaigns/:id/resume', protectRoute, async (req, res) => {
         sentRecipients = interactedEmails;
         await sql`
           UPDATE campaigns 
-          SET sent_recipients = ${interactedEmails},
+          SET sent_recipients = ${interactedEmails}::text[],
               success_count = ${interactedEmails.length}
           WHERE id = ${campaignId}
         `;
