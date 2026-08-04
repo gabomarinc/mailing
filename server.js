@@ -1608,6 +1608,55 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
   }
 });
 
+app.post('/api/campaigns/send-test', protectRoute, async (req, res) => {
+  try {
+    const { subject, body, senderName, senderEmail, recipient } = req.body;
+    if (!subject || !body || !senderEmail || !recipient) {
+      return res.status(400).json({ success: false, message: 'Faltan datos requeridos.' });
+    }
+
+    if (!isValidEmail(recipient.trim().toLowerCase())) {
+      return res.status(400).json({ success: false, message: 'El correo de destino no es válido.' });
+    }
+
+    const hasAwsCreds = !!process.env.AWS_ACCESS_KEY_ID || !!process.env.AWS_REGION || !!process.env.SES_SENDER_EMAIL;
+    let formattedSender = senderName ? `${senderName} <${senderEmail}>` : senderEmail;
+
+    // Agregar un banner informativo de prueba al cuerpo
+    const testBody = `
+      <div style="border: 2px dashed #27bea5; padding: 12px; margin-bottom: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #1B2939; background-color: #f0fdfa; border-radius: 12px; text-align: center; line-height: 1.5;">
+        <strong>📧 Este es un correo de prueba de Kônsul Mailing</strong><br/>
+        <span style="color: #6E7A8A; font-size: 11px;">Enviado para verificar el diseño y formato de tu campaña.</span>
+      </div>
+      ${body}
+      <hr style="border: 0; border-top: 1px solid #EAE6DF; margin: 30px 0;" />
+      <div style="font-size: 11px; color: #6E7A8A; text-align: center; font-family: sans-serif;">
+        <p>Recibido como prueba desde el editor de campañas de Kônsul Suite.</p>
+      </div>
+    `;
+
+    if (hasAwsCreds) {
+      const sesClient = new SESClient({ region: process.env.AWS_REGION || 'us-east-1' });
+      const command = new SendEmailCommand({
+        Source: formattedSender,
+        Destination: { ToAddresses: [recipient.trim().toLowerCase()] },
+        Message: {
+          Subject: { Data: `[PRUEBA] ${subject}`, Charset: 'UTF-8' },
+          Body: { Html: { Data: testBody, Charset: 'UTF-8' } }
+        }
+      });
+      await sesClient.send(command);
+      return res.json({ success: true, message: 'Correo de prueba enviado con éxito vía AWS SES.' });
+    } else {
+      console.log(`[SIMULACIÓN] Enviando correo de prueba a ${recipient} desde ${formattedSender}`);
+      return res.json({ success: true, message: 'Simulación: Correo de prueba enviado con éxito (modo desarrollo).' });
+    }
+  } catch (error) {
+    console.error('Error al enviar correo de prueba:', error);
+    return res.status(500).json({ success: false, message: 'Error al enviar correo de prueba.', error: error.message });
+  }
+});
+
 // 4. Tracking & Unsubscribe
 app.get('/api/campaigns/:id/track-open', async (req, res) => {
   const { id } = req.params;

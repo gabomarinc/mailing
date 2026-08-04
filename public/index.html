@@ -1176,6 +1176,9 @@
                           <i data-lucide="arrow-left" class="w-4 h-4"></i> Atrás
                         </button>
                         <div class="flex items-center gap-3 w-full sm:w-auto">
+                          <button onclick="sendTestEmail()" class="px-5 py-3 bg-slate-100 text-[#1c2938] font-bold text-xs rounded-xl hover:bg-slate-200 transition-all w-full sm:w-auto flex items-center gap-1.5 justify-center">
+                            <i data-lucide="mail" class="w-4 h-4"></i> Enviar Prueba
+                          </button>
                           <button class="px-5 py-3 bg-white border border-slate-200 text-[#1c2938] font-bold text-xs rounded-xl hover:bg-slate-50 transition-all w-full sm:w-auto">
                             Guardar Borrador
                           </button>
@@ -2669,8 +2672,6 @@
             }
           });
 
-          const tag = document.getElementById('import-tag').value.trim() || 'Importados';
-
           if (!emailCol) {
             showToast('Debes asignar al menos una columna al campo "Email (Obligatorio)".', 'error');
             return;
@@ -2678,62 +2679,130 @@
 
           document.getElementById('import-phase-2').classList.add('hidden');
           document.getElementById('import-phase-3').classList.remove('hidden');
-          document.getElementById('import-progress-bar').style.width = '10%';
-          document.getElementById('import-progress-text').textContent = 'Preparando datos...';
+          
+          const progressBar = document.getElementById('import-progress-bar');
+          const progressText = document.getElementById('import-progress-text');
+          
+          progressBar.style.width = '15%';
+          progressText.textContent = 'Iniciando procesamiento...';
 
-          const payload = importData
-            .filter(row => row[emailCol] && row[emailCol].toString().trim() !== '')
-            .map(row => {
-              let custom_fields = {};
-              customMappings.forEach(mapping => {
-                custom_fields[mapping.customName] = row[mapping.header] ? row[mapping.header].toString().trim() : '';
+          // CASO 1: IMPORTACIÓN DE MÚLTIPLES HOJAS
+          if (importSelectedSheets && importSelectedSheets.length > 1) {
+            let totalImported = 0;
+            
+            for (let i = 0; i < importSelectedSheets.length; i++) {
+              const sheetName = importSelectedSheets[i];
+              progressBar.style.width = `${Math.round(((i) / importSelectedSheets.length) * 70) + 15}%`;
+              progressText.textContent = `Procesando hoja "${sheetName}" (${i+1}/${importSelectedSheets.length})...`;
+
+              const worksheet = currentWorkbook.Sheets[sheetName];
+              const json = XLSX.utils.sheet_to_json(worksheet, {defval: ''});
+              if (json.length === 0) continue;
+
+              const payload = json
+                .filter(row => row[emailCol] && row[emailCol].toString().trim() !== '')
+                .map(row => {
+                  let custom_fields = {};
+                  customMappings.forEach(mapping => {
+                    custom_fields[mapping.customName] = row[mapping.header] ? row[mapping.header].toString().trim() : '';
+                  });
+
+                  return {
+                    email: row[emailCol].toString().trim(),
+                    name: nameCol && row[nameCol] ? row[nameCol].toString().trim() : 'Suscriptor',
+                    tags: [sheetName],
+                    custom_fields: custom_fields
+                  };
+                });
+
+              if (payload.length === 0) continue;
+
+              try {
+                const res = await fetch('/api/contacts/bulk', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ list: payload })
+                });
+                const data = await res.json();
+                if (data.success) {
+                  totalImported += data.added;
+                }
+              } catch (err) {
+                console.error(`Error importando hoja "${sheetName}":`, err);
+              }
+            }
+
+            progressBar.style.width = '100%';
+            progressText.textContent = '¡Completado!';
+            
+            setTimeout(() => {
+              closeModal('modal-import-bulk');
+              resetImport();
+              fetchContacts();
+              showToast(`¡Importación multihas completada! Se añadieron/reactivaron ${totalImported} contactos de tus hojas.`, 'success');
+            }, 600);
+
+          } else {
+            // CASO 2: IMPORTACIÓN SIMPLE (CSV o Excel de una sola hoja)
+            const tag = document.getElementById('import-tag').value.trim() || 'Importados';
+            
+            const payload = importData
+              .filter(row => row[emailCol] && row[emailCol].toString().trim() !== '')
+              .map(row => {
+                let custom_fields = {};
+                customMappings.forEach(mapping => {
+                  custom_fields[mapping.customName] = row[mapping.header] ? row[mapping.header].toString().trim() : '';
+                });
+
+                return {
+                  email: row[emailCol].toString().trim(),
+                  name: nameCol && row[nameCol] ? row[nameCol].toString().trim() : 'Suscriptor',
+                  tags: [tag],
+                  custom_fields: custom_fields
+                };
               });
 
-              return {
-                email: row[emailCol].toString().trim(),
-                name: nameCol && row[nameCol] ? row[nameCol].toString().trim() : 'Suscriptor',
-                tags: [tag],
-                custom_fields: custom_fields
-              };
-            });
+            if (payload.length === 0) {
+              showToast('No se encontraron correos válidos en el archivo.', 'error');
+              resetImport();
+              return;
+            }
 
-          if (payload.length === 0) {
-            showToast('No se encontraron correos válidos en el archivo.', 'error');
-            resetImport();
-            return;
-          }
+            progressBar.style.width = '50%';
+            progressText.textContent = `Enviando ${payload.length} contactos...`;
 
-          document.getElementById('import-progress-bar').style.width = '30%';
-          document.getElementById('import-progress-text').textContent = `Enviando ${payload.length} contactos...`;
-
-          try {
-            const res = await fetch('/api/contacts/bulk', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ list: payload })
-            });
-            const data = await res.json();
-            
-            document.getElementById('import-progress-bar').style.width = '100%';
-            document.getElementById('import-progress-text').textContent = '¡Completado!';
-            
-            if (data.success) {
-              setTimeout(() => {
-                closeModal('modal-import-bulk');
+            try {
+              const res = await fetch('/api/contacts/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ list: payload })
+              });
+              const data = await res.json();
+              
+              progressBar.style.width = '100%';
+              progressText.textContent = '¡Completado!';
+              
+              if (data.success) {
+                setTimeout(() => {
+                  closeModal('modal-import-bulk');
+                  resetImport();
+                  fetchContacts();
+                  showToast(`¡Importación completada! Se añadieron/reactivaron ${data.added} contactos.`, 'success');
+                }, 600);
+              } else {
+                showToast('Error del servidor: ' + (data.message || ''), 'error');
                 resetImport();
-                fetchContacts();
-                showToast(`¡Importación completada! Se añadieron/reactivaron ${data.added} contactos.`, 'success');
-              }, 600);
-            } else {
-              showToast('Error del servidor: ' + (data.message || ''), 'error');
+              }
+            } catch (err) {
+              showToast('Error de red al importar contactos.', 'error');
               resetImport();
             }
-          } catch (err) {
-            showToast('Error de red al importar contactos.', 'error');
-            resetImport();
           }
         });
       }
+
+      // Variable global para rastrear las hojas seleccionadas a importar
+      let importSelectedSheets = [];
 
       const btnImportSheets = document.getElementById('btn-import-sheets');
       if (btnImportSheets) {
@@ -2744,77 +2813,38 @@
             return;
           }
 
+          importSelectedSheets = Array.from(checkboxes).map(chk => chk.value);
+          
+          // Ocultar fase de hojas y cargar la primera hoja para el mapeo
           document.getElementById('import-phase-sheets').classList.add('hidden');
-          document.getElementById('import-phase-3').classList.remove('hidden');
           
-          const progressBar = document.getElementById('import-progress-bar');
-          const progressText = document.getElementById('import-progress-text');
+          const firstSheetName = importSelectedSheets[0];
+          const worksheet = currentWorkbook.Sheets[firstSheetName];
+          const json = XLSX.utils.sheet_to_json(worksheet, {defval: ''});
           
-          progressBar.style.width = '10%';
-          progressText.textContent = 'Iniciando importación multihas...';
-
-          let totalImported = 0;
-          const sheetNames = Array.from(checkboxes).map(chk => chk.value);
-          
-          for (let i = 0; i < sheetNames.length; i++) {
-            const sheetName = sheetNames[i];
-            progressBar.style.width = `${Math.round(((i) / sheetNames.length) * 80) + 10}%`;
-            progressText.textContent = `Procesando hoja "${sheetName}" (${i+1}/${sheetNames.length})...`;
-
-            const worksheet = currentWorkbook.Sheets[sheetName];
-            const json = XLSX.utils.sheet_to_json(worksheet, {defval: ''});
-            if (json.length === 0) continue;
-
-            const headers = Object.keys(json[0]);
-            const detection = autoDetectFields(headers, json[0]);
-
-            if (!detection.emailCol) {
-              console.warn(`No se encontró columna de email en la hoja "${sheetName}", saltando.`);
-              continue;
+          if (json.length > 0) {
+            importHeaders = Object.keys(json[0]);
+            importData = json;
+            
+            // Ocultar o cambiar la UI de etiqueta única
+            const tagContainer = document.getElementById('import-tag').parentElement;
+            if (tagContainer) {
+              tagContainer.innerHTML = `
+                <label class="text-xs font-bold text-brand-dark">Asignar Etiqueta (Tag)</label>
+                <div class="p-3 bg-blue-50/50 border border-blue-100 rounded-xl text-xs text-blue-700 font-medium flex items-center gap-2">
+                  <i data-lucide="layers" class="w-4 h-4 text-blue-500"></i>
+                  Cada hoja se importará como una lista independiente usando su propio nombre como etiqueta.
+                </div>
+                <input type="hidden" id="import-tag" value="MULTI_SHEET">
+              `;
+              lucide.createIcons();
             }
-
-            const payload = json
-              .filter(row => row[detection.emailCol] && row[detection.emailCol].toString().trim() !== '')
-              .map(row => {
-                let custom_fields = {};
-                detection.customMappings.forEach(h => {
-                  custom_fields[h] = row[h] ? row[h].toString().trim() : '';
-                });
-
-                return {
-                  email: row[detection.emailCol].toString().trim(),
-                  name: detection.nameCol && row[detection.nameCol] ? row[detection.nameCol].toString().trim() : 'Suscriptor',
-                  tags: [sheetName],
-                  custom_fields: custom_fields
-                };
-              });
-
-            if (payload.length === 0) continue;
-
-            try {
-              const res = await fetch('/api/contacts/bulk', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ list: payload })
-              });
-              const data = await res.json();
-              if (data.success) {
-                totalImported += data.added;
-              }
-            } catch (err) {
-              console.error(`Error importando hoja "${sheetName}":`, err);
-            }
-          }
-
-          progressBar.style.width = '100%';
-          progressText.textContent = '¡Completado!';
-          
-          setTimeout(() => {
-            closeModal('modal-import-bulk');
+            
+            renderMappingInterface();
+          } else {
+            showToast(`La hoja "${firstSheetName}" está vacía. Selecciona otra hoja.`, 'error');
             resetImport();
-            fetchContacts();
-            showToast(`¡Importación multihas completada! Se añadieron/reactivaron ${totalImported} contactos de tus hojas.`, 'success');
-          }, 600);
+          }
         });
       }
 
@@ -4981,6 +5011,66 @@
     window.uploadImageBlock = uploadImageBlock;
     window.uploadLogoBlock = uploadLogoBlock;
     window.uploadFooterLogo = uploadFooterLogo;
+
+    async function sendTestEmail() {
+      const subject = document.getElementById('campaign-subject').value.trim();
+      const senderName = document.getElementById('campaign-sender-name').value.trim();
+      const senderEmail = document.getElementById('campaign-sender-email').value.trim();
+      
+      let body = '';
+      try {
+        body = compileBuilderHtml(false);
+      } catch (e) {
+        console.error("Error al compilar HTML del builder para prueba:", e);
+      }
+
+      if (!body) {
+        showToast('Diseña tu correo primero antes de enviar una prueba.', 'warning');
+        return;
+      }
+      if (!senderEmail) {
+        showToast('Selecciona un remitente en el Paso 2 antes de enviar una prueba.', 'warning');
+        return;
+      }
+      if (!subject) {
+        showToast('Escribe un asunto para tu correo en el Paso 2 antes de enviar una prueba.', 'warning');
+        return;
+      }
+
+      const emailTarget = prompt("Introduce el correo destinatario para recibir la prueba:", localStorage.getItem('kns_test_recipient') || '');
+      if (!emailTarget) return;
+
+      localStorage.setItem('kns_test_recipient', emailTarget.trim());
+
+      showToast('Enviando correo de prueba...', 'info');
+
+      try {
+        const token = sessionStorage.getItem('kns_token');
+        const res = await fetch('/api/campaigns/send-test', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : ''
+          },
+          body: JSON.stringify({
+            subject,
+            body,
+            senderName,
+            senderEmail,
+            recipient: emailTarget.trim()
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || '¡Correo de prueba enviado con éxito!', 'success');
+        } else {
+          showToast('Error: ' + data.message, 'error');
+        }
+      } catch (err) {
+        showToast('Error de red al enviar la prueba.', 'error');
+      }
+    }
+    window.sendTestEmail = sendTestEmail;
 
     async function executeCampaignSend() {
       const campaignName = document.getElementById('campaign-name').value.trim();
