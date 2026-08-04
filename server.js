@@ -3,7 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const { SESClient, SendEmailCommand, VerifyDomainIdentityCommand, VerifyDomainDkimCommand, GetIdentityVerificationAttributesCommand, GetIdentityDkimAttributesCommand } = require('@aws-sdk/client-ses');
+const { SESClient, SendEmailCommand, VerifyDomainIdentityCommand, VerifyDomainDkimCommand, GetIdentityVerificationAttributesCommand, GetIdentityDkimAttributesCommand, GetSendQuotaCommand, GetSendStatisticsCommand } = require('@aws-sdk/client-ses');
 const { neon } = require('@neondatabase/serverless');
 require('dotenv').config();
 const dns = require('dns').promises;
@@ -1228,6 +1228,73 @@ app.get('/api/domains', protectRoute, async (req, res) => {
   }
 });
 
+// Endpoint para obtener estadísticas REALES directamente de la API de Amazon SES
+app.get('/api/aws/ses-stats', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const awsResult = await sql`SELECT * FROM aws_settings WHERE kinde_id = ${userId}`;
+    const userAws = awsResult[0] || null;
+
+    const hasAwsCreds = userAws && userAws.access_key && userAws.secret_key && userAws.region;
+    const hasGlobalAws = !!process.env.AWS_ACCESS_KEY_ID && !!process.env.AWS_SECRET_ACCESS_KEY;
+    
+    if (!hasAwsCreds && !hasGlobalAws) {
+      return res.status(400).json({ success: false, message: 'AWS no está configurado.' });
+    }
+
+    const region = userAws?.region || process.env.AWS_REGION || 'us-east-1';
+    const credentials = userAws?.access_key ? {
+      accessKeyId: userAws.access_key,
+      secretAccessKey: userAws.secret_key
+    } : undefined;
+
+    const targetSesClient = new SESClient({ region, credentials });
+
+    // 1. Obtener Cuota de Envío y Envíos en últimas 24h desde AWS SES
+    const quotaCommand = new GetSendQuotaCommand({});
+    const quotaData = await targetSesClient.send(quotaCommand);
+
+    // 2. Obtener Estadísticas Históricas de Envío (últimos 14 días) desde AWS SES
+    const statsCommand = new GetSendStatisticsCommand({});
+    const statsData = await targetSesClient.send(statsCommand);
+
+    let totalSent24h = quotaData.SentLast24Hours || 0;
+    let max24HourSend = quotaData.Max24HourSend || 0;
+    let maxSendRate = quotaData.MaxSendRate || 0;
+
+    let totalHistoricalSent = 0;
+    let totalBounces = 0;
+    let totalComplaints = 0;
+    let totalRejects = 0;
+
+    if (statsData.SendDataPoints && statsData.SendDataPoints.length > 0) {
+      statsData.SendDataPoints.forEach(pt => {
+        totalHistoricalSent += (pt.DeliveryAttempts || 0);
+        totalBounces += (pt.Bounces || 0);
+        totalComplaints += (pt.Complaints || 0);
+        totalRejects += (pt.Rejects || 0);
+      });
+    }
+
+    res.json({
+      success: true,
+      provider: 'Amazon SES (Real API)',
+      stats: {
+        sentLast24Hours: Math.round(totalSent24h),
+        max24HourSend: Math.round(max24HourSend),
+        maxSendRate: maxSendRate,
+        totalHistoricalSent: totalHistoricalSent,
+        totalBounces: totalBounces,
+        totalComplaints: totalComplaints,
+        totalRejects: totalRejects
+      }
+    });
+  } catch (err) {
+    console.error('Error obteniendo métricas reales de AWS SES:', err);
+    res.status(500).json({ success: false, message: 'Error consultando Amazon SES', error: err.message });
+  }
+});
+
 app.post('/api/domains', protectRoute, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -2001,90 +2068,93 @@ async function sendCampaignIncremental(campaignId, host) {
       nameMap[c.email.toLowerCase().trim()] = c.name || 'Usuario';
     });
 
-    for (let i = 0; i < batchToProcess.length; i++) {
-      const recipient = batchToProcess[i];
-      
+    const CONCURRENCY = 12;
+    for (let i = 0; i < batchToProcess.length; i += CONCURRENCY) {
       const checkStatus = await sql`SELECT status FROM campaigns WHERE id = ${campaignId}`;
       if (checkStatus.length > 0 && checkStatus[0].status !== 'sending') {
         console.log(`Campaña ${campaignId} detenida porque el estado cambió a ${checkStatus[0].status}`);
         return;
       }
 
-      const unsubscribeUrl = `https://${host}/unsubscribe/${campaignId}/${encodeURIComponent(recipient)}`;
-      const openTrackingUrl = `https://${host}/api/campaigns/${campaignId}/track-open?email=${encodeURIComponent(recipient)}`;
+      const chunk = batchToProcess.slice(i, i + CONCURRENCY);
       
-      const recipientName = nameMap[recipient] || 'Usuario';
-      let customizedBody = campaign.body
-        .replace(/\{\{unsubscribe_url\}\}/g, unsubscribeUrl)
-        .replace(/\{name\}/g, recipientName)
-        .replace(/\{\{name\}\}/g, recipientName)
-        .replace(/\{\{\s*name\s*\}\}/g, recipientName);
-
-      const trackedBody = customizedBody.replace(/<a\b([^>]*)\bhref=["']([^"']+)["']([^>]*)>/gi, (match, prefix, url, suffix) => {
-        if (url.startsWith('#') || url.includes('/unsubscribe/') || url.includes('/track-click')) {
-          return match;
-        }
-        const trackingUrl = `https://${host}/api/campaigns/${campaignId}/track-click?url=${encodeURIComponent(url)}&email=${encodeURIComponent(recipient)}`;
-        return `<a${prefix}href="${trackingUrl}"${suffix}>`;
-      });
-      
-      let richBody = '';
-      if (campaign.body.includes('max-width: 600px')) {
-        const pixelHtml = `<img src="${openTrackingUrl}" width="1" height="1" style="display:none;" />`;
-        if (trackedBody.includes('</div>')) {
-          const lastIndex = trackedBody.lastIndexOf('</div>');
-          richBody = trackedBody.substring(0, lastIndex) + pixelHtml + trackedBody.substring(lastIndex);
-        } else {
-          richBody = trackedBody + pixelHtml;
-        }
-      } else {
-        richBody = `
-          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1B2939; padding: 20px; max-width: 600px; margin: 0 auto; background-color: #FAF8F5; border-radius: 16px;">
-            ${trackedBody}
-            <hr style="border: 0; border-top: 1px solid #EAE6DF; margin: 30px 0;" />
-            <div style="font-size: 11px; color: #6E7A8A; text-align: center;">
-              <p>Has recibido este correo de parte de tu suscripción en la Suite Kônsul.</p>
-              <p><a href="${unsubscribeUrl}" style="color: #27bea7; text-decoration: underline;">Darme de baja de esta lista</a></p>
-            </div>
-            <img src="${openTrackingUrl}" width="1" height="1" style="display:none;" />
-          </div>
-        `;
-      }
-
-      try {
-        if (canSendAws && sesClient) {
-          const command = new SendEmailCommand({
-            Source: formattedSender,
-            Destination: { ToAddresses: [recipient] },
-            Message: {
-              Subject: { Data: campaign.subject, Charset: 'UTF-8' },
-              Body: { Html: { Data: richBody, Charset: 'UTF-8' } }
-            }
-          });
-          await sesClient.send(command);
-        } else {
-          await sleep(60); 
-        }
-
-        await sql`
-          UPDATE campaigns 
-          SET success_count = success_count + 1,
-              sent_recipients = array_append(sent_recipients, ${recipient})
-          WHERE id = ${campaignId}
-        `;
-      } catch (err) {
-        console.error('AWS SES Send Error para', recipient, ':', err);
-        const failureDetail = { email: recipient, error: err.message };
+      await Promise.allSettled(chunk.map(async (recipient) => {
+        const unsubscribeUrl = `https://${host}/unsubscribe/${campaignId}/${encodeURIComponent(recipient)}`;
+        const openTrackingUrl = `https://${host}/api/campaigns/${campaignId}/track-open?email=${encodeURIComponent(recipient)}`;
         
-        await sql`
-          UPDATE campaigns 
-          SET failed_count = failed_count + 1,
-              error_details = error_details || ${JSON.stringify([failureDetail])}::jsonb
-          WHERE id = ${campaignId}
-        `;
-      }
+        const recipientName = nameMap[recipient] || 'Usuario';
+        let customizedBody = campaign.body
+          .replace(/\{\{unsubscribe_url\}\}/g, unsubscribeUrl)
+          .replace(/\{name\}/g, recipientName)
+          .replace(/\{\{name\}\}/g, recipientName)
+          .replace(/\{\{\s*name\s*\}\}/g, recipientName);
 
-      if (i < batchToProcess.length - 1) await sleep(95);
+        const trackedBody = customizedBody.replace(/<a\b([^>]*)\bhref=["']([^"']+)["']([^>]*)>/gi, (match, prefix, url, suffix) => {
+          if (url.startsWith('#') || url.includes('/unsubscribe/') || url.includes('/track-click')) {
+            return match;
+          }
+          const trackingUrl = `https://${host}/api/campaigns/${campaignId}/track-click?url=${encodeURIComponent(url)}&email=${encodeURIComponent(recipient)}`;
+          return `<a${prefix}href="${trackingUrl}"${suffix}>`;
+        });
+        
+        let richBody = '';
+        if (campaign.body.includes('max-width: 600px')) {
+          const pixelHtml = `<img src="${openTrackingUrl}" width="1" height="1" style="display:none;" />`;
+          if (trackedBody.includes('</div>')) {
+            const lastIndex = trackedBody.lastIndexOf('</div>');
+            richBody = trackedBody.substring(0, lastIndex) + pixelHtml + trackedBody.substring(lastIndex);
+          } else {
+            richBody = trackedBody + pixelHtml;
+          }
+        } else {
+          richBody = `
+            <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1B2939; padding: 20px; max-width: 600px; margin: 0 auto; background-color: #FAF8F5; border-radius: 16px;">
+              ${trackedBody}
+              <hr style="border: 0; border-top: 1px solid #EAE6DF; margin: 30px 0;" />
+              <div style="font-size: 11px; color: #6E7A8A; text-align: center;">
+                <p>Has recibido este correo de parte de tu suscripción en la Suite Kônsul.</p>
+                <p><a href="${unsubscribeUrl}" style="color: #27bea7; text-decoration: underline;">Darme de baja de esta lista</a></p>
+              </div>
+              <img src="${openTrackingUrl}" width="1" height="1" style="display:none;" />
+            </div>
+          `;
+        }
+
+        try {
+          if (canSendAws && sesClient) {
+            const command = new SendEmailCommand({
+              Source: formattedSender,
+              Destination: { ToAddresses: [recipient] },
+              Message: {
+                Subject: { Data: campaign.subject, Charset: 'UTF-8' },
+                Body: { Html: { Data: richBody, Charset: 'UTF-8' } }
+              }
+            });
+            await sesClient.send(command);
+          } else {
+            await sleep(30); 
+          }
+
+          await sql`
+            UPDATE campaigns 
+            SET success_count = success_count + 1,
+                sent_recipients = array_append(sent_recipients, ${recipient})
+            WHERE id = ${campaignId}
+          `;
+        } catch (err) {
+          console.error('AWS SES Send Error para', recipient, ':', err);
+          const failureDetail = { email: recipient, error: err.message };
+          
+          await sql`
+            UPDATE campaigns 
+            SET failed_count = failed_count + 1,
+                error_details = error_details || ${JSON.stringify([failureDetail])}::jsonb
+            WHERE id = ${campaignId}
+          `;
+        }
+      }));
+
+      if (i + CONCURRENCY < batchToProcess.length) await sleep(50);
     }
 
     const updatedCampaignResult = await sql`SELECT * FROM campaigns WHERE id = ${campaignId}`;
