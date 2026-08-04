@@ -143,6 +143,15 @@ async function initDB() {
           UNIQUE(kinde_id, name)
       );
     `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS aws_settings (
+          kinde_id VARCHAR(255) PRIMARY KEY REFERENCES users(kinde_id) ON DELETE CASCADE,
+          access_key TEXT,
+          secret_key TEXT,
+          region VARCHAR(50) DEFAULT 'us-east-1',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
     
     // Add columns if they don't exist
     try {
@@ -1231,9 +1240,13 @@ app.get('/api/domains', protectRoute, async (req, res) => {
 // Endpoint para obtener estadísticas REALES directamente de la API de Amazon SES
 app.get('/api/aws/ses-stats', protectRoute, async (req, res) => {
   try {
-    const userId = req.user.id;
-    const awsResult = await sql`SELECT * FROM aws_settings WHERE kinde_id = ${userId}`;
-    const userAws = awsResult[0] || null;
+    let userAws = null;
+    try {
+      const awsResult = await sql`SELECT * FROM aws_settings WHERE kinde_id = ${userId}`;
+      userAws = awsResult[0] || null;
+    } catch(e) {
+      console.warn('Tabla aws_settings no encontrada, usando credenciales por defecto');
+    }
 
     const hasAwsCreds = userAws && userAws.access_key && userAws.secret_key && userAws.region;
     const hasGlobalAws = !!process.env.AWS_ACCESS_KEY_ID && !!process.env.AWS_SECRET_ACCESS_KEY;
@@ -2010,9 +2023,13 @@ async function sendCampaignIncremental(campaignId, host) {
 
     if (campaign.status !== 'sending') return;
 
-    const userId = campaign.kinde_id;
-    const awsResult = await sql`SELECT * FROM aws_settings WHERE kinde_id = ${userId}`;
-    const userAws = awsResult[0] || null;
+    let userAws = null;
+    try {
+      const awsResult = await sql`SELECT * FROM aws_settings WHERE kinde_id = ${userId}`;
+      userAws = awsResult[0] || null;
+    } catch(e) {
+      console.warn('Tabla aws_settings no encontrada en sendCampaignIncremental, usando credenciales por defecto');
+    }
 
     const hasAwsCreds = userAws && userAws.access_key && userAws.secret_key && userAws.region;
     const hasGlobalAws = !!process.env.AWS_ACCESS_KEY_ID && !!process.env.AWS_SECRET_ACCESS_KEY;
