@@ -5536,14 +5536,15 @@
           }
         });
         const data = await res.json();
-        if (data.success) {
+        if (res.ok && data.success) {
           showToast(data.message || 'Campaña reanudada en segundo plano.', 'success');
-          // Recargar campañas
           fetchCampaigns();
         } else {
-          showToast('Error: ' + data.message, 'error');
+          console.error('Detalle del error de reanudación:', data);
+          showToast('Error al reanudar: ' + (data.message || 'Error desconocido') + (data.error ? ` (${data.error})` : ''), 'error');
         }
       } catch (err) {
+        console.error('Error parseando JSON o de red:', err);
         showToast('Error de red al reanudar campaña.', 'error');
       }
     }

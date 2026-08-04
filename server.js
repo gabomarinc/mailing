@@ -2100,34 +2100,39 @@ async function sendCampaignIncremental(campaignId, host) {
         `;
       }
     }
-
   } catch (err) {
     console.error('Error en sendCampaignIncremental:', err);
   }
 }
 
 app.post('/api/campaigns/:id/resume', protectRoute, async (req, res) => {
+  const campaignId = req.params.id;
+  const userId = req.user.id;
+  
+  let campaign;
   try {
-    const campaignId = req.params.id;
-    const userId = req.user.id;
-
     const campaignResult = await sql`
       SELECT * FROM campaigns WHERE id = ${campaignId} AND kinde_id = ${userId}
     `;
     if (campaignResult.length === 0) {
-      return res.status(404).json({ error: 'Campaña no encontrada' });
+      return res.status(404).json({ success: false, message: 'Campaña no encontrada en tu cuenta.' });
     }
-    let campaign = campaignResult[0];
+    campaign = campaignResult[0];
+  } catch (err) {
+    console.error('Error buscando campaña:', err);
+    return res.status(500).json({ success: false, message: 'Error al buscar la campaña en la base de datos.', error: err.message });
+  }
 
-    // 1. RECONSTRUCCIÓN INTELIGENTE PARA CAMPAÑAS ANTIGUAS (recipient_emails vacío)
-    let recipientEmails = campaign.recipient_emails || [];
-    if (recipientEmails.length === 0) {
+  // 1. RECONSTRUCCIÓN INTELIGENTE PARA CAMPAÑAS ANTIGUAS (recipient_emails vacío)
+  let recipientEmails = campaign.recipient_emails || [];
+  if (recipientEmails.length === 0) {
+    try {
       let targetContacts;
-      if (campaign.target_tags && campaign.target_tags.length > 0) {
+      if (campaign.target_tags && Array.isArray(campaign.target_tags) && campaign.target_tags.length > 0) {
         targetContacts = await sql`
           SELECT email FROM contacts 
           WHERE kinde_id = ${userId} AND status = 'active' 
-          AND tags && ${campaign.target_tags}
+          AND tags && ${campaign.target_tags}::text[]
         `;
       } else {
         targetContacts = await sql`
@@ -2135,8 +2140,13 @@ app.post('/api/campaigns/:id/resume', protectRoute, async (req, res) => {
           WHERE kinde_id = ${userId} AND status = 'active'
         `;
       }
-      recipientEmails = [...new Set(targetContacts.map(c => c.email.toLowerCase().trim()))];
       
+      recipientEmails = [...new Set(targetContacts.map(c => c.email ? c.email.toLowerCase().trim() : '').filter(Boolean))];
+      
+      if (recipientEmails.length === 0) {
+        return res.status(400).json({ success: false, message: 'No se encontraron contactos activos para las etiquetas de esta campaña.' });
+      }
+
       await sql`
         UPDATE campaigns 
         SET recipient_emails = ${recipientEmails}::text[], 
@@ -2145,14 +2155,25 @@ app.post('/api/campaigns/:id/resume', protectRoute, async (req, res) => {
       `;
       campaign.recipient_emails = recipientEmails;
       campaign.total_sent = recipientEmails.length;
+    } catch (err) {
+      console.error('Error reconstruyendo destinatarios:', err);
+      return res.status(500).json({ success: false, message: 'Error durante la reconstrucción de destinatarios de la campaña.', error: err.message });
     }
+  }
 
-    // 2. EVITAR DUPLICADOS BASADO EN APERTURAS Y CLICS HISTÓRICOS (sent_recipients vacío)
-    let sentRecipients = campaign.sent_recipients || [];
-    if (sentRecipients.length === 0) {
+  // 2. EVITAR DUPLICADOS BASADO EN APERTURAS Y CLICS HISTÓRICOS (sent_recipients vacío)
+  let sentRecipients = campaign.sent_recipients || [];
+  if (sentRecipients.length === 0) {
+    try {
       const opens = await sql`SELECT DISTINCT email FROM campaign_opens WHERE campaign_id = ${campaignId}`;
       const clicks = await sql`SELECT DISTINCT email FROM campaign_clicks WHERE campaign_id = ${campaignId}`;
-      const interactedEmails = [...new Set([...opens.map(o => o.email.toLowerCase().trim()), ...clicks.map(c => c.email.toLowerCase().trim())])];
+      
+      const interactedEmails = [
+        ...new Set([
+          ...opens.map(o => o.email ? o.email.toLowerCase().trim() : '').filter(Boolean),
+          ...clicks.map(c => c.email ? c.email.toLowerCase().trim() : '').filter(Boolean)
+        ])
+      ];
       
       if (interactedEmails.length > 0) {
         sentRecipients = interactedEmails;
@@ -2165,8 +2186,14 @@ app.post('/api/campaigns/:id/resume', protectRoute, async (req, res) => {
         campaign.sent_recipients = sentRecipients;
         campaign.success_count = interactedEmails.length;
       }
+    } catch (err) {
+      console.error('Error deduplicando contactos:', err);
+      return res.status(500).json({ success: false, message: 'Error al procesar el histórico de aperturas/clics para evitar duplicados.', error: err.message });
     }
+  }
 
+  // 3. CAMBIO DE ESTADO Y ACTIVACIÓN
+  try {
     const processedCount = (campaign.success_count || 0) + (campaign.failed_count || 0);
     if (processedCount >= (campaign.total_sent || 0)) {
       return res.status(400).json({ success: false, message: 'Esta campaña ya ha sido enviada en su totalidad o no tiene más destinatarios pendientes.' });
@@ -2185,13 +2212,12 @@ app.post('/api/campaigns/:id/resume', protectRoute, async (req, res) => {
     });
 
     res.json({ success: true, message: 'Envío de campaña reanudado. El progreso se actualizará en tiempo real.' });
-  } catch (error) {
-    console.error('Error en /api/campaigns/:id/resume:', error);
-    res.status(500).json({ success: false, message: 'Error al reanudar la campaña.', error: error.message });
+  } catch (err) {
+    console.error('Error cambiando estado:', err);
+    return res.status(500).json({ success: false, message: 'Error final al cambiar el estado de la campaña para reanudar.', error: err.message });
   }
 });
 
-// ======================== CRON SCHEDULER ========================
 // Endpoint para procesar y enviar correos de campañas programadas
 app.get('/api/cron/send-scheduled', async (req, res) => {
   try {
