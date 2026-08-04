@@ -2105,9 +2105,10 @@ async function sendCampaignIncremental(campaignId, host) {
   }
 }
 
-app.post('/api/campaigns/:id/resume', protectRoute, async (req, res) => {
+app.post('/api/campaigns/:id/resume', protectRoute, express.json(), async (req, res) => {
   const campaignId = req.params.id;
   const userId = req.user.id;
+  const skipCount = parseInt(req.body.skipCount, 10) || 0;
   
   let campaign;
   try {
@@ -2132,7 +2133,7 @@ app.post('/api/campaigns/:id/resume', protectRoute, async (req, res) => {
         targetContacts = await sql`
           SELECT email FROM contacts 
           WHERE kinde_id = ${userId} AND status = 'active' 
-          AND tags && ${campaign.target_tags}::text[]
+          AND tags && CAST(${campaign.target_tags} AS text[])
         `;
       } else {
         targetContacts = await sql`
@@ -2149,7 +2150,7 @@ app.post('/api/campaigns/:id/resume', protectRoute, async (req, res) => {
 
       await sql`
         UPDATE campaigns 
-        SET recipient_emails = ${recipientEmails}::text[], 
+        SET recipient_emails = CAST(${recipientEmails} AS text[]), 
             total_sent = ${recipientEmails.length}
         WHERE id = ${campaignId}
       `;
@@ -2161,8 +2162,27 @@ app.post('/api/campaigns/:id/resume', protectRoute, async (req, res) => {
     }
   }
 
-  // 2. EVITAR DUPLICADOS BASADO EN APERTURAS Y CLICS HISTÓRICOS (sent_recipients vacío)
+  // 2. CONFIGURACIÓN DE SKIP COUNT POR PARTE DEL USUARIO (Si es campaña histórica)
   let sentRecipients = campaign.sent_recipients || [];
+  if (skipCount > 0 && recipientEmails.length > 0 && sentRecipients.length === 0) {
+    try {
+      const initialSent = recipientEmails.slice(0, skipCount);
+      await sql`
+        UPDATE campaigns 
+        SET sent_recipients = CAST(${initialSent} AS text[]),
+            success_count = ${skipCount}
+        WHERE id = ${campaignId}
+      `;
+      campaign.sent_recipients = initialSent;
+      campaign.success_count = skipCount;
+      sentRecipients = initialSent;
+    } catch (err) {
+      console.error('Error aplicando skipCount a la campaña:', err);
+      return res.status(500).json({ success: false, message: 'Error al inicializar los destinatarios ya enviados (skipCount).', error: err.message });
+    }
+  }
+
+  // 3. EVITAR DUPLICADOS BASADO EN APERTURAS Y CLICS HISTÓRICOS (Si sent_recipients sigue vacío)
   if (sentRecipients.length === 0) {
     try {
       const opens = await sql`SELECT DISTINCT email FROM campaign_opens WHERE campaign_id = ${campaignId}`;
@@ -2179,7 +2199,7 @@ app.post('/api/campaigns/:id/resume', protectRoute, async (req, res) => {
         sentRecipients = interactedEmails;
         await sql`
           UPDATE campaigns 
-          SET sent_recipients = ${interactedEmails}::text[],
+          SET sent_recipients = CAST(${interactedEmails} AS text[]),
               success_count = ${interactedEmails.length}
           WHERE id = ${campaignId}
         `;
@@ -2192,7 +2212,7 @@ app.post('/api/campaigns/:id/resume', protectRoute, async (req, res) => {
     }
   }
 
-  // 3. CAMBIO DE ESTADO Y ACTIVACIÓN
+  // 4. CAMBIO DE ESTADO Y ACTIVACIÓN
   try {
     const processedCount = (campaign.success_count || 0) + (campaign.failed_count || 0);
     if (processedCount >= (campaign.total_sent || 0)) {

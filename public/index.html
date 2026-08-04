@@ -5524,7 +5524,22 @@
     }
 
     async function resumeCampaign(id) {
-      if (!confirm('¿Deseas reanudar el envío de esta campaña a los destinatarios pendientes?')) return;
+      const campaign = campaigns.find(c => c.id === id);
+      const isLegacy = campaign && (!campaign.successCount || campaign.successCount === 0);
+      let skipCount = 0;
+      
+      if (isLegacy) {
+        let skipCountStr = prompt(
+          `Esta campaña se envió bajo la versión anterior del sistema y no tenemos el registro exacto de cuántos correos ya se mandaron.\n\n` +
+          `En Amazon SES indicas que se enviaron unos 700 y algo correos. Introduce el número de destinatarios iniciales que deseas saltarte para no repetir envíos (Ejemplo: 700):`, 
+          "700"
+        );
+        if (skipCountStr === null) return; // Canceló
+        skipCount = parseInt(skipCountStr, 10);
+        if (isNaN(skipCount) || skipCount < 0) skipCount = 0;
+      } else {
+        if (!confirm('¿Deseas reanudar el envío de esta campaña a los destinatarios pendientes?')) return;
+      }
       
       showToast('Reanudando envío de campaña...', 'info');
       try {
@@ -5532,8 +5547,10 @@
         const res = await fetch(`/api/campaigns/${id}/resume`, {
           method: 'POST',
           headers: {
-            'Authorization': token ? `Bearer ${token}` : ''
-          }
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ skipCount })
         });
         const data = await res.json();
         if (res.ok && data.success) {
