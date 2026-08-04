@@ -2023,6 +2023,7 @@ async function sendCampaignIncremental(campaignId, host) {
 
     if (campaign.status !== 'sending') return;
 
+    const userId = campaign.kinde_id;
     let userAws = null;
     try {
       const awsResult = await sql`SELECT * FROM aws_settings WHERE kinde_id = ${userId}`;
@@ -2035,16 +2036,24 @@ async function sendCampaignIncremental(campaignId, host) {
     const hasGlobalAws = !!process.env.AWS_ACCESS_KEY_ID && !!process.env.AWS_SECRET_ACCESS_KEY;
     const canSendAws = hasAwsCreds || hasGlobalAws;
 
-    let sesClient = null;
-    if (canSendAws) {
-      const region = userAws?.region || process.env.AWS_REGION || 'us-east-1';
-      const credentials = userAws?.access_key ? {
-        accessKeyId: userAws.access_key,
-        secretAccessKey: userAws.secret_key
-      } : undefined;
-
-      sesClient = new SESClient({ region, credentials });
+    if (!canSendAws) {
+      console.error(`[AWS SES] No hay credenciales de AWS configuradas para el usuario ${userId}`);
+      await sql`
+        UPDATE campaigns 
+        SET status = 'failed',
+            error_details = error_details || ${JSON.stringify([{ email: 'sistema', error: 'No hay credenciales de AWS SES configuradas para el envío.' }])}::jsonb
+        WHERE id = ${campaignId}
+      `;
+      return;
     }
+
+    const region = userAws?.region || process.env.AWS_REGION || 'us-east-1';
+    const credentials = userAws?.access_key ? {
+      accessKeyId: userAws.access_key,
+      secretAccessKey: userAws.secret_key
+    } : undefined;
+
+    const sesClient = new SESClient({ region, credentials });
 
     const formattedSender = campaign.sender_name 
       ? `${campaign.sender_name} <${campaign.sender_email}>` 
@@ -2138,19 +2147,15 @@ async function sendCampaignIncremental(campaignId, host) {
         }
 
         try {
-          if (canSendAws && sesClient) {
-            const command = new SendEmailCommand({
-              Source: formattedSender,
-              Destination: { ToAddresses: [recipient] },
-              Message: {
-                Subject: { Data: campaign.subject, Charset: 'UTF-8' },
-                Body: { Html: { Data: richBody, Charset: 'UTF-8' } }
-              }
-            });
-            await sesClient.send(command);
-          } else {
-            await sleep(30); 
-          }
+          const command = new SendEmailCommand({
+            Source: formattedSender,
+            Destination: { ToAddresses: [recipient] },
+            Message: {
+              Subject: { Data: campaign.subject, Charset: 'UTF-8' },
+              Body: { Html: { Data: richBody, Charset: 'UTF-8' } }
+            }
+          });
+          await sesClient.send(command);
 
           await sql`
             UPDATE campaigns 
