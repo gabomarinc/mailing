@@ -4094,7 +4094,18 @@
             }
 
             const sender = c.senderEmail ? `${c.senderName || ''} <${c.senderEmail}>` : 'Por defecto (SES)';
-            const successCount = c.successCount || c.totalSent || 0;
+            const successCount = c.successCount || 0;
+            const failedCount = c.failedCount || 0;
+            const isCompleted = (successCount + failedCount) >= c.totalSent;
+
+            let resumeBtn = '';
+            if (!isCompleted && c.status !== 'scheduled') {
+              resumeBtn = `
+                <button onclick="resumeCampaign('${c.id}')" class="text-blue-600 hover:text-white font-bold bg-blue-50 border border-blue-100 hover:bg-blue-600 px-3 py-1.5 rounded-lg transition-all inline-block text-[10px] uppercase tracking-wide ml-1.5 shadow-sm">
+                  Reanudar
+                </button>
+              `;
+            }
 
             tr.innerHTML = `
               <td class="py-3.5 px-4 font-bold text-[#1B2939]">${c.subject}</td>
@@ -4106,6 +4117,7 @@
                 <button onclick="openCampaignDetail('${c.id}')" class="text-[#27bea5] hover:text-[#1c2938] font-bold bg-[#27bea5]/10 hover:bg-[#27bea5]/20 px-3 py-1.5 rounded-lg transition-colors inline-block text-[10px] uppercase tracking-wide">
                   Métricas
                 </button>
+                ${resumeBtn}
               </td>
             `;
             tbodyHist.appendChild(tr);
@@ -5478,6 +5490,32 @@
       document.getElementById('report-loading-container').classList.add('hidden');
       switchReportTab('stats');
     }
+
+    async function resumeCampaign(id) {
+      if (!confirm('¿Deseas reanudar el envío de esta campaña a los destinatarios pendientes?')) return;
+      
+      showToast('Reanudando envío de campaña...', 'info');
+      try {
+        const token = sessionStorage.getItem('kns_token');
+        const res = await fetch(`/api/campaigns/${id}/resume`, {
+          method: 'POST',
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : ''
+          }
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || 'Campaña reanudada en segundo plano.', 'success');
+          // Recargar campañas
+          fetchCampaigns();
+        } else {
+          showToast('Error: ' + data.message, 'error');
+        }
+      } catch (err) {
+        showToast('Error de red al reanudar campaña.', 'error');
+      }
+    }
+    window.resumeCampaign = resumeCampaign;
 
     window.openCampaignDetail = async function(id) {
       openModal('modal-campaign-detail');
