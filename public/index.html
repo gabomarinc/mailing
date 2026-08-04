@@ -2179,6 +2179,9 @@
     }
 
     // 3. Campañas API fetch
+    let campaignsPollingInterval = null;
+    let activeDetailCampaignId = null;
+
     async function fetchCampaigns() {
       try {
         const res = await fetch('/api/campaigns');
@@ -2191,6 +2194,32 @@
         }
         renderCampaigns();
         updateDashboardStats();
+
+        // Si el modal de reporte está abierto y corresponde a la campaña activa, refrescarlo
+        if (activeDetailCampaignId) {
+          const detailModal = document.getElementById('modal-campaign-detail');
+          const isModalOpen = detailModal && !detailModal.classList.contains('hidden');
+          if (isModalOpen) {
+            refreshActiveCampaignReport(activeDetailCampaignId);
+          } else {
+            activeDetailCampaignId = null;
+          }
+        }
+
+        // Manejar polling si hay campañas enviándose en segundo plano
+        const hasActiveSending = campaigns.some(c => c.status === 'sending');
+        if (hasActiveSending) {
+          if (!campaignsPollingInterval) {
+            console.log('🔄 Iniciando polling de campañas...');
+            campaignsPollingInterval = setInterval(fetchCampaigns, 4000);
+          }
+        } else {
+          if (campaignsPollingInterval) {
+            console.log('🛑 Deteniendo polling de campañas (envíos completados).');
+            clearInterval(campaignsPollingInterval);
+            campaignsPollingInterval = null;
+          }
+        }
       } catch (err) {
         console.error('Error cargando campañas:', err);
         campaigns = [];
@@ -2205,6 +2234,9 @@
     function closeModal(id) {
       const modal = document.getElementById(id);
       if (modal) modal.classList.add('hidden');
+      if (id === 'modal-campaign-detail') {
+        activeDetailCampaignId = null;
+      }
     }
     function openAddContactModal() {
       const select = document.getElementById('ac-tag');
@@ -5517,7 +5549,40 @@
     }
     window.resumeCampaign = resumeCampaign;
 
+    async function refreshActiveCampaignReport(id) {
+      try {
+        const res = await fetch(`/api/campaigns/${id}/report`);
+        const report = await res.json();
+        if (report.success) {
+          currentCampaignReport = report;
+          renderReportData();
+          
+          const statusBadge = document.getElementById('detail-camp-status-badge');
+          if (statusBadge) {
+            const currentStatus = report.campaign.status;
+            if (currentStatus === 'scheduled') {
+              statusBadge.className = 'bg-amber-50 text-amber-800 font-bold px-2.5 py-0.5 rounded-full border border-amber-100 text-[10px]';
+              statusBadge.textContent = 'Programado';
+            } else if (currentStatus === 'sending') {
+              statusBadge.className = 'bg-blue-50 text-blue-800 font-bold px-2.5 py-0.5 rounded-full border border-blue-100 text-[10px] animate-pulse';
+              statusBadge.textContent = 'Enviando...';
+            } else if (currentStatus === 'failed') {
+              statusBadge.className = 'bg-red-50 text-red-800 font-bold px-2.5 py-0.5 rounded-full border border-red-100 text-[10px]';
+              statusBadge.textContent = 'Fallado';
+            } else {
+              statusBadge.className = 'bg-emerald-50 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full border border-emerald-100 text-[10px]';
+              statusBadge.textContent = 'Enviado';
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error refrescando reporte de campaña:', err);
+      }
+    }
+    window.refreshActiveCampaignReport = refreshActiveCampaignReport;
+
     window.openCampaignDetail = async function(id) {
+      activeDetailCampaignId = id;
       openModal('modal-campaign-detail');
       
       const modal = document.getElementById('modal-campaign-detail');

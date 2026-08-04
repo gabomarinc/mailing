@@ -1419,22 +1419,25 @@ app.get('/api/campaigns', protectRoute, async (req, res) => {
       WHERE c.kinde_id = ${userId} 
       ORDER BY c.sent_at DESC
     `;
-    res.json(campaigns.map(c => ({
-      id: c.id,
-      subject: c.subject,
-      body: c.body,
-      targetTags: c.target_tags,
-      totalSent: c.total_sent,
-      successCount: c.success_count !== null ? c.success_count : c.total_sent,
-      failedCount: c.failed_count !== null ? c.failed_count : 0,
-      status: c.status,
-      sentDate: c.sent_at,
-      scheduledFor: c.scheduled_for,
-      senderName: c.sender_name,
-      senderEmail: c.sender_email,
-      opens: parseInt(c.opens_count || 0, 10),
-      clicks: parseInt(c.clicks_count || 0, 10)
-    })));
+    res.json(campaigns.map(c => {
+      const isLegacySent = c.status === 'sent' && (c.success_count === 0 || c.success_count === null);
+      return {
+        id: c.id,
+        subject: c.subject,
+        body: c.body,
+        targetTags: c.target_tags,
+        totalSent: c.total_sent,
+        successCount: isLegacySent ? c.total_sent : (c.success_count !== null ? c.success_count : c.total_sent),
+        failedCount: c.failed_count !== null ? c.failed_count : 0,
+        status: c.status,
+        sentDate: c.sent_at,
+        scheduledFor: c.scheduled_for,
+        senderName: c.sender_name,
+        senderEmail: c.sender_email,
+        opens: parseInt(c.opens_count || 0, 10),
+        clicks: parseInt(c.clicks_count || 0, 10)
+      };
+    }));
   } catch (err) {
     console.error('Error en GET /api/campaigns:', err);
     res.status(500).json({ error: 'DB Error', details: err.message });
@@ -1712,6 +1715,9 @@ app.get('/api/campaigns/:id/report', protectRoute, async (req, res) => {
     let finalOpensCount = opensCount;
     let finalClicksCount = clicksCount;
     let finalSuccessCount = campaign.success_count;
+    if (finalSuccessCount === 0 && campaign.status === 'sent') {
+      finalSuccessCount = null;
+    }
     let finalFailedCount = campaign.failed_count;
     let finalErrorDetails = campaign.error_details || [];
 
@@ -2111,11 +2117,59 @@ app.post('/api/campaigns/:id/resume', protectRoute, async (req, res) => {
     if (campaignResult.length === 0) {
       return res.status(404).json({ error: 'Campaña no encontrada' });
     }
-    const campaign = campaignResult[0];
+    let campaign = campaignResult[0];
+
+    // 1. RECONSTRUCCIÓN INTELIGENTE PARA CAMPAÑAS ANTIGUAS (recipient_emails vacío)
+    let recipientEmails = campaign.recipient_emails || [];
+    if (recipientEmails.length === 0) {
+      let targetContacts;
+      if (campaign.target_tags && campaign.target_tags.length > 0) {
+        targetContacts = await sql`
+          SELECT email FROM contacts 
+          WHERE kinde_id = ${userId} AND status = 'active' 
+          AND tags && ${campaign.target_tags}
+        `;
+      } else {
+        targetContacts = await sql`
+          SELECT email FROM contacts 
+          WHERE kinde_id = ${userId} AND status = 'active'
+        `;
+      }
+      recipientEmails = [...new Set(targetContacts.map(c => c.email.toLowerCase().trim()))];
+      
+      await sql`
+        UPDATE campaigns 
+        SET recipient_emails = ${recipientEmails}, 
+            total_sent = ${recipientEmails.length}
+        WHERE id = ${campaignId}
+      `;
+      campaign.recipient_emails = recipientEmails;
+      campaign.total_sent = recipientEmails.length;
+    }
+
+    // 2. EVITAR DUPLICADOS BASADO EN APERTURAS Y CLICS HISTÓRICOS (sent_recipients vacío)
+    let sentRecipients = campaign.sent_recipients || [];
+    if (sentRecipients.length === 0) {
+      const opens = await sql`SELECT DISTINCT email FROM campaign_opens WHERE campaign_id = ${campaignId}`;
+      const clicks = await sql`SELECT DISTINCT email FROM campaign_clicks WHERE campaign_id = ${campaignId}`;
+      const interactedEmails = [...new Set([...opens.map(o => o.email.toLowerCase().trim()), ...clicks.map(c => c.email.toLowerCase().trim())])];
+      
+      if (interactedEmails.length > 0) {
+        sentRecipients = interactedEmails;
+        await sql`
+          UPDATE campaigns 
+          SET sent_recipients = ${interactedEmails},
+              success_count = ${interactedEmails.length}
+          WHERE id = ${campaignId}
+        `;
+        campaign.sent_recipients = sentRecipients;
+        campaign.success_count = interactedEmails.length;
+      }
+    }
 
     const processedCount = (campaign.success_count || 0) + (campaign.failed_count || 0);
     if (processedCount >= (campaign.total_sent || 0)) {
-      return res.status(400).json({ success: false, message: 'Esta campaña ya ha sido enviada en su totalidad.' });
+      return res.status(400).json({ success: false, message: 'Esta campaña ya ha sido enviada en su totalidad o no tiene más destinatarios pendientes.' });
     }
 
     await sql`
@@ -2130,7 +2184,7 @@ app.post('/api/campaigns/:id/resume', protectRoute, async (req, res) => {
       console.error('Error al reanudar campaña en segundo plano:', err);
     });
 
-    res.json({ success: true, message: 'Envío de campaña reanudado en segundo plano.' });
+    res.json({ success: true, message: 'Envío de campaña reanudado. El progreso se actualizará en tiempo real.' });
   } catch (error) {
     console.error('Error en /api/campaigns/:id/resume:', error);
     res.status(500).json({ success: false, message: 'Error al reanudar la campaña.', error: error.message });
