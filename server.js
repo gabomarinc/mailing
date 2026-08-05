@@ -152,6 +152,16 @@ async function initDB() {
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS templates (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          kinde_id VARCHAR(255) NOT NULL REFERENCES users(kinde_id) ON DELETE CASCADE,
+          name VARCHAR(255) NOT NULL,
+          html TEXT NOT NULL,
+          design_json JSONB DEFAULT '{}'::jsonb,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
     
     // Add columns if they don't exist
     try {
@@ -1475,6 +1485,79 @@ app.post('/api/settings/cadence', protectRoute, async (req, res) => {
     await sql`UPDATE users SET hourly_limit = ${hourly_limit}, warmup_mode = ${warmup_mode} WHERE kinde_id = ${userId}`;
     res.json({ success: true });
   } catch (err) {
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+// ================= TEMPLATES API ENDPOINTS =================
+app.get('/api/templates', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const templates = await sql`
+      SELECT id, name, design_json, created_at FROM templates 
+      WHERE kinde_id = ${userId} 
+      ORDER BY created_at DESC
+    `;
+    res.json({ success: true, templates });
+  } catch (err) {
+    console.error('Error fetching templates:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+app.get('/api/templates/:id', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const template = await sql`
+      SELECT * FROM templates 
+      WHERE id = ${id} AND kinde_id = ${userId}
+    `;
+    if (template.length === 0) {
+      return res.status(404).json({ success: false, error: 'Plantilla no encontrada' });
+    }
+    res.json({ success: true, template: template[0] });
+  } catch (err) {
+    console.error('Error fetching template detail:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+app.post('/api/templates', protectRoute, express.json(), async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { name, html, design_json } = req.body;
+
+    if (!name || !html) {
+      return res.status(400).json({ success: false, message: 'Falta nombre o contenido HTML' });
+    }
+
+    const inserted = await sql`
+      INSERT INTO templates (kinde_id, name, html, design_json)
+      VALUES (${userId}, ${name}, ${html}, ${JSON.stringify(design_json || {})})
+      RETURNING id, name, created_at
+    `;
+
+    res.json({ success: true, template: inserted[0] });
+  } catch (err) {
+    console.error('Error saving template:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+app.delete('/api/templates/:id', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    await sql`
+      DELETE FROM templates 
+      WHERE id = ${id} AND kinde_id = ${userId}
+    `;
+
+    res.json({ success: true, message: 'Plantilla eliminada correctamente' });
+  } catch (err) {
+    console.error('Error deleting template:', err);
     res.status(500).json({ success: false, error: 'DB Error' });
   }
 });
