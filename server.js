@@ -64,6 +64,69 @@ function isValidEmail(email) {
   return re.test(String(email).toLowerCase());
 }
 
+const COMMON_TYPOS = {
+  'gamil.com': 'gmail.com',
+  'gmal.com': 'gmail.com',
+  'gamil.co': 'gmail.com',
+  'hotmial.com': 'hotmail.com',
+  'hotamil.com': 'hotmail.com',
+  'hotmial.es': 'hotmail.es',
+  'hotamil.es': 'hotmail.es',
+  'yaho.com': 'yahoo.com',
+  'yahooo.com': 'yahoo.com',
+  'outlok.com': 'outlook.com',
+  'outlok.es': 'outlook.es'
+};
+
+function sanitizeAndCorrectEmail(email) {
+  if (!email || typeof email !== 'string') return email;
+  let cleaned = email.trim().toLowerCase();
+  const parts = cleaned.split('@');
+  if (parts.length !== 2) return cleaned;
+  
+  const [user, domain] = parts;
+  if (COMMON_TYPOS[domain]) {
+    return `${user}@${COMMON_TYPOS[domain]}`;
+  }
+  return cleaned;
+}
+
+async function recalculateUserReputation(userId) {
+  try {
+    const stats = await sql`
+      SELECT COALESCE(SUM(total_sent), 0) as total, COALESCE(SUM(bounce_count), 0) as bounces
+      FROM campaigns 
+      WHERE kinde_id = ${userId} AND sent_at > NOW() - INTERVAL '30 days'
+    `;
+    
+    const total = parseInt(stats[0]?.total || 0, 10);
+    const bounces = parseInt(stats[0]?.bounces || 0, 10);
+    
+    let status = 'good';
+    let message = null;
+    
+    if (total >= 50) {
+      const bounceRate = (bounces / total) * 100;
+      if (bounceRate > 8) {
+        status = 'blocked';
+        message = `Tus envíos masivos han sido suspendidos temporalmente. Tu tasa de rebote actual es de ${bounceRate.toFixed(2)}%, lo cual supera nuestro límite de seguridad (8%) para proteger la entregabilidad de la plataforma. Por favor, limpia tu base de datos utilizando la herramienta de saneamiento o contacta a soporte.`;
+      } else if (bounceRate > 5) {
+        status = 'warning';
+        message = `Advertencia de entregabilidad: Tu tasa de rebote actual es de ${bounceRate.toFixed(2)}%, superando el umbral recomendado del 5%. Te recomendamos limpiar tu base de datos inmediatamente para evitar la suspensión preventiva de tus envíos.`;
+      }
+    }
+    
+    await sql`
+      UPDATE users 
+      SET reputation_status = ${status}, reputation_message = ${message}
+      WHERE kinde_id = ${userId}
+    `;
+    console.log(`Reputación de usuario ${userId} actualizada: Status = ${status}, Rate = ${((bounces / (total || 1)) * 100).toFixed(2)}%`);
+  } catch (err) {
+    console.error('Error al recalcular reputación del usuario:', err);
+  }
+}
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Inicializar tablas en Neon
@@ -205,6 +268,12 @@ async function initDB() {
       await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS error_details JSONB DEFAULT '[]'::jsonb`;
       await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS recipient_emails TEXT[] DEFAULT '{}'::text[]`;
       await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS sent_recipients TEXT[] DEFAULT '{}'::text[]`;
+      await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS bounce_count INTEGER DEFAULT 0`;
+      await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS complaint_count INTEGER DEFAULT 0`;
+    } catch(e) { /* Columns might exist */ }
+    try {
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reputation_status VARCHAR(50) DEFAULT 'good'`;
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reputation_message TEXT`;
     } catch(e) { /* Columns might exist */ }
     await sql`CREATE INDEX IF NOT EXISTS idx_contacts_kinde_id ON contacts(kinde_id);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_campaigns_kinde_id ON campaigns(kinde_id);`;
@@ -585,10 +654,12 @@ app.get('/api/onboarding', protectRoute, async (req, res) => {
         monthlyVolume: vol,
         plan: isPro ? 'Pro' : 'Basic',
         contactLimit: isPro ? 20000 : 2000,
-        sendLimit: isPro ? 100000 : 25000
+        sendLimit: isPro ? 100000 : 25000,
+        reputationStatus: result[0].reputation_status || 'good',
+        reputationMessage: result[0].reputation_message || null
       });
     } else {
-      res.json({ completed: false, companyName: '', monthlyVolume: 20000, plan: 'Pro', contactLimit: 20000, sendLimit: 100000 });
+      res.json({ completed: false, companyName: '', monthlyVolume: 20000, plan: 'Pro', contactLimit: 20000, sendLimit: 100000, reputationStatus: 'good', reputationMessage: null });
     }
   } catch (err) {
     res.status(500).json({ error: 'DB Error' });
@@ -821,10 +892,12 @@ app.post('/api/lists', protectRoute, async (req, res) => {
 app.post('/api/contacts', protectRoute, async (req, res) => {
   try {
     const { name, email, tags, custom_fields } = req.body;
-    if (!email || !isValidEmail(email)) return res.status(400).json({ success: false, message: 'Correo no válido.' });
+    if (!email) return res.status(400).json({ success: false, message: 'Correo no válido.' });
+    const correctedEmail = sanitizeAndCorrectEmail(email);
+    if (!isValidEmail(correctedEmail)) return res.status(400).json({ success: false, message: 'Correo no válido.' });
     
     const userId = req.user.id;
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = correctedEmail;
     const contactTags = tags || ['Importados'];
 
     const existing = await sql`SELECT * FROM contacts WHERE kinde_id = ${userId} AND email = ${cleanEmail}`;
@@ -875,19 +948,22 @@ app.post('/api/contacts/bulk', protectRoute, async (req, res) => {
       let tags = typeof item === 'string' ? ['Importados'] : (item.tags || ['Importados']);
       let custom_fields = typeof item === 'string' ? {} : (item.custom_fields || {});
 
-      if (email && isValidEmail(email)) {
-        email = email.trim().toLowerCase();
-        const domain = email.split('@')[1];
-        domainsToCheck.add(domain);
-        
-        preparedList.push({
-          kinde_id: userId,
-          name: name.substring(0, 255),
-          email: email,
-          tags: tags,
-          custom_fields: custom_fields,
-          status: 'active'
-        });
+      if (email) {
+        const correctedEmail = sanitizeAndCorrectEmail(email);
+        if (isValidEmail(correctedEmail)) {
+          email = correctedEmail;
+          const domain = email.split('@')[1];
+          domainsToCheck.add(domain);
+          
+          preparedList.push({
+            kinde_id: userId,
+            name: name.substring(0, 255),
+            email: email,
+            tags: tags,
+            custom_fields: custom_fields,
+            status: 'active'
+          });
+        }
       }
     }
 
@@ -1037,15 +1113,25 @@ async function runBackgroundValidation(userId, userEmail, userName, contactsList
       
       const validationPromises = batch.map(async (c) => {
         const email = c.email.trim().toLowerCase();
-        
+        let emailToValidate = email;
+        const correctedEmail = sanitizeAndCorrectEmail(email);
+        if (correctedEmail !== email) {
+          try {
+            await sql`UPDATE contacts SET email = ${correctedEmail} WHERE id = ${c.id}`;
+            emailToValidate = correctedEmail;
+          } catch (e) {
+            console.error('Error auto-corrigiendo email con typo en la base de datos:', e);
+          }
+        }
+
         // 1. Sintaxis
-        if (!isValidEmail(email)) {
+        if (!isValidEmail(emailToValidate)) {
           invalidIds.push(c.id);
           invalidCount++;
           return;
         }
 
-        const domain = email.split('@')[1];
+        const domain = emailToValidate.split('@')[1];
         
         // 2. Desechable
         if (disposableDomains.has(domain)) {
@@ -1787,6 +1873,15 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
     const { subject, body, senderName, senderEmail, recipients, limit, targetTags, scheduledFor } = req.body;
     const userId = req.user.id;
 
+    // Verificar reputación del usuario
+    const userRep = await sql`SELECT reputation_status, reputation_message FROM users WHERE kinde_id = ${userId}`;
+    if (userRep.length > 0 && userRep[0].reputation_status === 'blocked') {
+      return res.status(403).json({
+        success: false,
+        message: userRep[0].reputation_message || 'Tu cuenta está suspendida para realizar envíos debido a una alta tasa de rebote.'
+      });
+    }
+
     if (!subject || !body || !recipients || !Array.isArray(recipients) || !senderEmail) {
       return res.status(400).json({ success: false, message: 'Faltan datos.' });
     }
@@ -2363,10 +2458,23 @@ async function sendCampaignIncremental(campaignId, host) {
       const chunk = batchToProcess.slice(i, i + CONCURRENCY);
       
       await Promise.allSettled(chunk.map(async (recipient) => {
+        const cleanRecipient = recipient.toLowerCase().trim();
+        if (!(cleanRecipient in nameMap)) {
+          console.log(`[AWS SES] Omitiendo destinatario ${recipient} ya que no está activo (baja, rebotado o inactivo).`);
+          const skipDetail = { email: recipient, error: 'Omitido: Contacto inactivo (baja, rebotado o inactivo)' };
+          await sql`
+            UPDATE campaigns 
+            SET failed_count = failed_count + 1,
+                error_details = error_details || ${JSON.stringify([skipDetail])}::jsonb
+            WHERE id = ${campaignId}
+          `;
+          return;
+        }
+
         const unsubscribeUrl = `https://${host}/unsubscribe/${campaignId}/${encodeURIComponent(recipient)}`;
         const openTrackingUrl = `https://${host}/api/campaigns/${campaignId}/track-open?email=${encodeURIComponent(recipient)}`;
         
-        const recipientName = nameMap[recipient] || 'Usuario';
+        const recipientName = nameMap[cleanRecipient] || 'Usuario';
         let customizedBody = campaign.body
           .replace(/\{\{unsubscribe_url\}\}/g, unsubscribeUrl)
           .replace(/\{name\}/g, recipientName)
@@ -2458,6 +2566,20 @@ async function sendCampaignIncremental(campaignId, host) {
 app.post('/api/campaigns/:id/resume', protectRoute, express.json(), async (req, res) => {
   const campaignId = req.params.id;
   const userId = req.user.id;
+  
+  // Verificar reputación del usuario
+  try {
+    const userRep = await sql`SELECT reputation_status, reputation_message FROM users WHERE kinde_id = ${userId}`;
+    if (userRep.length > 0 && userRep[0].reputation_status === 'blocked') {
+      return res.status(403).json({
+        success: false,
+        message: userRep[0].reputation_message || 'Tu cuenta está suspendida para realizar envíos debido a una alta tasa de rebote.'
+      });
+    }
+  } catch (err) {
+    console.error('Error al verificar reputación en resume:', err);
+  }
+
   const skipCount = parseInt(req.body.skipCount, 10) || 0;
   
   let campaign;
@@ -2653,6 +2775,20 @@ app.post('/api/webhooks/sns', async (req, res) => {
           console.log('❌ Rebote (Bounce) detectado para:', email);
           // Actualizar estado a 'bounced' en toda la base de contactos
           await sql`UPDATE contacts SET status = 'bounced' WHERE email = ${email}`;
+          
+          // Buscar campaña más reciente que contenía a este destinatario
+          const matched = await sql`
+            SELECT id, kinde_id FROM campaigns 
+            WHERE ${email} = ANY(recipient_emails) 
+            ORDER BY sent_at DESC 
+            LIMIT 1
+          `;
+          if (matched.length > 0) {
+            const campaignId = matched[0].id;
+            const userId = matched[0].kinde_id;
+            await sql`UPDATE campaigns SET bounce_count = bounce_count + 1 WHERE id = ${campaignId}`;
+            await recalculateUserReputation(userId);
+          }
         }
       } else if (message.notificationType === 'Complaint') {
         const complainedRecipients = message.complaint.complainedRecipients;
@@ -2661,6 +2797,20 @@ app.post('/api/webhooks/sns', async (req, res) => {
           console.log('🚫 Queja de Spam (Complaint) detectada para:', email);
           // Actualizar estado a 'complained' en toda la base de contactos
           await sql`UPDATE contacts SET status = 'complained' WHERE email = ${email}`;
+          
+          // Buscar campaña más reciente que contenía a este destinatario
+          const matched = await sql`
+            SELECT id, kinde_id FROM campaigns 
+            WHERE ${email} = ANY(recipient_emails) 
+            ORDER BY sent_at DESC 
+            LIMIT 1
+          `;
+          if (matched.length > 0) {
+            const campaignId = matched[0].id;
+            const userId = matched[0].kinde_id;
+            await sql`UPDATE campaigns SET complaint_count = complaint_count + 1 WHERE id = ${campaignId}`;
+            await recalculateUserReputation(userId);
+          }
         }
       }
     }
