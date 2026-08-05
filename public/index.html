@@ -7188,7 +7188,7 @@
         });
         const data = await res.json();
         if (data.success) {
-          const list = data.data;
+          const list = data.templates || [];
           if (list.length === 0) {
             grid.innerHTML = `
               <div class="col-span-3 text-center py-16 text-slate-400 bg-white border border-slate-100 rounded-[2rem] p-8 shadow-sm">
