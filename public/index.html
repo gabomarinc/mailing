@@ -265,6 +265,13 @@
                 </span>
                 <span class="text-[9px] bg-brand-accent/15 text-brand-accent font-bold px-2 py-0.5 rounded-full uppercase logo-badge">Nuevo</span>
               </button>
+              
+              <button onclick="switchTab('templates')" id="tab-btn-templates" class="flex items-center w-full px-4 py-3 rounded-2xl text-xs font-bold text-brand-gray hover:bg-[#F8F9FA] hover:text-brand-dark transition-all menu-item-btn">
+                <span class="flex items-center gap-3 menu-item-inner">
+                  <i data-lucide="layout-template" class="w-4 h-4 text-brand-gray flex-shrink-0"></i> 
+                  <span class="menu-text">Plantillas de Email</span>
+                </span>
+              </button>
             </nav>
           </div>
 
@@ -345,10 +352,13 @@
         <!-- Badges and Profile -->
         <div class="flex items-center justify-end gap-4">
           <!-- Límite mensual -->
-          <div class="flex items-center gap-2 bg-brand-light border border-brand-border px-3 py-1.5 rounded-xl text-xs">
-            <i data-lucide="link" class="w-3.5 h-3.5 text-brand-accent"></i>
-            <span class="text-[9px] font-bold text-brand-gray uppercase tracking-wider">Límite mensual:</span>
-            <span class="font-bold text-brand-accent" id="topbar-credits">10,000 unidades</span>
+          <div class="flex items-center gap-2 bg-brand-light border border-brand-border px-3.5 py-1.5 rounded-xl text-xs">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-brand-accent"></i>
+            <span class="text-[9px] font-bold text-brand-gray uppercase tracking-wider">Plan & Límites:</span>
+            <span class="font-bold text-brand-dark flex items-center gap-1.5" id="topbar-credits">
+              <span class="bg-brand-accent/15 px-2.5 py-0.5 rounded-full text-brand-accent text-[9px] font-bold uppercase tracking-wider">Pro</span> 
+              20,000 contactos | 100,000 envíos
+            </span>
           </div>
 
           <!-- Notification Icon -->
@@ -789,6 +799,37 @@
           </div>
         </section>
 
+        <!-- ================= TAB: TEMPLATES (PLANTILLAS) ================= -->
+        <section id="tab-templates" class="tab-content hidden flex flex-col gap-6">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                <span>Inicio</span>
+                <i data-lucide="chevron-right" class="w-3 h-3 text-slate-300"></i>
+                <span class="text-brand-accent">Plantillas</span>
+              </div>
+              <h1 class="text-3xl font-black text-[#1c2938]">MIS PLANTILLAS</h1>
+            </div>
+            
+            <button onclick="openCreateTemplateEditor()" class="flex items-center gap-2 px-5 py-3 bg-[#27bea5] hover:bg-[#22a890] text-white font-bold text-xs rounded-xl shadow-md transition-all">
+              <i data-lucide="plus" class="w-4 h-4"></i> Crear Nueva Plantilla
+            </button>
+          </div>
+
+          <!-- Templates Grid List -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="templates-tab-grid">
+            <!-- Populated dynamically -->
+            <div class="col-span-3 text-center py-16 text-slate-400 bg-white border border-slate-100 rounded-[2rem] p-8 shadow-sm">
+              <i data-lucide="layout-template" class="w-12 h-12 mx-auto opacity-35 mb-3"></i>
+              <h3 class="text-sm font-bold text-[#1B2939]">No tienes plantillas guardadas</h3>
+              <p class="text-xs text-slate-400 mt-1 mb-4">Crea una plantilla para poder usarla como diseño base en tus campañas.</p>
+              <button onclick="openCreateTemplateEditor()" class="px-4 py-2.5 bg-[#27bea5] hover:bg-[#22a890] text-white font-bold text-xs rounded-xl transition-all inline-flex items-center gap-1.5 shadow-sm">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Diseñar Primera Plantilla
+              </button>
+            </div>
+          </div>
+        </section>
+
         <!-- ================= TAB: CAMPAIGNS (CREATOR / WIZARD - Step by Step Flow) ================= -->
         <section id="tab-campaigns" class="tab-content hidden flex flex-col gap-6">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -880,9 +921,17 @@
                 </div>
 
                 <div class="space-y-4">
-                  <div class="space-y-2">
+                  <div class="space-y-2 text-left relative">
                     <label class="text-xs font-bold text-[#1c2938] block">Listas / Segmentos Destinatarios (Selección Múltiple)</label>
-                    <div id="campaign-lists-container" class="max-h-[160px] overflow-y-auto custom-scroll border border-slate-100 rounded-2xl p-4 bg-slate-50/50 space-y-2 text-left">
+                    
+                    <!-- Botón del Dropdown -->
+                    <button type="button" onclick="toggleMultiSelectDropdown(event)" id="multiselect-dropdown-btn" class="w-full flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-[#1c2938] outline-none hover:bg-slate-100/50 transition-all cursor-pointer">
+                      <span id="multiselect-dropdown-label">Todos los contactos activos</span>
+                      <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i>
+                    </button>
+
+                    <!-- Panel de opciones desplegable -->
+                    <div id="multiselect-dropdown-panel" class="hidden absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl p-4 z-[999] max-h-[220px] overflow-y-auto custom-scroll space-y-2">
                       <label class="flex items-center gap-2.5 p-1 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors text-xs font-bold text-[#1c2938]">
                         <input type="checkbox" value="all" id="list-checkbox-all" checked onchange="toggleCampaignListAll(this.checked)" class="rounded text-[#27bea5] focus:ring-[#27bea5] w-4 h-4 border-slate-200 cursor-pointer">
                         <span>Todos los contactos activos</span>
@@ -1098,10 +1147,18 @@
 
                     <!-- Global Footer Settings -->
                     <div class="space-y-4 pt-4 border-t border-slate-50 text-left">
+                      <div class="space-y-1.5 mb-2">
+                        <label for="gf-campaign-select" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Seleccionar Configuración de Footer</label>
+                        <select id="gf-campaign-select" onchange="applyGlobalFooterToCampaign(this.value)" class="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5] cursor-pointer">
+                          <option value="custom">Personalizado para esta campaña</option>
+                          <!-- Loaded Dynamically -->
+                        </select>
+                      </div>
+
                       <div class="flex items-center justify-between">
-                        <label class="text-xs font-bold text-[#1c2938] uppercase tracking-wider block">Pie de Página (Footer Global)</label>
+                        <label class="text-xs font-bold text-[#1c2938] uppercase tracking-wider block">O personalizar detalles manualmente</label>
                         <button type="button" onclick="toggleFooterConfig()" class="text-[10px] font-bold text-[#27bea5] hover:underline flex items-center gap-1">
-                          <i data-lucide="settings" class="w-3 h-3"></i> Configurar Detalles
+                          <i data-lucide="settings" class="w-3 h-3"></i> Editar Detalles Manual
                         </button>
                       </div>
                       
@@ -1154,7 +1211,22 @@
                             <input type="text" id="footer-li" oninput="updateFooterSocial('linkedin', this.value)" placeholder="LinkedIn..." class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] outline-none focus:border-[#27bea5]">
                           </div>
                         </div>
-                        <div class="space-y-1">
+                        <!-- Redes Sociales style and link colors -->
+                        <div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-100 text-left">
+                          <div class="space-y-1">
+                            <label class="text-[9px] font-bold text-slate-400 uppercase">Color Links Footer</label>
+                            <input type="color" id="footer-link-color" value="#27bea5" oninput="updateFooterSetting('linkColor', this.value)" class="w-full h-8 rounded-lg cursor-pointer border border-slate-200">
+                          </div>
+                          <div class="space-y-1">
+                            <label class="text-[9px] font-bold text-slate-400 uppercase">Mostrar Redes como</label>
+                            <select id="footer-use-icons" onchange="updateFooterSetting('useIcons', this.value === 'true')" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold outline-none focus:border-[#27bea5]">
+                              <option value="false">Enlaces de Texto</option>
+                              <option value="true">Iconos Visuales</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div class="space-y-1 text-left">
                           <label class="text-[9px] font-bold text-slate-400 uppercase">Texto Desuscripción</label>
                           <input type="text" id="footer-unsub" oninput="updateFooterSetting('unsubscribeText', this.value)" placeholder="Ej: Darse de baja de esta lista" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5]">
                         </div>
@@ -1587,6 +1659,7 @@
                 <button id="btn-sub-domains" onclick="switchSubTab('domains')" class="bg-slate-50 text-slate-400 hover:text-slate-600 font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all">Dominios</button>
                 <button id="btn-sub-cadence" onclick="switchSubTab('cadence')" class="bg-slate-50 text-slate-400 hover:text-slate-600 font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all">Cadencia</button>
                 <button id="btn-sub-profile" onclick="switchSubTab('profile')" class="bg-slate-50 text-slate-400 hover:text-slate-600 font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all">Perfil Empresa</button>
+                <button id="btn-sub-footers" onclick="switchSubTab('footers')" class="bg-slate-50 text-slate-400 hover:text-slate-600 font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all">Footers Globales</button>
               </div>
             </div>
             <div class="relative w-full md:w-64">
@@ -1747,6 +1820,132 @@
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+
+          <!-- ================= SUB-TAB: GLOBAL FOOTERS ================= -->
+          <div id="sub-footers" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+              
+              <!-- Left Column: List of global footers -->
+              <div class="space-y-6">
+                <div class="flex justify-between items-center bg-white border border-slate-100 p-6 rounded-3xl shadow-sm">
+                  <div>
+                    <h3 class="text-sm font-bold text-brand-dark">Footers Globales</h3>
+                    <p class="text-[10px] text-brand-gray mt-0.5">Puedes guardar hasta 2 configuraciones de footers.</p>
+                  </div>
+                  <button id="btn-add-global-footer" onclick="openCreateGlobalFooter()" class="bg-[#27bea5] hover:bg-[#22a890] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Nuevo Footer
+                  </button>
+                </div>
+
+                <div id="global-footers-list" class="space-y-4">
+                  <!-- Loaded Dynamically -->
+                  <div class="text-center py-10 bg-white border border-slate-100 rounded-3xl text-slate-400 font-bold text-xs">
+                    Cargando footers globales...
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right Column: Create/Edit Form -->
+              <div id="global-footer-form-container" class="hidden bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm space-y-6 text-left">
+                <div class="flex justify-between items-center border-b border-slate-50 pb-3">
+                  <h3 class="text-sm font-extrabold text-[#1B2939]" id="gf-form-title">NUEVO FOOTER GLOBAL</h3>
+                  <button onclick="closeGlobalFooterForm()" class="text-slate-400 hover:text-slate-600 transition-all"><i data-lucide="x" class="w-4 h-4"></i></button>
+                </div>
+
+                <form id="global-footer-form" onsubmit="saveGlobalFooter(event)" class="flex flex-col gap-4 text-left">
+                  <input type="hidden" id="gf-id" />
+                  
+                  <div class="space-y-1">
+                    <label class="text-xs font-bold text-brand-dark">Nombre de la Configuración</label>
+                    <input type="text" id="gf-name" required placeholder="Ej: Footer Principal, Footer Secundario" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-[#27bea5] focus:bg-white font-bold transition-all">
+                  </div>
+
+                  <div class="flex items-center gap-2 py-1">
+                    <input type="checkbox" id="gf-show-logo" class="rounded text-[#27bea5] focus:ring-[#27bea5] w-3.5 h-3.5 border-slate-200">
+                    <label for="gf-show-logo" class="text-[10px] font-bold text-slate-500 uppercase cursor-pointer">Mostrar Logotipo</label>
+                  </div>
+
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                      <label class="text-[9px] font-bold text-slate-400 uppercase">Logo URL</label>
+                      <input type="text" id="gf-logo-url" placeholder="https://..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5] focus:bg-white font-bold">
+                    </div>
+                    <div class="space-y-1">
+                      <div class="flex justify-between items-center text-[9px] font-bold text-slate-400 uppercase">
+                        <span>Ancho Logo</span>
+                        <span id="gf-logo-width-val">100px</span>
+                      </div>
+                      <input type="range" id="gf-logo-width" min="30" max="250" value="100" oninput="document.getElementById('gf-logo-width-val').textContent = this.value + 'px';" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#27bea5] mt-2">
+                    </div>
+                  </div>
+
+                  <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-slate-400 uppercase">Dirección Física de la Empresa</label>
+                    <input type="text" id="gf-address" placeholder="Calle 123, Ciudad, País" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5] focus:bg-white font-bold">
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                      <label class="text-[9px] font-bold text-slate-400 uppercase">Email de Contacto</label>
+                      <input type="email" id="gf-email" placeholder="contacto@..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5] focus:bg-white font-bold">
+                    </div>
+                    <div class="space-y-1">
+                      <label class="text-[9px] font-bold text-slate-400 uppercase">Teléfono</label>
+                      <input type="text" id="gf-phone" placeholder="+1..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5] focus:bg-white font-bold">
+                    </div>
+                  </div>
+
+                  <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-slate-400 uppercase">Redes Sociales (URLs)</label>
+                    <div class="grid grid-cols-2 gap-2">
+                      <input type="text" id="gf-fb" placeholder="Facebook..." class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] outline-none focus:border-[#27bea5] focus:bg-white font-bold">
+                      <input type="text" id="gf-ig" placeholder="Instagram..." class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] outline-none focus:border-[#27bea5] focus:bg-white font-bold">
+                      <input type="text" id="gf-tw" placeholder="Twitter/X..." class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] outline-none focus:border-[#27bea5] focus:bg-white font-bold">
+                      <input type="text" id="gf-li" placeholder="LinkedIn..." class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] outline-none focus:border-[#27bea5] focus:bg-white font-bold">
+                    </div>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                      <label class="text-[9px] font-bold text-slate-400 uppercase">Color Links Redes Sociales</label>
+                      <div class="flex items-center gap-2">
+                        <input type="color" id="gf-link-color" value="#27bea5" oninput="document.getElementById('gf-link-color-hex').value = this.value;" class="w-8 h-8 rounded-lg cursor-pointer border border-slate-200">
+                        <input type="text" id="gf-link-color-hex" value="#27bea5" oninput="if(this.value.startsWith('#')) document.getElementById('gf-link-color').value = this.value;" class="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5] focus:bg-white font-mono font-bold">
+                      </div>
+                    </div>
+                    <div class="space-y-1">
+                      <label class="text-[9px] font-bold text-slate-400 uppercase">Mostrar Redes como</label>
+                      <select id="gf-use-icons" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5] focus:bg-white font-bold">
+                        <option value="false">Enlaces de Texto</option>
+                        <option value="true">Iconos Visuales (Recomendado)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="space-y-1">
+                    <label class="text-[9px] font-bold text-slate-400 uppercase">Texto Desuscripción</label>
+                    <input type="text" id="gf-unsub" placeholder="Ej: Darse de baja de esta lista" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5] focus:bg-white font-bold">
+                  </div>
+
+                  <div class="flex items-center gap-2 py-1">
+                    <input type="checkbox" id="gf-is-default" class="rounded text-[#27bea5] focus:ring-[#27bea5] w-3.5 h-3.5 border-slate-200">
+                    <label for="gf-is-default" class="text-[10px] font-bold text-slate-500 uppercase cursor-pointer">Definir como Predeterminado</label>
+                  </div>
+
+                  <div class="pt-3 border-t border-slate-50 flex justify-end gap-2">
+                    <button type="button" onclick="closeGlobalFooterForm()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">
+                      Cancelar
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-[#27bea5] hover:bg-[#22a890] text-white text-xs font-bold rounded-xl transition-all shadow-md">
+                      Guardar Footer
+                    </button>
+                  </div>
+
+                </form>
+              </div>
+
             </div>
           </div>
         </section>
@@ -2113,7 +2312,10 @@
         if (!data.completed) {
           document.getElementById('onboarding-overlay').classList.remove('hidden');
         } else {
-          document.getElementById('topbar-credits').textContent = Number(data.monthlyVolume).toLocaleString() + ' unidades';
+          const planName = data.plan || 'Pro';
+          const contactLimit = Number(data.contactLimit || 20000).toLocaleString();
+          const sendLimit = Number(data.sendLimit || 100000).toLocaleString();
+          document.getElementById('topbar-credits').innerHTML = `<span class="bg-brand-accent/15 px-2.5 py-0.5 rounded-full text-brand-accent text-[9px] mr-1.5 font-bold uppercase tracking-wider">${planName}</span> ${contactLimit} contactos | ${sendLimit} envíos`;
           currentOnboardingVolume = data.monthlyVolume;
           
           // Actualizar saludo de bienvenida con el nombre de la empresa
@@ -2130,7 +2332,7 @@
           
           const profileVolume = document.getElementById('profile-monthly-volume');
           if (profileVolume) {
-            profileVolume.value = Number(data.monthlyVolume).toLocaleString() + ' unidades';
+            profileVolume.value = `${contactLimit} contactos | ${sendLimit} envíos al mes (Plan ${planName})`;
           }
         }
       } catch (err) {
@@ -2327,6 +2529,7 @@
         'dashboard': 'Panel Principal',
         'contacts': 'Base de Suscriptores',
         'campaigns': 'Redacción de Campaña',
+        'templates': 'Plantillas de Diseño',
         'senders': 'Remitentes y Dominios',
         'forms': 'Captación de Contactos'
       };
@@ -2336,7 +2539,7 @@
         titleElem.textContent = pageTitleMap[tabId] || 'Panel Principal';
       }
       
-      const tabButtons = ['dashboard', 'contacts', 'campaigns', 'forms', 'senders', 'settings'];
+      const tabButtons = ['dashboard', 'contacts', 'campaigns', 'templates', 'forms', 'senders', 'settings'];
       tabButtons.forEach(btn => {
         const button = document.getElementById(`tab-btn-${btn}`);
         if (button) {
@@ -2348,6 +2551,9 @@
         }
       });
 
+      if (tabId === 'templates') {
+        loadTemplatesTabList();
+      }
       if (tabId === 'settings') {
         checkSettingsStatus();
       }
@@ -4264,10 +4470,12 @@
       const heroStatusUnsubs = document.getElementById('hero-status-unsubs');
       if (heroStatusUnsubs) heroStatusUnsubs.textContent = unsubs.toLocaleString();
 
-      // Actualizar consumo en la barra superior (enviados / límite mensual)
       const creditsElem = document.getElementById('topbar-credits');
       if (creditsElem && onboardingData) {
-        creditsElem.textContent = `${totalSent.toLocaleString()} / ${Number(onboardingData.monthlyVolume).toLocaleString()} unidades`;
+        const planName = onboardingData.plan || 'Pro';
+        const contactLimit = Number(onboardingData.contactLimit || 20000).toLocaleString();
+        const sendLimit = Number(onboardingData.sendLimit || 100000).toLocaleString();
+        creditsElem.innerHTML = `<span class="bg-brand-accent/15 px-2.5 py-0.5 rounded-full text-brand-accent text-[9px] mr-1.5 font-bold uppercase tracking-wider">${planName}</span> ${contactLimit} contactos <span class="text-slate-300 mx-1">|</span> ${totalSent.toLocaleString()} / ${sendLimit} envíos`;
       }
     }
 
@@ -4308,6 +4516,24 @@
       });
       select.value = prevVal;
     }
+
+    window.toggleMultiSelectDropdown = function(event) {
+      if (event) event.stopPropagation();
+      const panel = document.getElementById('multiselect-dropdown-panel');
+      if (panel) {
+        panel.classList.toggle('hidden');
+      }
+    };
+
+    document.addEventListener('click', function(event) {
+      const panel = document.getElementById('multiselect-dropdown-panel');
+      const btn = document.getElementById('multiselect-dropdown-btn');
+      if (panel && !panel.classList.contains('hidden')) {
+        if (btn && !panel.contains(event.target) && !btn.contains(event.target)) {
+          panel.classList.add('hidden');
+        }
+      }
+    });
 
     window.toggleCampaignListAll = function(checked) {
       const checkboxes = document.querySelectorAll('.campaign-list-checkbox');
@@ -4377,6 +4603,11 @@
         } else {
           listName = `Listas: ${selectedTags.join(', ')}`;
         }
+      }
+      
+      const labelEl = document.getElementById('multiselect-dropdown-label');
+      if (labelEl) {
+        labelEl.textContent = listName;
       }
       document.getElementById('top-summary-list').textContent = listName;
       
@@ -4712,6 +4943,9 @@
     }
 
     function compileFooterHtml() {
+      const linkColor = footerSettings.linkColor || '#27bea5';
+      const useIcons = footerSettings.useIcons === true || footerSettings.useIcons === 'true';
+
       let footerLogoHtml = footerSettings.showLogo && footerSettings.logoUrl 
         ? `<img src="${footerSettings.logoUrl}" alt="Logo Footer" style="max-width: ${footerSettings.logoWidth || 100}px; width: 100%; object-fit: contain; margin-bottom: 12px; display: inline-block;">` 
         : '';
@@ -4725,20 +4959,32 @@
       
       let socialLinks = [];
       if (footerSettings.socials.facebook) {
-        socialLinks.push(`<a href="${footerSettings.socials.facebook}" target="_blank" style="margin: 0 8px; color: #27bea5; text-decoration: none; font-weight: bold; font-size: 12px; display: inline-block;">Facebook</a>`);
+        let label = useIcons 
+          ? `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${linkColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin:0 4px;"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>` 
+          : 'Facebook';
+        socialLinks.push(`<a href="${footerSettings.socials.facebook}" target="_blank" style="margin: 0 8px; color: ${linkColor}; text-decoration: none; font-weight: bold; font-size: 12px; display: inline-block; vertical-align:middle;">${label}</a>`);
       }
       if (footerSettings.socials.instagram) {
-        socialLinks.push(`<a href="${footerSettings.socials.instagram}" target="_blank" style="margin: 0 8px; color: #27bea5; text-decoration: none; font-weight: bold; font-size: 12px; display: inline-block;">Instagram</a>`);
+        let label = useIcons 
+          ? `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${linkColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin:0 4px;"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>` 
+          : 'Instagram';
+        socialLinks.push(`<a href="${footerSettings.socials.instagram}" target="_blank" style="margin: 0 8px; color: ${linkColor}; text-decoration: none; font-weight: bold; font-size: 12px; display: inline-block; vertical-align:middle;">${label}</a>`);
       }
       if (footerSettings.socials.twitter) {
-        socialLinks.push(`<a href="${footerSettings.socials.twitter}" target="_blank" style="margin: 0 8px; color: #27bea5; text-decoration: none; font-weight: bold; font-size: 12px; display: inline-block;">Twitter/X</a>`);
+        let label = useIcons 
+          ? `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${linkColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin:0 4px;"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"/></svg>` 
+          : 'Twitter/X';
+        socialLinks.push(`<a href="${footerSettings.socials.twitter}" target="_blank" style="margin: 0 8px; color: ${linkColor}; text-decoration: none; font-weight: bold; font-size: 12px; display: inline-block; vertical-align:middle;">${label}</a>`);
       }
       if (footerSettings.socials.linkedin) {
-        socialLinks.push(`<a href="${footerSettings.socials.linkedin}" target="_blank" style="margin: 0 8px; color: #27bea5; text-decoration: none; font-weight: bold; font-size: 12px; display: inline-block;">LinkedIn</a>`);
+        let label = useIcons 
+          ? `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${linkColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin:0 4px;"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>` 
+          : 'LinkedIn';
+        socialLinks.push(`<a href="${footerSettings.socials.linkedin}" target="_blank" style="margin: 0 8px; color: ${linkColor}; text-decoration: none; font-weight: bold; font-size: 12px; display: inline-block; vertical-align:middle;">${label}</a>`);
       }
       let socialsHtml = socialLinks.length > 0 ? `<div style="margin: 16px 0 8px 0;">${socialLinks.join('')}</div>` : '';
       
-      let unsubscribeHtml = `<p style="margin: 12px 0 0 0; font-size: 10px; color: #94a3b8;"><a href="{{unsubscribe_url}}" style="color: #27bea5; text-decoration: underline;">${footerSettings.unsubscribeText || 'Desuscribirse'}</a></p>`;
+      let unsubscribeHtml = `<p style="margin: 12px 0 0 0; font-size: 10px; color: #94a3b8;"><a href="{{unsubscribe_url}}" style="color: ${linkColor}; text-decoration: underline;">${footerSettings.unsubscribeText || 'Desuscribirse'}</a></p>`;
       
       return `
         <div style="font-size: 11px; text-align: center; color: #64748b; margin-top: 32px; border-top: 1px solid #e2e8f0; padding-top: 24px; line-height: 1.6; font-family: Arial, sans-serif;">
@@ -5282,6 +5528,28 @@
         block[property] = value;
         updateLivePreview();
         
+        // Sincronizar inputs de color y de texto de forma bidireccional
+        if (property === 'bgColor' || property === 'textColor') {
+          const card = document.querySelector(`[data-id="${id}"]`);
+          if (card) {
+            const inputs = card.querySelectorAll('input');
+            let colorInput = null;
+            let textInput = null;
+            inputs.forEach(inp => {
+              if (inp.type === 'color') colorInput = inp;
+              else if (inp.type === 'text' && (inp.value.startsWith('#') || inp.value === '')) textInput = inp;
+            });
+            if (colorInput && textInput) {
+              if (/^#[0-9A-F]{6}$/i.test(value)) {
+                colorInput.value = value;
+                textInput.value = value;
+              } else {
+                textInput.value = value;
+              }
+            }
+          }
+        }
+
         const card = document.querySelector(`[data-id="${id}"]`);
         if (card) {
           const summarySpan = card.querySelector('.text-xs.font-bold.text-slate-700');
@@ -6533,7 +6801,1016 @@
           document.getElementById('campaign-sender-name').value = option.dataset.name;
         }
       }
+    // =========================================================================
+    // LÓGICA DE FOOTERS GLOBALES Y PLANTILLAS INDEPENDIENTES
+    // =========================================================================
+
+    // Variables globales para el editor de plantillas
+    let templateBlocks = [];
+    let activeTemplateBlockId = null;
+    let editingTemplateId = null;
+    let editingTemplateName = '';
+    let globalFooters = [];
+    let templateFooterSettings = {
+      showLogo: false,
+      logoUrl: '',
+      logoWidth: 100,
+      address: '',
+      email: '',
+      phone: '',
+      socials: { facebook: '', instagram: '', twitter: '', linkedin: '' },
+      unsubscribeText: 'Desuscribirse',
+      linkColor: '#27bea5',
+      useIcons: 'true'
+    };
+
+    // Subpestañas de remitentes & dominios (actualizado con footers)
+    const originalSwitchSubTab = window.switchSubTab;
+    window.switchSubTab = function(subTabId) {
+      // Ocultar todos los subpaneles
+      ['senders', 'domains', 'cadence', 'profile', 'footers'].forEach(tab => {
+        const el = document.getElementById(`sub-${tab}`);
+        if (el) el.classList.add('hidden');
+        
+        const btn = document.getElementById(`btn-sub-${tab}`);
+        if (btn) {
+          btn.className = "bg-slate-50 text-slate-400 hover:text-slate-600 font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all";
+        }
+      });
+
+      // Mostrar el activo
+      const activePanel = document.getElementById(`sub-${subTabId}`);
+      if (activePanel) activePanel.classList.remove('hidden');
+
+      const activeBtn = document.getElementById(`btn-sub-${subTabId}`);
+      if (activeBtn) {
+        activeBtn.className = "bg-[#1c2938] text-white font-bold px-4 py-2 rounded-2xl text-[10px] uppercase tracking-wider transition-all shadow-sm";
+      }
+
+      // Ocultar/Mostrar barra de búsqueda de remitentes según corresponda
+      const searchContainer = document.getElementById('search-senders')?.parentElement;
+      const actionBtn = document.getElementById('main-action-btn');
+      if (subTabId === 'senders') {
+        if (searchContainer) searchContainer.classList.remove('hidden');
+        if (actionBtn) {
+          actionBtn.classList.remove('hidden');
+          actionBtn.setAttribute('onclick', "openModal('modal-add-sender')");
+          actionBtn.innerHTML = '<i data-lucide="plus" class="w-4 h-4"></i> Agregar Remitente';
+        }
+      } else if (subTabId === 'domains') {
+        if (searchContainer) searchContainer.classList.add('hidden');
+        if (actionBtn) {
+          actionBtn.classList.remove('hidden');
+          actionBtn.setAttribute('onclick', "openModal('modal-add-domain')");
+          actionBtn.innerHTML = '<i data-lucide="plus" class="w-4 h-4"></i> Agregar Dominio';
+        }
+      } else {
+        if (searchContainer) searchContainer.classList.add('hidden');
+        if (actionBtn) actionBtn.classList.add('hidden');
+      }
+
+      if (subTabId === 'footers') {
+        loadGlobalFootersList();
+      }
+      lucide.createIcons();
+    };
+
+    // --- CRUD FOOTERS GLOBALES ---
+    async function loadGlobalFootersList() {
+      try {
+        const res = await fetch('/api/global-footers', {
+          headers: { 'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          globalFooters = data.data;
+          renderGlobalFootersList();
+          populateGlobalFooterSelects();
+        }
+      } catch (err) {
+        console.error('Error cargando footers globales:', err);
+      }
     }
+
+    function renderGlobalFootersList() {
+      const container = document.getElementById('global-footers-list');
+      if (!container) return;
+
+      const addBtn = document.getElementById('btn-add-global-footer');
+      if (globalFooters.length >= 2) {
+        if (addBtn) addBtn.disabled = true;
+        if (addBtn) addBtn.title = "Límite máximo de 2 footers alcanzado";
+      } else {
+        if (addBtn) addBtn.disabled = false;
+        if (addBtn) addBtn.title = "";
+      }
+
+      if (globalFooters.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-10 bg-white border border-slate-100 rounded-3xl text-slate-400 font-bold text-xs p-6">
+            <i data-lucide="file-text" class="w-8 h-8 mx-auto opacity-30 mb-2"></i>
+            Aún no has configurado footers globales.
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      container.innerHTML = '';
+      globalFooters.forEach(gf => {
+        const item = document.createElement('div');
+        item.className = "bg-white border border-slate-100 p-6 rounded-3xl shadow-sm relative flex flex-col gap-4 text-left";
+        
+        const defaultBadge = gf.is_default 
+          ? `<span class="bg-brand-accent/15 text-brand-accent font-bold px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wider">Predeterminado</span>`
+          : '';
+
+        item.innerHTML = `
+          <div class="flex justify-between items-start">
+            <div>
+              <h4 class="font-extrabold text-sm text-[#1B2939] flex items-center gap-2">
+                ${gf.name} ${defaultBadge}
+              </h4>
+              <p class="text-[10px] text-brand-gray mt-1">${gf.address || 'Sin dirección física'}</p>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button onclick="openEditGlobalFooter('${gf.id}')" class="p-1.5 text-brand-gray hover:text-brand-dark hover:bg-slate-100 rounded-lg transition-all" title="Editar">
+                <i data-lucide="edit" class="w-3.5 h-3.5"></i>
+              </button>
+              <button onclick="deleteGlobalFooter('${gf.id}')" class="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-all" title="Eliminar">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+          <div class="text-[10px] font-bold text-slate-400 flex flex-wrap gap-x-4 gap-y-1">
+            <span>Email: <span class="text-brand-dark">${gf.email || '-'}</span></span>
+            <span>Tel: <span class="text-brand-dark">${gf.phone || '-'}</span></span>
+            <span>Redes: <span class="text-brand-dark">${gf.use_icons ? 'Iconos' : 'Texto'}</span></span>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+      lucide.createIcons();
+    }
+
+    function openCreateGlobalFooter() {
+      if (globalFooters.length >= 2) {
+        showToast('Sólo puedes registrar hasta 2 footers globales en tu cuenta.', 'warning');
+        return;
+      }
+      document.getElementById('gf-form-title').textContent = 'NUEVO FOOTER GLOBAL';
+      document.getElementById('global-footer-form').reset();
+      document.getElementById('gf-id').value = '';
+      document.getElementById('gf-logo-width-val').textContent = '100px';
+      document.getElementById('gf-logo-width').value = 100;
+      document.getElementById('gf-link-color').value = '#27bea5';
+      document.getElementById('gf-link-color-hex').value = '#27bea5';
+      document.getElementById('gf-use-icons').value = 'true';
+      document.getElementById('gf-is-default').checked = globalFooters.length === 0; // Default if first
+      
+      document.getElementById('global-footer-form-container').classList.remove('hidden');
+    }
+
+    function openEditGlobalFooter(id) {
+      const gf = globalFooters.find(x => x.id === id);
+      if (!gf) return;
+
+      document.getElementById('gf-form-title').textContent = 'EDITAR FOOTER GLOBAL';
+      document.getElementById('gf-id').value = gf.id;
+      document.getElementById('gf-name').value = gf.name;
+      document.getElementById('gf-show-logo').checked = gf.show_logo;
+      document.getElementById('gf-logo-url').value = gf.logo_url || '';
+      document.getElementById('gf-logo-width').value = gf.logo_width || 100;
+      document.getElementById('gf-logo-width-val').textContent = (gf.logo_width || 100) + 'px';
+      document.getElementById('gf-address').value = gf.address || '';
+      document.getElementById('gf-email').value = gf.email || '';
+      document.getElementById('gf-phone').value = gf.phone || '';
+      document.getElementById('gf-fb').value = gf.socials?.facebook || '';
+      document.getElementById('gf-ig').value = gf.socials?.instagram || '';
+      document.getElementById('gf-tw').value = gf.socials?.twitter || '';
+      document.getElementById('gf-li').value = gf.socials?.linkedin || '';
+      document.getElementById('gf-link-color').value = gf.link_color || '#27bea5';
+      document.getElementById('gf-link-color-hex').value = gf.link_color || '#27bea5';
+      document.getElementById('gf-use-icons').value = gf.use_icons ? 'true' : 'false';
+      document.getElementById('gf-unsub').value = gf.unsubscribe_text || 'Desuscribirse';
+      document.getElementById('gf-is-default').checked = gf.is_default;
+
+      document.getElementById('global-footer-form-container').classList.remove('hidden');
+    }
+
+    function closeGlobalFooterForm() {
+      document.getElementById('global-footer-form-container').classList.add('hidden');
+    }
+
+    async function saveGlobalFooter(event) {
+      event.preventDefault();
+      
+      const payload = {
+        name: document.getElementById('gf-name').value,
+        show_logo: document.getElementById('gf-show-logo').checked,
+        logo_url: document.getElementById('gf-logo-url').value,
+        logo_width: parseInt(document.getElementById('gf-logo-width').value),
+        address: document.getElementById('gf-address').value,
+        email: document.getElementById('gf-email').value,
+        phone: document.getElementById('gf-phone').value,
+        socials: {
+          facebook: document.getElementById('gf-fb').value,
+          instagram: document.getElementById('gf-ig').value,
+          twitter: document.getElementById('gf-tw').value,
+          linkedin: document.getElementById('gf-li').value
+        },
+        link_color: document.getElementById('gf-link-color').value,
+        use_icons: document.getElementById('gf-use-icons').value === 'true',
+        unsubscribe_text: document.getElementById('gf-unsub').value || 'Desuscribirse',
+        is_default: document.getElementById('gf-is-default').checked
+      };
+
+      const id = document.getElementById('gf-id').value;
+      const url = id ? `/api/global-footers/${id}` : '/api/global-footers';
+      const method = id ? 'PUT' : 'POST';
+
+      try {
+        const res = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}`
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(id ? 'Footer actualizado correctamente' : 'Footer creado con éxito', 'success');
+          closeGlobalFooterForm();
+          loadGlobalFootersList();
+        } else {
+          showToast(data.message || 'Error al guardar footer', 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Error conectando con el servidor', 'error');
+      }
+    }
+
+    async function deleteGlobalFooter(id) {
+      if (!(await showConfirm('¿Estás seguro de eliminar este footer global?'))) return;
+      try {
+        const res = await fetch(`/api/global-footers/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Footer eliminado correctamente', 'success');
+          loadGlobalFootersList();
+        } else {
+          showToast(data.message, 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Error al borrar footer', 'error');
+      }
+    }
+
+    function populateGlobalFooterSelects() {
+      const campSelect = document.getElementById('gf-campaign-select');
+      const tplSelect = document.getElementById('gf-template-select');
+      
+      const selects = [campSelect, tplSelect].filter(Boolean);
+      selects.forEach(sel => {
+        sel.innerHTML = '<option value="custom">Personalizado para este envío</option>';
+        globalFooters.forEach(gf => {
+          const opt = document.createElement('option');
+          opt.value = gf.id;
+          opt.textContent = `${gf.name} ${gf.is_default ? '(Predeterminado)' : ''}`;
+          sel.appendChild(opt);
+        });
+      });
+
+      // Auto aplicar el footer default a campaña si existe y no hay cambios manuales previos
+      const defaultGf = globalFooters.find(x => x.is_default);
+      if (defaultGf) {
+        if (campSelect && campSelect.value === 'custom') {
+          campSelect.value = defaultGf.id;
+          applyGlobalFooterToCampaign(defaultGf.id);
+        }
+        if (tplSelect && tplSelect.value === 'custom') {
+          tplSelect.value = defaultGf.id;
+          applyGlobalFooterToTemplate(defaultGf.id);
+        }
+      }
+    }
+
+    window.applyGlobalFooterToCampaign = function(val) {
+      if (val === 'custom') {
+        // Habilitar controles manuales si quiere personalizar
+        document.getElementById('footer-config-form').classList.remove('hidden');
+        return;
+      }
+      const gf = globalFooters.find(x => x.id === val);
+      if (!gf) return;
+
+      footerSettings.showLogo = gf.show_logo;
+      footerSettings.logoUrl = gf.logo_url;
+      footerSettings.logoWidth = gf.logo_width;
+      footerSettings.address = gf.address;
+      footerSettings.email = gf.email;
+      footerSettings.phone = gf.phone;
+      footerSettings.socials = { ...gf.socials };
+      footerSettings.linkColor = gf.link_color;
+      footerSettings.useIcons = gf.use_icons;
+      footerSettings.unsubscribeText = gf.unsubscribe_text;
+
+      // Actualizar inputs del form manual por si lo despliega
+      initializeFooterInputs();
+      updateLivePreview();
+    };
+
+    window.applyGlobalFooterToTemplate = function(val) {
+      if (val === 'custom') {
+        document.getElementById('template-footer-form').classList.remove('hidden');
+        return;
+      }
+      const gf = globalFooters.find(x => x.id === val);
+      if (!gf) return;
+
+      templateFooterSettings.showLogo = gf.show_logo;
+      templateFooterSettings.logoUrl = gf.logo_url;
+      templateFooterSettings.logoWidth = gf.logo_width;
+      templateFooterSettings.address = gf.address;
+      templateFooterSettings.email = gf.email;
+      templateFooterSettings.phone = gf.phone;
+      templateFooterSettings.socials = { ...gf.socials };
+      templateFooterSettings.linkColor = gf.link_color;
+      templateFooterSettings.useIcons = gf.use_icons;
+      templateFooterSettings.unsubscribeText = gf.unsubscribe_text;
+
+      // Actualizar inputs del form manual del template
+      document.getElementById('tpl-footer-show-logo').checked = gf.show_logo;
+      document.getElementById('tpl-footer-logo-url').value = gf.logo_url || '';
+      document.getElementById('tpl-footer-address').value = gf.address || '';
+      document.getElementById('tpl-footer-email').value = gf.email || '';
+      document.getElementById('tpl-footer-phone').value = gf.phone || '';
+      document.getElementById('tpl-footer-fb').value = gf.socials?.facebook || '';
+      document.getElementById('tpl-footer-ig').value = gf.socials?.instagram || '';
+      document.getElementById('tpl-footer-tw').value = gf.socials?.twitter || '';
+      document.getElementById('tpl-footer-li').value = gf.socials?.linkedin || '';
+      document.getElementById('tpl-footer-link-color').value = gf.link_color || '#27bea5';
+      document.getElementById('tpl-footer-use-icons').value = gf.use_icons ? 'true' : 'false';
+      document.getElementById('tpl-footer-unsub').value = gf.unsubscribe_text || 'Desuscribirse';
+
+      updateTemplateLivePreview();
+    };
+
+    window.updateTemplateFooterSetting = function(prop, val) {
+      templateFooterSettings[prop] = val;
+      // Desmarcar select global ya que se personaliza manualmente
+      document.getElementById('gf-template-select').value = 'custom';
+      updateTemplateLivePreview();
+    };
+
+    window.updateTemplateFooterSocial = function(key, val) {
+      templateFooterSettings.socials[key] = val;
+      document.getElementById('gf-template-select').value = 'custom';
+      updateTemplateLivePreview();
+    };
+
+
+    // --- LÓGICA DE PESTAÑA Y EDITOR DE PLANTILLAS ---
+    async function loadTemplatesTabList() {
+      const grid = document.getElementById('templates-tab-grid');
+      if (!grid) return;
+
+      try {
+        const res = await fetch('/api/templates', {
+          headers: { 'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          const list = data.data;
+          if (list.length === 0) {
+            grid.innerHTML = `
+              <div class="col-span-3 text-center py-16 text-slate-400 bg-white border border-slate-100 rounded-[2rem] p-8 shadow-sm">
+                <i data-lucide="layout-template" class="w-12 h-12 mx-auto opacity-35 mb-3"></i>
+                <h3 class="text-sm font-bold text-[#1B2939]">No tienes plantillas guardadas</h3>
+                <p class="text-xs text-slate-400 mt-1 mb-4">Crea una plantilla para poder usarla como diseño base en tus campañas.</p>
+                <button onclick="openCreateTemplateEditor()" class="px-4 py-2.5 bg-[#27bea5] hover:bg-[#22a890] text-white font-bold text-xs rounded-xl transition-all inline-flex items-center gap-1.5 shadow-sm">
+                  <i data-lucide="plus" class="w-3.5 h-3.5"></i> Diseñar Primera Plantilla
+                </button>
+              </div>
+            `;
+            lucide.createIcons();
+            return;
+          }
+
+          grid.innerHTML = '';
+          list.forEach(t => {
+            const card = document.createElement('div');
+            card.className = "bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm flex flex-col justify-between text-left gap-4 hover:-translate-y-1 transition-all duration-300";
+            
+            const dateStr = new Date(t.created_at).toLocaleDateString('es-ES', {
+              day: '2-digit', month: 'short', year: 'numeric'
+            });
+
+            card.innerHTML = `
+              <div class="flex items-start justify-between">
+                <div class="bg-brand-light p-3 rounded-2xl text-[#27bea5]">
+                  <i data-lucide="layout-template" class="w-6 h-6"></i>
+                </div>
+                <button onclick="deleteTemplateTab('${t.id}')" class="p-1.5 text-slate-300 hover:text-rose-500 rounded-lg hover:bg-slate-50 transition-all">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+              <div>
+                <h3 class="font-extrabold text-brand-dark text-sm leading-tight">${t.name}</h3>
+                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-1.5">Creada: ${dateStr}</p>
+              </div>
+              <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-50">
+                <button onclick="sendTemplateTestTabDirect('${t.id}')" class="px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-100 text-[#1B2939] text-[10px] font-bold rounded-xl transition-all flex items-center justify-center gap-1 shadow-sm">
+                  <i data-lucide="send" class="w-3 h-3"></i> Enviar Prueba
+                </button>
+                <button onclick="openEditTemplateEditor('${t.id}')" class="px-3 py-2 bg-[#27bea5] hover:bg-[#22a890] text-white text-[10px] font-bold rounded-xl transition-all flex items-center justify-center gap-1 shadow-md">
+                  <i data-lucide="edit-3" class="w-3 h-3"></i> Diseñar / Editar
+                </button>
+              </div>
+            `;
+            grid.appendChild(card);
+          });
+          lucide.createIcons();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function deleteTemplateTab(id) {
+      if (!(await showConfirm('¿Estás seguro de que quieres eliminar esta plantilla?'))) return;
+      try {
+        const res = await fetch(`/api/templates/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Plantilla eliminada', 'success');
+          loadTemplatesTabList();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function sendTemplateTestTabDirect(id) {
+      const emailTarget = prompt("Introduce el correo para recibir la prueba del diseño de esta plantilla:", localStorage.getItem('kns_test_recipient') || '');
+      if (!emailTarget) return;
+      localStorage.setItem('kns_test_recipient', emailTarget.trim());
+
+      showToast('Enviando correo de prueba...', 'info');
+
+      try {
+        const res = await fetch(`/api/templates/${id}`, {
+          headers: { 'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}` }
+        });
+        const data = await res.json();
+        if (!data.success) {
+          showToast('Error al cargar la plantilla para prueba.', 'error');
+          return;
+        }
+
+        const template = data.data;
+
+        // Mandar el HTML directamente al endpoint de tests de SES
+        const testRes = await fetch('/api/campaigns/test', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}`
+          },
+          body: JSON.stringify({
+            recipientEmail: emailTarget.trim(),
+            subject: `[PRUEBA] Plantilla: ${template.name}`,
+            bodyHtml: template.html_content,
+            senderEmail: '', // usará el del backend/env por defecto
+            senderName: 'Prueba Kônsul'
+          })
+        });
+        
+        const testData = await testRes.json();
+        if (testData.success) {
+          showToast('Prueba enviada de forma exitosa.', 'success');
+        } else {
+          showToast('Error al enviar la prueba: ' + testData.message, 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Error conectando con el servidor.', 'error');
+      }
+    }
+
+    // --- DISEÑADOR MULTI-BLOQUE INDEPENDIENTE ---
+    window.openCreateTemplateEditor = function() {
+      editingTemplateId = null;
+      editingTemplateName = '';
+      templateBlocks = [];
+      activeTemplateBlockId = null;
+      
+      // Cargar el footer por defecto si existe
+      const defaultGf = globalFooters.find(x => x.is_default);
+      if (defaultGf) {
+        templateFooterSettings = {
+          showLogo: defaultGf.show_logo,
+          logoUrl: defaultGf.logo_url,
+          logoWidth: defaultGf.logo_width,
+          address: defaultGf.address,
+          email: defaultGf.email,
+          phone: defaultGf.phone,
+          socials: { ...defaultGf.socials },
+          linkColor: defaultGf.link_color,
+          useIcons: defaultGf.use_icons,
+          unsubscribeText: defaultGf.unsubscribe_text
+        };
+        document.getElementById('gf-template-select').value = defaultGf.id;
+      } else {
+        document.getElementById('gf-template-select').value = 'custom';
+      }
+
+      document.getElementById('template-editor-title').textContent = 'NUEVA PLANTILLA DE MAILING';
+      document.getElementById('template-editor-subtitle').textContent = 'Construye tu correo modular Lego y guárdalo como plantilla.';
+      
+      // Limpiar canvas
+      renderTemplateBuilderCanvas();
+      updateTemplateLivePreview();
+
+      const modal = document.getElementById('modal-template-editor');
+      if (modal) modal.classList.remove('hidden');
+    };
+
+    window.openEditTemplateEditor = async function(id) {
+      editingTemplateId = id;
+      showToast('Cargando plantilla para edición...', 'info');
+
+      try {
+        const res = await fetch(`/api/templates/${id}`, {
+          headers: { 'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          const t = data.data;
+          editingTemplateName = t.name;
+          templateBlocks = t.blocks || [];
+          templateFooterSettings = t.footer_settings || { ...templateFooterSettings };
+          activeTemplateBlockId = null;
+
+          document.getElementById('template-editor-title').textContent = `EDITANDO: ${t.name.toUpperCase()}`;
+          document.getElementById('template-editor-subtitle').textContent = 'Modifica los bloques y guarda los cambios.';
+          
+          document.getElementById('gf-template-select').value = 'custom';
+
+          renderTemplateBuilderCanvas();
+          updateTemplateLivePreview();
+
+          const modal = document.getElementById('modal-template-editor');
+          if (modal) modal.classList.remove('hidden');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Error cargando plantilla', 'error');
+      }
+    };
+
+    window.closeTemplateEditor = function() {
+      document.getElementById('modal-template-editor').classList.add('hidden');
+    };
+
+    window.addTemplateBlock = function(type) {
+      const id = 'tpl-' + Math.random().toString(36).substring(2, 9);
+      let newBlock = { id, type };
+      
+      if (type === 'header') {
+        newBlock.title = 'Cabecera de tu plantilla';
+        newBlock.logoUrl = '';
+        newBlock.logoWidth = 120;
+      } else if (type === 'text') {
+        newBlock.content = 'Escribe aquí el cuerpo del mensaje para tu correo.';
+      } else if (type === 'image') {
+        newBlock.url = '';
+        newBlock.width = 100;
+        newBlock.alt = 'Imagen';
+        newBlock.linkUrl = '';
+      } else if (type === 'button') {
+        newBlock.text = 'Haz clic aquí';
+        newBlock.url = '';
+        newBlock.bgColor = '#27bea5';
+        newBlock.textColor = '#ffffff';
+      }
+      
+      templateBlocks.push(newBlock);
+      activeTemplateBlockId = id;
+      renderTemplateBuilderCanvas();
+      updateTemplateLivePreview();
+    };
+
+    function renderTemplateBuilderCanvas() {
+      const canvas = document.getElementById('template-builder-canvas');
+      if (!canvas) return;
+
+      if (templateBlocks.length === 0) {
+        canvas.innerHTML = `
+          <div class="text-center py-10 text-slate-400 font-bold text-xs bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+            El lienzo está vacío. Añade bloques desde la paleta superior para comenzar a diseñar.
+          </div>
+        `;
+        return;
+      }
+
+      canvas.innerHTML = '';
+      templateBlocks.forEach((block, idx) => {
+        const card = document.createElement('div');
+        const isActive = block.id === activeTemplateBlockId;
+        
+        card.setAttribute('data-id', block.id);
+        card.className = `p-4 rounded-2xl border transition-all flex flex-col gap-3 relative bg-white ${isActive ? 'border-[#27bea5] shadow-sm bg-slate-50/10' : 'border-slate-100 hover:border-slate-200'}`;
+
+        let labelText = '';
+        let labelIcon = 'layout';
+        if (block.type === 'header') { labelText = 'Cabecera / Logo'; labelIcon = 'heading'; }
+        else if (block.type === 'text') { labelText = 'Texto Libre'; labelIcon = 'align-left'; }
+        else if (block.type === 'image') { labelText = 'Imagen'; labelIcon = 'image'; }
+        else if (block.type === 'button') { labelText = 'Botón de Acción'; labelIcon = 'mouse-pointer'; }
+        else if (block.type === 'divider') { labelText = 'Línea Divisora'; labelIcon = 'minus'; }
+
+        // Header controls (Move and Delete)
+        const cardHeader = `
+          <div class="flex justify-between items-center cursor-pointer" onclick="selectTemplateBlock('${block.id}')">
+            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+              <i data-lucide="${labelIcon}" class="w-3.5 h-3.5"></i> ${labelText}
+            </span>
+            <div class="flex items-center gap-1.5">
+              <button type="button" onclick="event.stopPropagation(); moveTemplateBlock('${block.id}', -1)" ${idx === 0 ? 'disabled' : ''} class="p-1 hover:bg-slate-100 rounded text-slate-400 disabled:opacity-30">
+                <i data-lucide="chevron-up" class="w-3.5 h-3.5"></i>
+              </button>
+              <button type="button" onclick="event.stopPropagation(); moveTemplateBlock('${block.id}', 1)" ${idx === templateBlocks.length - 1 ? 'disabled' : ''} class="p-1 hover:bg-slate-100 rounded text-slate-400 disabled:opacity-30">
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+              </button>
+              <button type="button" onclick="event.stopPropagation(); deleteTemplateBlock('${block.id}')" class="p-1 hover:bg-red-50 hover:text-red-500 rounded text-slate-400">
+                <i data-lucide="trash" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        `;
+
+        let editorFormHtml = '';
+        if (isActive) {
+          editorFormHtml = `<div class="space-y-3 pt-2 border-t border-slate-100 text-left">`;
+          
+          if (block.type === 'header') {
+            editorFormHtml += `
+              <div class="space-y-1">
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Título de Cabecera</label>
+                <input type="text" value="${block.title || ''}" oninput="updateTemplateBlockProperty('${block.id}', 'title', this.value)" placeholder="Ej: Mi boletín mensual" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-semibold text-[#1c2938] outline-none focus:border-[#27bea5]">
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="space-y-1">
+                  <label class="text-[10px] font-bold text-slate-400 uppercase">Logo URL</label>
+                  <input type="text" value="${block.logoUrl || ''}" oninput="updateTemplateBlockProperty('${block.id}', 'logoUrl', this.value)" placeholder="https://..." class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-semibold text-[#1c2938] outline-none focus:border-[#27bea5]">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[10px] font-bold text-slate-400 uppercase">Ancho Logo (${block.logoWidth || 120}px)</label>
+                  <input type="range" min="30" max="300" value="${block.logoWidth || 120}" oninput="updateTemplateBlockProperty('${block.id}', 'logoWidth', parseInt(this.value))" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#27bea5] mt-2.5">
+                </div>
+              </div>
+            `;
+          } else if (block.type === 'text') {
+            editorFormHtml += `
+              <div class="space-y-1">
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Contenido del Correo</label>
+                <textarea rows="4" oninput="updateTemplateBlockProperty('${block.id}', 'content', this.value)" class="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-lg text-xs font-medium text-[#1c2938] outline-none focus:border-[#27bea5]">${block.content || ''}</textarea>
+                <p class="text-[8px] text-slate-400 font-semibold mt-0.5">Soporta Markdown para enlaces básicos: [texto](url)</p>
+              </div>
+            `;
+          } else if (block.type === 'image') {
+            editorFormHtml += `
+              <div class="space-y-1">
+                <label class="text-[10px] font-bold text-slate-400 uppercase">URL de la Imagen</label>
+                <input type="text" value="${block.url || ''}" oninput="updateTemplateBlockProperty('${block.id}', 'url', this.value)" placeholder="https://..." class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-semibold text-[#1c2938] outline-none focus:border-[#27bea5]">
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="space-y-1">
+                  <label class="text-[10px] font-bold text-slate-400 uppercase">Enlace al hacer clic (Opcional)</label>
+                  <input type="text" value="${block.linkUrl || ''}" oninput="updateTemplateBlockProperty('${block.id}', 'linkUrl', this.value)" placeholder="https://..." class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-semibold text-[#1c2938] outline-none focus:border-[#27bea5]">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[10px] font-bold text-slate-400 uppercase">Texto Alt</label>
+                  <input type="text" value="${block.alt || ''}" oninput="updateTemplateBlockProperty('${block.id}', 'alt', this.value)" placeholder="Descriptivo..." class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-semibold text-[#1c2938] outline-none focus:border-[#27bea5]">
+                </div>
+              </div>
+            `;
+          } else if (block.type === 'button') {
+            editorFormHtml += `
+              <div class="grid grid-cols-2 gap-2">
+                <div class="space-y-1">
+                  <label class="text-[10px] font-bold text-slate-400 uppercase">Texto del Botón</label>
+                  <input type="text" value="${block.text || ''}" oninput="updateTemplateBlockProperty('${block.id}', 'text', this.value)" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-semibold text-[#1c2938] outline-none focus:border-[#27bea5]">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[10px] font-bold text-slate-400 uppercase">Enlace (URL)</label>
+                  <input type="text" value="${block.url || ''}" oninput="updateTemplateBlockProperty('${block.id}', 'url', this.value)" placeholder="https://..." class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-semibold text-[#1c2938] outline-none focus:border-[#27bea5]">
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="space-y-1">
+                  <label class="text-[10px] font-bold text-slate-400 uppercase">Fondo</label>
+                  <div class="flex items-center gap-2">
+                    <input type="color" value="${block.bgColor || '#27bea5'}" oninput="updateTemplateBlockProperty('${block.id}', 'bgColor', this.value)" class="w-8 h-8 rounded border border-slate-200 cursor-pointer">
+                    <input type="text" value="${block.bgColor || '#27bea5'}" oninput="updateTemplateBlockProperty('${block.id}', 'bgColor', this.value)" class="w-full px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-[10px] font-mono text-[#1c2938] outline-none">
+                  </div>
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[10px] font-bold text-slate-400 uppercase">Texto</label>
+                  <div class="flex items-center gap-2">
+                    <input type="color" value="${block.textColor || '#ffffff'}" oninput="updateTemplateBlockProperty('${block.id}', 'textColor', this.value)" class="w-8 h-8 rounded border border-slate-200 cursor-pointer">
+                    <input type="text" value="${block.textColor || '#ffffff'}" oninput="updateTemplateBlockProperty('${block.id}', 'textColor', this.value)" class="w-full px-2 py-1 bg-slate-50 border border-slate-100 rounded-lg text-[10px] font-mono text-[#1c2938] outline-none">
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+          editorFormHtml += `</div>`;
+        }
+
+        card.innerHTML = cardHeader + editorFormHtml;
+        canvas.appendChild(card);
+      });
+
+      lucide.createIcons();
+    }
+
+    window.selectTemplateBlock = function(id) {
+      activeTemplateBlockId = id;
+      renderTemplateBuilderCanvas();
+    };
+
+    window.deleteTemplateBlock = function(id) {
+      templateBlocks = templateBlocks.filter(b => b.id !== id);
+      if (activeTemplateBlockId === id) activeTemplateBlockId = null;
+      renderTemplateBuilderCanvas();
+      updateTemplateLivePreview();
+    };
+
+    window.moveTemplateBlock = function(id, direction) {
+      const idx = templateBlocks.findIndex(b => b.id === id);
+      if (idx === -1) return;
+      const targetIdx = idx + direction;
+      if (targetIdx < 0 || targetIdx >= templateBlocks.length) return;
+
+      const temp = templateBlocks[idx];
+      templateBlocks[idx] = templateBlocks[targetIdx];
+      templateBlocks[targetIdx] = temp;
+
+      renderTemplateBuilderCanvas();
+      updateTemplateLivePreview();
+    };
+
+    window.updateTemplateBlockProperty = function(id, property, value) {
+      const block = templateBlocks.find(b => b.id === id);
+      if (block) {
+        block[property] = value;
+        updateTemplateLivePreview();
+
+        // Sincronizar inputs de color
+        if (property === 'bgColor' || property === 'textColor') {
+          const card = document.querySelector(`[data-id="${id}"]`);
+          if (card) {
+            const inputs = card.querySelectorAll('input');
+            let colorInput = null;
+            let textInput = null;
+            inputs.forEach(inp => {
+              if (inp.type === 'color') colorInput = inp;
+              else if (inp.type === 'text' && (inp.value.startsWith('#') || inp.value === '')) textInput = inp;
+            });
+            if (colorInput && textInput) {
+              if (/^#[0-9A-F]{6}$/i.test(value)) {
+                colorInput.value = value;
+                textInput.value = value;
+              } else {
+                textInput.value = value;
+              }
+            }
+          }
+        }
+      }
+    };
+
+    function compileTemplateBuilderHtml() {
+      let blocksHtml = '';
+
+      templateBlocks.forEach(block => {
+        if (block.type === 'header') {
+          const logoHtml = block.logoUrl ? `<img src="${block.logoUrl}" alt="Logo" style="max-width: ${block.logoWidth || 150}px; width: 100%; object-fit: contain; display: block; margin: 0 auto;">` : '';
+          blocksHtml += `
+            <div style="text-align: center; margin-bottom: 24px; padding: 10px 0;">
+              ${logoHtml}
+              <h2 style="font-size: 22px; font-weight: 800; color: #1b2939; margin-top: 12px; margin-bottom: 0; font-family: Arial, sans-serif;">${block.title || ''}</h2>
+            </div>
+          `;
+        } else if (block.type === 'text') {
+          const formatted = formatTextContent(block.content || '');
+          blocksHtml += `
+            <div style="font-size: 14px; line-height: 1.6; color: #334155; margin-bottom: 16px; font-family: Arial, sans-serif; text-align: left;">${formatted}</div>
+          `;
+        } else if (block.type === 'image') {
+          if (block.url) {
+            const imgHtml = `<img src="${block.url}" alt="${block.alt || 'Imagen'}" style="width: ${block.width || 100}%; max-width: 100%; border-radius: 8px; max-height: 400px; object-fit: contain; display: block; margin: 0 auto;">`;
+            blocksHtml += `
+              <div style="text-align: center; margin: 16px 0;">
+                ${block.linkUrl ? `<a href="${block.linkUrl}" target="_blank">${imgHtml}</a>` : imgHtml}
+              </div>
+            `;
+          }
+        } else if (block.type === 'button') {
+          blocksHtml += `
+            <div style="text-align: center; margin: 20px 0;">
+              <a href="${block.url || '#'}" target="_blank" style="background-color: ${block.bgColor || '#27bea5'}; color: ${block.textColor || '#ffffff'}; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block; font-family: Arial, sans-serif;">${block.text || 'Botón'}</a>
+            </div>
+          `;
+        } else if (block.type === 'divider') {
+          blocksHtml += `
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+          `;
+        }
+      });
+
+      const linkColor = templateFooterSettings.linkColor || '#27bea5';
+      const useIcons = templateFooterSettings.useIcons === true || templateFooterSettings.useIcons === 'true';
+
+      let footerLogoHtml = templateFooterSettings.showLogo && templateFooterSettings.logoUrl 
+        ? `<img src="${templateFooterSettings.logoUrl}" alt="Logo Footer" style="max-width: ${templateFooterSettings.logoWidth || 100}px; width: 100%; object-fit: contain; margin-bottom: 12px; display: inline-block;">` 
+        : '';
+        
+      let contactParts = [];
+      if (templateFooterSettings.email) contactParts.push(`<a href="mailto:${templateFooterSettings.email}" style="color: #64748b; text-decoration: none;">${templateFooterSettings.email}</a>`);
+      if (templateFooterSettings.phone) contactParts.push(templateFooterSettings.phone);
+      let contactHtml = contactParts.length > 0 ? `<p style="margin: 4px 0;">${contactParts.join(' | ')}</p>` : '';
+      
+      let addressHtml = templateFooterSettings.address ? `<p style="margin: 4px 0;">${templateFooterSettings.address}</p>` : '';
+      
+      let socialLinks = [];
+      if (templateFooterSettings.socials?.facebook) {
+        let label = useIcons 
+          ? `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${linkColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin:0 4px;"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>` 
+          : 'Facebook';
+        socialLinks.push(`<a href="${templateFooterSettings.socials.facebook}" target="_blank" style="margin: 0 8px; color: ${linkColor}; text-decoration: none; font-weight: bold; font-size: 12px; display: inline-block; vertical-align:middle;">${label}</a>`);
+      }
+      if (templateFooterSettings.socials?.instagram) {
+        let label = useIcons 
+          ? `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${linkColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin:0 4px;"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>` 
+          : 'Instagram';
+        socialLinks.push(`<a href="${templateFooterSettings.socials.instagram}" target="_blank" style="margin: 0 8px; color: ${linkColor}; text-decoration: none; font-weight: bold; font-size: 12px; display: inline-block; vertical-align:middle;">${label}</a>`);
+      }
+      if (templateFooterSettings.socials?.twitter) {
+        let label = useIcons 
+          ? `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${linkColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin:0 4px;"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"/></svg>` 
+          : 'Twitter/X';
+        socialLinks.push(`<a href="${templateFooterSettings.socials.twitter}" target="_blank" style="margin: 0 8px; color: ${linkColor}; text-decoration: none; font-weight: bold; font-size: 12px; display: inline-block; vertical-align:middle;">${label}</a>`);
+      }
+      if (templateFooterSettings.socials?.linkedin) {
+        let label = useIcons 
+          ? `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${linkColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin:0 4px;"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>` 
+          : 'LinkedIn';
+        socialLinks.push(`<a href="${templateFooterSettings.socials.linkedin}" target="_blank" style="margin: 0 8px; color: ${linkColor}; text-decoration: none; font-weight: bold; font-size: 12px; display: inline-block; vertical-align:middle;">${label}</a>`);
+      }
+      let socialsHtml = socialLinks.length > 0 ? `<div style="margin: 16px 0 8px 0;">${socialLinks.join('')}</div>` : '';
+      
+      let unsubscribeHtml = `<p style="margin: 12px 0 0 0; font-size: 10px; color: #94a3b8;"><a href="#" style="color: ${linkColor}; text-decoration: underline;">${templateFooterSettings.unsubscribeText || 'Desuscribirse'}</a></p>`;
+
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; color: #1e293b;">
+          ${blocksHtml}
+          <div style="font-size: 11px; text-align: center; color: #64748b; margin-top: 32px; border-top: 1px solid #e2e8f0; padding-top: 24px; line-height: 1.6; font-family: Arial, sans-serif;">
+            ${footerLogoHtml}
+            ${addressHtml}
+            ${contactHtml}
+            ${socialsHtml}
+            ${unsubscribeHtml}
+          </div>
+        </div>
+      `;
+
+      return emailHtml;
+    }
+
+    function updateTemplateLivePreview() {
+      const iframe = document.getElementById('template-live-preview');
+      if (!iframe) return;
+      
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      doc.open();
+      doc.write(compileTemplateBuilderHtml());
+      doc.close();
+    }
+
+    window.saveTemplateEditorData = function() {
+      if (templateBlocks.length === 0) {
+        showToast('Añade al menos un bloque a tu diseño antes de guardar la plantilla.', 'warning');
+        return;
+      }
+      if (editingTemplateId) {
+        // Guardar cambios directamente con el nombre actual
+        executeSaveTemplate(editingTemplateName);
+      } else {
+        // Pedir nombre
+        const name = prompt("Introduce un nombre para la nueva plantilla:", "Mi Plantilla Premium");
+        if (name && name.trim()) {
+          executeSaveTemplate(name.trim());
+        }
+      }
+    };
+
+    async function executeSaveTemplate(name) {
+      const html_content = compileTemplateBuilderHtml();
+      
+      const payload = {
+        name,
+        blocks: templateBlocks,
+        html_content,
+        footer_settings: templateFooterSettings
+      };
+
+      const url = editingTemplateId ? `/api/templates/${editingTemplateId}` : '/api/templates';
+      const method = editingTemplateId ? 'PUT' : 'POST';
+
+      try {
+        const res = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}`
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Plantilla guardada con éxito.', 'success');
+          closeTemplateEditor();
+          loadTemplatesTabList();
+        } else {
+          showToast(data.message || 'Error al guardar plantilla', 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Error conectando con el servidor', 'error');
+      }
+    }
+
+    window.sendTemplateEditorTest = async function() {
+      const bodyHtml = compileTemplateBuilderHtml();
+      const emailTarget = prompt("Introduce el correo para recibir la prueba de esta plantilla:", localStorage.getItem('kns_test_recipient') || '');
+      if (!emailTarget) return;
+      localStorage.setItem('kns_test_recipient', emailTarget.trim());
+
+      showToast('Enviando correo de prueba...', 'info');
+
+      try {
+        const res = await fetch('/api/campaigns/test', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}`
+          },
+          body: JSON.stringify({
+            recipientEmail: emailTarget.trim(),
+            subject: `[PRUEBA] Diseñador Plantilla: ${editingTemplateName || 'Borrador'}`,
+            bodyHtml,
+            senderEmail: '', // usará el del backend/env
+            senderName: 'Prueba Kônsul'
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Prueba enviada de forma exitosa.', 'success');
+        } else {
+          showToast('Error al enviar la prueba: ' + data.message, 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Error al conectar con el servidor', 'error');
+      }
+    };
+
+
+    // Inicializar footers globales en carga
+    document.addEventListener('DOMContentLoaded', () => {
+      loadGlobalFootersList();
+    });
+
+    window.openCreateGlobalFooter = openCreateGlobalFooter;
+    window.openEditGlobalFooter = openEditGlobalFooter;
+    window.closeGlobalFooterForm = closeGlobalFooterForm;
+    window.saveGlobalFooter = saveGlobalFooter;
+    window.deleteGlobalFooter = deleteGlobalFooter;
+    window.loadTemplatesTabList = loadTemplatesTabList;
+    window.deleteTemplateTab = deleteTemplateTab;
+    window.sendTemplateTestTabDirect = sendTemplateTestTabDirect;
   </script>
 
   <!-- Toast Container -->
@@ -6753,6 +8030,156 @@
         </div>
 
       </div>
+    </div>
+  </div>
+
+  <!-- Modal Editor de Plantillas Independiente -->
+  <div id="modal-template-editor" class="fixed inset-0 bg-[#1B2939]/40 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 hidden">
+    <div class="bg-white max-w-6xl w-full h-[95vh] rounded-[2.5rem] border border-brand-border p-8 shadow-2xl flex flex-col gap-6 transform scale-95 transition-transform duration-300">
+      
+      <!-- Cabecera -->
+      <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+        <div>
+          <h2 class="text-xl font-extrabold text-[#1B2939]" id="template-editor-title">DISEÑADOR DE PLANTILLA</h2>
+          <p class="text-xs text-brand-gray mt-0.5" id="template-editor-subtitle">Crea y edita plantillas de diseño para reutilizar en tus envíos.</p>
+        </div>
+        
+        <div class="flex items-center gap-2">
+          <button onclick="sendTemplateEditorTest()" class="flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-[#1c2938] font-bold text-xs rounded-xl transition-all shadow-sm border border-slate-200">
+            <i data-lucide="mail" class="w-3.5 h-3.5"></i> Enviar Prueba
+          </button>
+          <button onclick="saveTemplateEditorData()" class="flex items-center gap-1.5 px-4 py-2 bg-[#27bea5] hover:bg-[#22a890] text-white font-bold text-xs rounded-xl transition-all shadow-md">
+            <i data-lucide="save" class="w-3.5 h-3.5"></i> Guardar Plantilla
+          </button>
+          <button onclick="closeTemplateEditor()" class="text-slate-400 hover:text-slate-600 transition-colors p-2 bg-slate-50 border border-slate-100 rounded-xl ml-2">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Contenido en 2 columnas -->
+      <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-hidden">
+        
+        <!-- Columna Izquierda: Paleta y Canvas -->
+        <div class="flex flex-col gap-6 overflow-y-auto pr-1">
+          
+          <!-- LEGO Palette -->
+          <div class="bg-slate-50/50 border border-slate-100 rounded-[1.5rem] p-5 space-y-3">
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Añadir Bloques de Construcción</label>
+            <div class="grid grid-cols-5 gap-2">
+              <button type="button" onclick="addTemplateBlock('header')" class="flex flex-col items-center justify-center p-2.5 bg-white border border-slate-100 hover:border-[#27bea5] rounded-xl text-center transition-all gap-1 group">
+                <i data-lucide="heading" class="w-4 h-4 text-slate-400 group-hover:text-[#27bea5]"></i>
+                <span class="text-[8px] font-bold text-slate-500 group-hover:text-[#1c2938]">Cabecera</span>
+              </button>
+              <button type="button" onclick="addTemplateBlock('text')" class="flex flex-col items-center justify-center p-2.5 bg-white border border-slate-100 hover:border-[#27bea5] rounded-xl text-center transition-all gap-1 group">
+                <i data-lucide="align-left" class="w-4 h-4 text-slate-400 group-hover:text-[#27bea5]"></i>
+                <span class="text-[8px] font-bold text-slate-500 group-hover:text-[#1c2938]">Texto</span>
+              </button>
+              <button type="button" onclick="addTemplateBlock('image')" class="flex flex-col items-center justify-center p-2.5 bg-white border border-slate-100 hover:border-[#27bea5] rounded-xl text-center transition-all gap-1 group">
+                <i data-lucide="image" class="w-4 h-4 text-slate-400 group-hover:text-[#27bea5]"></i>
+                <span class="text-[8px] font-bold text-slate-500 group-hover:text-[#1c2938]">Imagen</span>
+              </button>
+              <button type="button" onclick="addTemplateBlock('button')" class="flex flex-col items-center justify-center p-2.5 bg-white border border-slate-100 hover:border-[#27bea5] rounded-xl text-center transition-all gap-1 group">
+                <i data-lucide="mouse-pointer" class="w-4 h-4 text-slate-400 group-hover:text-[#27bea5]"></i>
+                <span class="text-[8px] font-bold text-slate-500 group-hover:text-[#1c2938]">Botón</span>
+              </button>
+              <button type="button" onclick="addTemplateBlock('divider')" class="flex flex-col items-center justify-center p-2.5 bg-white border border-slate-100 hover:border-[#27bea5] rounded-xl text-center transition-all gap-1 group">
+                <i data-lucide="minus" class="w-4 h-4 text-slate-400 group-hover:text-[#27bea5]"></i>
+                <span class="text-[8px] font-bold text-slate-500 group-hover:text-[#1c2938]">Divisor</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Canvas del Editor -->
+          <div class="flex-1 bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm flex flex-col gap-4 overflow-y-auto">
+            <label class="text-xs font-bold text-[#1c2938] uppercase tracking-wider block">Lienzo del Correo</label>
+            <div id="template-builder-canvas" class="space-y-3 min-h-[250px] bg-slate-50/50 p-2 rounded-2xl border border-slate-100">
+              <!-- Dynamically built blocks -->
+            </div>
+          </div>
+
+          <!-- Configuración del Footer del Editor de Plantilla -->
+          <div class="bg-slate-50/50 border border-slate-100 rounded-[1.5rem] p-5 space-y-4 text-left">
+            <div class="space-y-1.5">
+              <label for="gf-template-select" class="text-xs font-bold text-[#1c2938] uppercase tracking-wider block">Configuración de Footer</label>
+              <select id="gf-template-select" onchange="applyGlobalFooterToTemplate(this.value)" class="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5] cursor-pointer">
+                <option value="custom">Personalizado para esta plantilla</option>
+                <!-- Loaded Dynamically -->
+              </select>
+            </div>
+            
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-500">¿Personalizar manualmente?</span>
+              <button type="button" onclick="document.getElementById('template-footer-form').classList.toggle('hidden')" class="text-[10px] font-bold text-[#27bea5] hover:underline flex items-center gap-1">
+                <i data-lucide="settings" class="w-3 h-3"></i> Editar Detalles Manual
+              </button>
+            </div>
+
+            <!-- Formulario del footer en plantilla -->
+            <div id="template-footer-form" class="space-y-3 hidden pt-3 border-t border-slate-100">
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="tpl-footer-show-logo" onchange="updateTemplateFooterSetting('showLogo', this.checked)" class="rounded text-[#27bea5] focus:ring-[#27bea5] w-3.5 h-3.5 border-slate-200">
+                <label for="tpl-footer-show-logo" class="text-[10px] font-bold text-slate-500 uppercase cursor-pointer">Mostrar Logotipo</label>
+              </div>
+              <div class="space-y-1">
+                <label class="text-[9px] font-bold text-slate-400 uppercase">Logo URL</label>
+                <input type="text" id="tpl-footer-logo-url" oninput="updateTemplateFooterSetting('logoUrl', this.value)" placeholder="https://..." class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5]">
+              </div>
+              <div class="space-y-1">
+                <label class="text-[9px] font-bold text-slate-400 uppercase">Dirección Física</label>
+                <input type="text" id="tpl-footer-address" oninput="updateTemplateFooterSetting('address', this.value)" placeholder="Calle, Ciudad, País" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5]">
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="space-y-1">
+                  <label class="text-[9px] font-bold text-slate-400 uppercase">Email Contacto</label>
+                  <input type="text" id="tpl-footer-email" oninput="updateTemplateFooterSetting('email', this.value)" placeholder="contacto@..." class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5]">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[9px] font-bold text-slate-400 uppercase">Teléfono</label>
+                  <input type="text" id="tpl-footer-phone" oninput="updateTemplateFooterSetting('phone', this.value)" placeholder="+1..." class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5]">
+                </div>
+              </div>
+              <div class="space-y-1">
+                <label class="text-[9px] font-bold text-slate-400 uppercase">Redes Sociales (URLs)</label>
+                <div class="grid grid-cols-2 gap-2">
+                  <input type="text" id="tpl-footer-fb" oninput="updateTemplateFooterSocial('facebook', this.value)" placeholder="Facebook..." class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] outline-none focus:border-[#27bea5]">
+                  <input type="text" id="tpl-footer-ig" oninput="updateTemplateFooterSocial('instagram', this.value)" placeholder="Instagram..." class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] outline-none focus:border-[#27bea5]">
+                  <input type="text" id="tpl-footer-tw" oninput="updateTemplateFooterSocial('twitter', this.value)" placeholder="Twitter/X..." class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] outline-none focus:border-[#27bea5]">
+                  <input type="text" id="tpl-footer-li" oninput="updateTemplateFooterSocial('linkedin', this.value)" placeholder="LinkedIn..." class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] outline-none focus:border-[#27bea5]">
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="space-y-1">
+                  <label class="text-[9px] font-bold text-slate-400 uppercase">Color Links</label>
+                  <input type="color" id="tpl-footer-link-color" value="#27bea5" oninput="updateTemplateFooterSetting('linkColor', this.value)" class="w-full h-8 rounded-lg cursor-pointer border border-slate-200">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[9px] font-bold text-slate-400 uppercase">Mostrar como</label>
+                  <select id="tpl-footer-use-icons" onchange="updateTemplateFooterSetting('useIcons', this.value === 'true')" class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold outline-none focus:border-[#27bea5]">
+                    <option value="false">Enlaces de Texto</option>
+                    <option value="true">Iconos Visuales</option>
+                  </select>
+                </div>
+              </div>
+              <div class="space-y-1">
+                <label class="text-[9px] font-bold text-slate-400 uppercase">Texto Desuscripción</label>
+                <input type="text" id="tpl-footer-unsub" oninput="updateTemplateFooterSetting('unsubscribeText', this.value)" placeholder="Darse de baja..." class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5]">
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Columna Derecha: Vista Previa -->
+        <div class="flex flex-col gap-4 overflow-y-auto pl-1">
+          <!-- Live Preview IFrame -->
+          <div class="flex-1 bg-slate-100 rounded-[2rem] overflow-hidden border border-slate-200 relative min-h-[300px]">
+            <iframe id="template-live-preview" class="w-full h-full bg-white"></iframe>
+          </div>
+        </div>
+
+      </div>
+
     </div>
   </div>
 

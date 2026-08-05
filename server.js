@@ -159,6 +159,29 @@ async function initDB() {
           name VARCHAR(255) NOT NULL,
           html TEXT NOT NULL,
           design_json JSONB DEFAULT '{}'::jsonb,
+          footer_settings JSONB DEFAULT '{}'::jsonb,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS global_footers (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          kinde_id VARCHAR(255) NOT NULL REFERENCES users(kinde_id) ON DELETE CASCADE,
+          name VARCHAR(255) NOT NULL,
+          show_logo BOOLEAN DEFAULT true,
+          logo_url TEXT,
+          logo_width INTEGER DEFAULT 100,
+          address TEXT,
+          email VARCHAR(255),
+          phone VARCHAR(50),
+          facebook TEXT,
+          instagram TEXT,
+          twitter TEXT,
+          linkedin TEXT,
+          unsubscribe_text VARCHAR(255) DEFAULT 'Darse de baja de esta lista',
+          link_color VARCHAR(50) DEFAULT '#27bea7',
+          use_icons BOOLEAN DEFAULT false,
+          is_default BOOLEAN DEFAULT false,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `;
@@ -169,6 +192,9 @@ async function initDB() {
     } catch(e) { /* Column might exist */ }
     try {
       await sql`ALTER TABLE users ADD COLUMN warmup_mode BOOLEAN DEFAULT false`;
+    } catch(e) { /* Column might exist */ }
+    try {
+      await sql`ALTER TABLE templates ADD COLUMN IF NOT EXISTS footer_settings JSONB DEFAULT '{}'::jsonb`;
     } catch(e) { /* Column might exist */ }
     try {
       await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS scheduled_for TIMESTAMP WITH TIME ZONE`;
@@ -543,15 +569,26 @@ app.get('/api/auth/me', protectRoute, (req, res) => {
 app.get('/api/onboarding', protectRoute, async (req, res) => {
   try {
     const userId = req.user.id;
-    const result = await sql`SELECT * FROM users WHERE kinde_id = ${userId}`;
+    let result = await sql`SELECT * FROM users WHERE kinde_id = ${userId}`;
     if (result.length > 0) {
+      let vol = result[0].monthly_volume;
+      // Auto-upgrade user to Pro limits if they were on old default 10000
+      if (vol === 10000 || vol < 20000) {
+        vol = 20000;
+        await sql`UPDATE users SET monthly_volume = 20000 WHERE kinde_id = ${userId}`;
+      }
+      
+      const isPro = vol >= 20000;
       res.json({
         completed: result[0].is_setup_complete,
         companyName: result[0].company_name,
-        monthlyVolume: result[0].monthly_volume
+        monthlyVolume: vol,
+        plan: isPro ? 'Pro' : 'Basic',
+        contactLimit: isPro ? 20000 : 2000,
+        sendLimit: isPro ? 100000 : 25000
       });
     } else {
-      res.json({ completed: false, companyName: '', monthlyVolume: 10000 });
+      res.json({ completed: false, companyName: '', monthlyVolume: 20000, plan: 'Pro', contactLimit: 20000, sendLimit: 100000 });
     }
   } catch (err) {
     res.status(500).json({ error: 'DB Error' });
@@ -1526,21 +1563,52 @@ app.get('/api/templates/:id', protectRoute, async (req, res) => {
 app.post('/api/templates', protectRoute, express.json(), async (req, res) => {
   try {
     const userId = req.user.id;
-    const { name, html, design_json } = req.body;
+    const { name, html, design_json, footer_settings } = req.body;
 
     if (!name || !html) {
       return res.status(400).json({ success: false, message: 'Falta nombre o contenido HTML' });
     }
 
     const inserted = await sql`
-      INSERT INTO templates (kinde_id, name, html, design_json)
-      VALUES (${userId}, ${name}, ${html}, ${JSON.stringify(design_json || {})})
+      INSERT INTO templates (kinde_id, name, html, design_json, footer_settings)
+      VALUES (${userId}, ${name}, ${html}, ${JSON.stringify(design_json || {})}, ${JSON.stringify(footer_settings || {})})
       RETURNING id, name, created_at
     `;
 
     res.json({ success: true, template: inserted[0] });
   } catch (err) {
     console.error('Error saving template:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+app.put('/api/templates/:id', protectRoute, express.json(), async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { name, html, design_json, footer_settings } = req.body;
+
+    if (!name || !html) {
+      return res.status(400).json({ success: false, message: 'Falta nombre o contenido HTML' });
+    }
+
+    const updated = await sql`
+      UPDATE templates 
+      SET name = ${name}, 
+          html = ${html}, 
+          design_json = ${JSON.stringify(design_json || {})},
+          footer_settings = ${JSON.stringify(footer_settings || {})}
+      WHERE id = ${id} AND kinde_id = ${userId}
+      RETURNING id, name, created_at
+    `;
+
+    if (updated.length === 0) {
+      return res.status(404).json({ success: false, error: 'Plantilla no encontrada' });
+    }
+
+    res.json({ success: true, template: updated[0] });
+  } catch (err) {
+    console.error('Error updating template:', err);
     res.status(500).json({ success: false, error: 'DB Error' });
   }
 });
@@ -1558,6 +1626,113 @@ app.delete('/api/templates/:id', protectRoute, async (req, res) => {
     res.json({ success: true, message: 'Plantilla eliminada correctamente' });
   } catch (err) {
     console.error('Error deleting template:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+// ================= GLOBAL FOOTERS API ENDPOINTS =================
+app.get('/api/global-footers', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const footers = await sql`
+      SELECT * FROM global_footers 
+      WHERE kinde_id = ${userId} 
+      ORDER BY created_at ASC
+    `;
+    res.json({ success: true, footers });
+  } catch (err) {
+    console.error('Error fetching global footers:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+app.post('/api/global-footers', protectRoute, express.json(), async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { 
+      id, name, show_logo, logo_url, logo_width, address, email, phone, 
+      facebook, instagram, twitter, linkedin, unsubscribe_text, link_color, 
+      use_icons, is_default 
+    } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ success: false, message: 'Falta el nombre del footer global.' });
+    }
+
+    // Limitar a máximo 2 footers globales por usuario
+    if (!id) {
+      const currentCount = await sql`SELECT COUNT(*) FROM global_footers WHERE kinde_id = ${userId}`;
+      if (parseInt(currentCount[0].count, 10) >= 2) {
+        return res.status(400).json({ success: false, message: 'Has alcanzado el límite de 2 footers globales.' });
+      }
+    }
+
+    // Si este va a ser default, desmarcar los demás
+    if (is_default) {
+      await sql`
+        UPDATE global_footers 
+        SET is_default = false 
+        WHERE kinde_id = ${userId}
+      `;
+    }
+
+    let result;
+    if (id) {
+      // Actualizar existente
+      result = await sql`
+        UPDATE global_footers 
+        SET name = ${name},
+            show_logo = ${show_logo},
+            logo_url = ${logo_url},
+            logo_width = ${parseInt(logo_width, 10) || 100},
+            address = ${address},
+            email = ${email},
+            phone = ${phone},
+            facebook = ${facebook},
+            instagram = ${instagram},
+            twitter = ${twitter},
+            linkedin = ${linkedin},
+            unsubscribe_text = ${unsubscribe_text},
+            link_color = ${link_color || '#27bea7'},
+            use_icons = ${use_icons},
+            is_default = ${is_default}
+        WHERE id = ${id} AND kinde_id = ${userId}
+        RETURNING *
+      `;
+    } else {
+      // Crear nuevo
+      result = await sql`
+        INSERT INTO global_footers (
+          kinde_id, name, show_logo, logo_url, logo_width, address, email, phone,
+          facebook, instagram, twitter, linkedin, unsubscribe_text, link_color, use_icons, is_default
+        ) VALUES (
+          ${userId}, ${name}, ${show_logo}, ${logo_url}, ${parseInt(logo_width, 10) || 100}, ${address}, ${email}, ${phone},
+          ${facebook}, ${instagram}, ${twitter}, ${linkedin}, ${unsubscribe_text}, ${link_color || '#27bea7'}, ${use_icons}, ${is_default}
+        )
+        RETURNING *
+      `;
+    }
+
+    res.json({ success: true, footer: result[0] });
+  } catch (err) {
+    console.error('Error saving global footer:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+app.delete('/api/global-footers/:id', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    await sql`
+      DELETE FROM global_footers 
+      WHERE id = ${id} AND kinde_id = ${userId}
+    `;
+
+    res.json({ success: true, message: 'Footer global eliminado correctamente.' });
+  } catch (err) {
+    console.error('Error deleting global footer:', err);
     res.status(500).json({ success: false, error: 'DB Error' });
   }
 });
