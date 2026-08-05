@@ -6193,6 +6193,19 @@
         }
       }
 
+      // Update tab headers with counts
+      const opensTabBtn = document.getElementById('btn-report-tab-opens');
+      if (opensTabBtn) {
+        const opensCount = data.opens ? data.opens.length : 0;
+        opensTabBtn.textContent = `Aperturas (${opensCount})`;
+      }
+      
+      const recipientsTabBtn = document.getElementById('btn-report-tab-recipients');
+      if (recipientsTabBtn) {
+        const recipientsCount = data.sentRecipients ? data.sentRecipients.length : 0;
+        recipientsTabBtn.textContent = `Entregados (${recipientsCount})`;
+      }
+
       lucide.createIcons();
       document.getElementById('report-loading-container').classList.add('hidden');
       switchReportTab('stats');
