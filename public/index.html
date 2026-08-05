@@ -3471,7 +3471,7 @@
         const serverUrl = window.location.origin;
         const code = `<!-- Widget de Suscripción Kônsul -->
 <div id="konsul-subscription-form"></div>
-<script>
+\\x3Cscript>
   (function() {
     var container = document.getElementById('konsul-subscription-form');
     if (!container) return;
@@ -3483,7 +3483,7 @@
     iframe.style.overflow = "hidden";
     container.appendChild(iframe);
   })();
-<\/script>`;
+\\x3C/script>`;
         navigator.clipboard.writeText(code).then(() => {
           showToast('Código de Widget copiado al portapapeles.', 'success');
         });
@@ -3723,7 +3723,7 @@
         } else {
           generatedCode = `<!-- Widget de Suscripción Kônsul -->
 <div id="konsul-subscription-form"></div>
-<script>
+\\x3Cscript>
   (function() {
     var container = document.getElementById('konsul-subscription-form');
     if (!container) return;
@@ -3735,7 +3735,7 @@
     iframe.style.overflow = "hidden";
     container.appendChild(iframe);
   })();
-<\/script>`;
+\\x3C/script>`;
         }
         
         document.getElementById('form-embed-code').value = generatedCode;
