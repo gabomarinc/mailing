@@ -1847,11 +1847,11 @@ app.get('/api/campaigns', protectRoute, async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // Auto-fail campaigns stuck in 'sending' for more than 5 minutes
+    // Auto-fail campaigns stuck in 'sending' for more than 6 hours
     await sql`
       UPDATE campaigns 
       SET status = 'failed' 
-      WHERE kinde_id = ${userId} AND status = 'sending' AND sent_at < NOW() - INTERVAL '5 minutes'
+      WHERE kinde_id = ${userId} AND status = 'sending' AND sent_at < NOW() - INTERVAL '6 hours'
     `;
 
     const campaigns = await sql`
