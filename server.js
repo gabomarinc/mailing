@@ -2352,7 +2352,7 @@ async function sendCampaignIncremental(campaignId, host) {
       nameMap[c.email.toLowerCase().trim()] = c.name || 'Usuario';
     });
 
-    const CONCURRENCY = 12;
+    const CONCURRENCY = 4;
     for (let i = 0; i < batchToProcess.length; i += CONCURRENCY) {
       const checkStatus = await sql`SELECT status FROM campaigns WHERE id = ${campaignId}`;
       if (checkStatus.length > 0 && checkStatus[0].status !== 'sending') {
@@ -2434,7 +2434,7 @@ async function sendCampaignIncremental(campaignId, host) {
         }
       }));
 
-      if (i + CONCURRENCY < batchToProcess.length) await sleep(50);
+      if (i + CONCURRENCY < batchToProcess.length) await sleep(350);
     }
 
     const updatedCampaignResult = await sql`SELECT * FROM campaigns WHERE id = ${campaignId}`;
