@@ -5929,7 +5929,7 @@
       activeReportTab = tab;
       
       // Update tab buttons styles
-      const tabs = ['stats', 'locations', 'clicks', 'devices', 'errors', 'preview'];
+      const tabs = ['stats', 'locations', 'clicks', 'devices', 'errors', 'preview', 'opens', 'recipients'];
       tabs.forEach(t => {
         const btn = document.getElementById(`btn-report-tab-${t}`);
         const view = document.getElementById(`report-view-${t}`);
@@ -6150,6 +6150,47 @@
             </tr>
           `;
         });
+      }
+
+      // 6. Detailed Opens View
+      const opensBody = document.getElementById('rep-opens-table-body');
+      if (opensBody) {
+        opensBody.innerHTML = '';
+        if (!data.opens || data.opens.length === 0) {
+          opensBody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-400 text-xs font-bold">No hay datos de apertura registrados todavía.</td></tr>`;
+        } else {
+          data.opens.forEach(o => {
+            const openDate = new Date(o.opened_at || o.openedAt).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            opensBody.innerHTML += `
+              <tr class="border-b border-slate-50 text-slate-600 font-bold text-xs">
+                <td class="py-3.5 px-4">${o.email}</td>
+                <td class="py-3.5 px-4">${o.device || 'Desktop'}</td>
+                <td class="py-3.5 px-4">${o.country || 'Desconocido'}</td>
+                <td class="py-3.5 px-4 text-right text-slate-500 font-medium">${openDate}</td>
+              </tr>
+            `;
+          });
+        }
+      }
+
+      // 7. Detailed Recipients (Delivered) View
+      const recBody = document.getElementById('rep-recipients-table-body');
+      if (recBody) {
+        recBody.innerHTML = '';
+        if (!data.sentRecipients || data.sentRecipients.length === 0) {
+          recBody.innerHTML = `<tr><td colspan="2" class="py-8 text-center text-slate-400 text-xs font-bold">No hay registros de correos entregados.</td></tr>`;
+        } else {
+          data.sentRecipients.forEach(email => {
+            recBody.innerHTML += `
+              <tr class="border-b border-slate-50 text-slate-600 font-bold text-xs">
+                <td class="py-3.5 px-4">${email}</td>
+                <td class="py-3.5 px-4 text-right text-emerald-600 font-extrabold flex items-center justify-end gap-1">
+                  <i data-lucide="check" class="w-3.5 h-3.5"></i> Entregado
+                </td>
+              </tr>
+            `;
+          });
+        }
       }
 
       lucide.createIcons();
@@ -7980,6 +8021,12 @@
         <button onclick="switchReportTab('stats')" id="btn-report-tab-stats" class="px-4 py-2 text-xs font-bold border-b-2 border-[#27bea5] text-[#27bea5] transition-all whitespace-nowrap">
           Estadísticas de la campaña
         </button>
+        <button onclick="switchReportTab('opens')" id="btn-report-tab-opens" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
+          Aperturas (Correos)
+        </button>
+        <button onclick="switchReportTab('recipients')" id="btn-report-tab-recipients" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
+          Entregados (Correos)
+        </button>
         <button onclick="switchReportTab('locations')" id="btn-report-tab-locations" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
           Aperturas por ubicación
         </button>
@@ -8071,6 +8118,42 @@
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- View: Opens (Emails) -->
+        <div id="report-view-opens" class="flex-1 overflow-y-auto pr-1 hidden">
+          <div class="border border-slate-100 rounded-3xl overflow-hidden bg-white">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase text-[9px] tracking-wider">
+                  <th class="py-3 px-4">Correo Electrónico</th>
+                  <th class="py-3 px-4">Dispositivo</th>
+                  <th class="py-3 px-4">Ubicación</th>
+                  <th class="py-3 px-4 text-right">Fecha de Apertura</th>
+                </tr>
+              </thead>
+              <tbody id="rep-opens-table-body">
+                <!-- Dynamically loaded -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- View: Recipients (Sent) -->
+        <div id="report-view-recipients" class="flex-1 overflow-y-auto pr-1 hidden">
+          <div class="border border-slate-100 rounded-3xl overflow-hidden bg-white">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase text-[9px] tracking-wider">
+                  <th class="py-3 px-4">Correo Electrónico</th>
+                  <th class="py-3 px-4 text-right">Estado</th>
+                </tr>
+              </thead>
+              <tbody id="rep-recipients-table-body">
+                <!-- Dynamically loaded -->
+              </tbody>
+            </table>
           </div>
         </div>
 

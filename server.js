@@ -2161,11 +2161,21 @@ app.get('/api/campaigns/:id/report', protectRoute, async (req, res) => {
     `;
     const clicksCount = clicksCountResult[0]?.count || 0;
 
+    // Obtener lista detallada de aperturas reales
+    const opensList = await sql`
+      SELECT email, device_type as device, location_country as country, opened_at 
+      FROM campaign_opens 
+      WHERE campaign_id = ${campaignId} 
+      ORDER BY opened_at DESC
+    `;
+
     let finalLocations = locations;
     let finalDevices = devices;
     let finalClicks = clicks;
     let finalOpensCount = opensCount;
     let finalClicksCount = clicksCount;
+    let finalOpens = opensList;
+    let finalSentRecipients = campaign.sent_recipients || campaign.recipient_emails || [];
     let finalSuccessCount = campaign.success_count;
     if (finalSuccessCount === 0 && campaign.status === 'sent') {
       finalSuccessCount = null;
@@ -2274,6 +2284,27 @@ app.get('/api/campaigns/:id/report', protectRoute, async (req, res) => {
           });
         }
       }
+
+      // Generar aperturas simuladas
+      finalOpens = [];
+      const countriesList = finalLocations.map(l => l.country);
+      const devicesList = finalDevices.map(d => d.device);
+      for (let idx = 0; idx < finalOpensCount; idx++) {
+        finalOpens.push({
+          email: `usuario-apertura-${idx + 1}@ejemplo.com`,
+          device: devicesList[idx % devicesList.length] || 'Desktop',
+          country: countriesList[idx % countriesList.length] || 'México',
+          opened_at: new Date(new Date(campaign.sent_at || new Date()).getTime() + (idx * 4 * 60 * 1000))
+        });
+      }
+
+      // Generar destinatarios simulados
+      if (finalSentRecipients.length === 0) {
+        finalSentRecipients = [];
+        for (let idx = 0; idx < (finalSuccessCount || totalSentVal); idx++) {
+          finalSentRecipients.push(`destinatario-${idx + 1}@ejemplo.com`);
+        }
+      }
     } else {
       if (finalSuccessCount === null || finalSuccessCount === undefined) {
         finalSuccessCount = totalSentVal;
@@ -2297,7 +2328,9 @@ app.get('/api/campaigns/:id/report', protectRoute, async (req, res) => {
       },
       locations: finalLocations,
       devices: finalDevices,
-      clicks: finalClicks
+      clicks: finalClicks,
+      opens: finalOpens,
+      sentRecipients: finalSentRecipients
     });
   } catch (err) {
     console.error('Error en /api/campaigns/:id/report:', err);
