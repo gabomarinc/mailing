@@ -647,6 +647,14 @@ app.get('/api/onboarding', protectRoute, async (req, res) => {
         await sql`UPDATE users SET monthly_volume = 20000 WHERE kinde_id = ${userId}`;
       }
       
+      const stats = await sql`SELECT SUM(bounce_count) as total_bounces, SUM(total_sent) as total_sent_all FROM campaigns WHERE kinde_id = ${userId}`;
+      let globalBounceRate = 0;
+      if (stats.length > 0 && stats[0].total_sent_all > 0) {
+         const bounces = parseInt(stats[0].total_bounces || 0);
+         const sentAll = parseInt(stats[0].total_sent_all || 0);
+         globalBounceRate = (bounces / sentAll) * 100;
+      }
+
       const isPro = vol >= 20000;
       res.json({
         completed: result[0].is_setup_complete,
@@ -656,10 +664,11 @@ app.get('/api/onboarding', protectRoute, async (req, res) => {
         contactLimit: isPro ? 20000 : 2000,
         sendLimit: isPro ? 100000 : 25000,
         reputationStatus: result[0].reputation_status || 'good',
-        reputationMessage: result[0].reputation_message || null
+        reputationMessage: result[0].reputation_message || null,
+        globalBounceRate: globalBounceRate.toFixed(2)
       });
     } else {
-      res.json({ completed: false, companyName: '', monthlyVolume: 20000, plan: 'Pro', contactLimit: 20000, sendLimit: 100000, reputationStatus: 'good', reputationMessage: null });
+      res.json({ completed: false, companyName: '', monthlyVolume: 20000, plan: 'Pro', contactLimit: 20000, sendLimit: 100000, reputationStatus: 'good', reputationMessage: null, globalBounceRate: "0.00" });
     }
   } catch (err) {
     res.status(500).json({ error: 'DB Error' });

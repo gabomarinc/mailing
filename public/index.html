@@ -538,14 +538,14 @@
             <!-- Mini Card 4 (Dark Navy Trend Card) -->
             <div class="bg-[#1c2938] text-white p-6 rounded-[2rem] shadow-xl flex flex-col justify-between min-h-[140px] relative overflow-hidden">
               <div class="flex justify-between items-center w-full relative z-10">
-                <div class="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-[#27bea5]">
-                  <i data-lucide="sparkles" class="w-5 h-5"></i>
+                <div id="bounce-rate-icon-bg" class="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-[#27bea5]">
+                  <i data-lucide="activity" class="w-5 h-5"></i>
                 </div>
-                <i data-lucide="lock" class="w-4 h-4 text-slate-500"></i>
+                <i data-lucide="alert-circle" class="w-4 h-4 text-slate-500"></i>
               </div>
               <div class="mt-4 relative z-10">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">TENDENCIA</p>
-                <h3 class="text-xl font-black text-white tracking-tight mt-0.5">Optimizada con IA</h3>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tasa de Rebote Global</p>
+                <h3 class="text-3xl font-black text-white tracking-tight mt-0.5"><span id="kpi-bounce-rate">0.00</span>%</h3>
               </div>
             </div>
 
@@ -2380,6 +2380,24 @@
                 repIcon.setAttribute('data-lucide', 'shield-alert');
               }
               if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+          }
+
+          // Tasa de Rebote Global
+          const bounceRateElem = document.getElementById('kpi-bounce-rate');
+          const bounceRateIconBg = document.getElementById('bounce-rate-icon-bg');
+          if (bounceRateElem && data.globalBounceRate !== undefined) {
+            bounceRateElem.textContent = data.globalBounceRate;
+            const rate = parseFloat(data.globalBounceRate);
+            if (rate > 8) {
+              bounceRateIconBg.className = "w-10 h-10 rounded-2xl bg-rose-500/20 flex items-center justify-center text-rose-400";
+              bounceRateElem.parentElement.className = "text-3xl font-black text-rose-400 tracking-tight mt-0.5";
+            } else if (rate > 5) {
+              bounceRateIconBg.className = "w-10 h-10 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-400";
+              bounceRateElem.parentElement.className = "text-3xl font-black text-amber-400 tracking-tight mt-0.5";
+            } else {
+              bounceRateIconBg.className = "w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-[#27bea5]";
+              bounceRateElem.parentElement.className = "text-3xl font-black text-white tracking-tight mt-0.5";
             }
           }
         }
