@@ -6884,7 +6884,7 @@
         });
         const data = await res.json();
         if (data.success) {
-          globalFooters = data.data;
+          globalFooters = data.footers || [];
           renderGlobalFootersList();
           populateGlobalFooterSelects();
         }
