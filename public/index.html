@@ -7406,7 +7406,7 @@
           return;
         }
 
-        const template = data.data;
+        const template = data.template;
 
         // Mandar el HTML directamente al endpoint de tests de SES
         const testRes = await fetch('/api/campaigns/test', {
@@ -7418,7 +7418,7 @@
           body: JSON.stringify({
             recipientEmail: emailTarget.trim(),
             subject: `[PRUEBA] Plantilla: ${template.name}`,
-            bodyHtml: template.html_content,
+            bodyHtml: template.html,
             senderEmail: '', // usará el del backend/env por defecto
             senderName: 'Prueba Kônsul'
           })
