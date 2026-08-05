@@ -259,18 +259,24 @@ async function initDB() {
     try {
       await sql`ALTER TABLE templates ADD COLUMN IF NOT EXISTS footer_settings JSONB DEFAULT '{}'::jsonb`;
     } catch(e) { /* Column might exist */ }
-    try {
-      await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS scheduled_for TIMESTAMP WITH TIME ZONE`;
-      await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS sender_name VARCHAR(255)`;
-      await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS sender_email VARCHAR(255)`;
-      await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS success_count INTEGER DEFAULT 0`;
-      await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS failed_count INTEGER DEFAULT 0`;
-      await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS error_details JSONB DEFAULT '[]'::jsonb`;
-      await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS recipient_emails TEXT[] DEFAULT '{}'::text[]`;
-      await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS sent_recipients TEXT[] DEFAULT '{}'::text[]`;
-      await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS bounce_count INTEGER DEFAULT 0`;
-      await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS complaint_count INTEGER DEFAULT 0`;
-    } catch(e) { /* Columns might exist */ }
+    const addCol = async (query) => {
+      try {
+        await query;
+      } catch (e) {
+        console.error(`Error adding column:`, e);
+      }
+    };
+    
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS scheduled_for TIMESTAMP WITH TIME ZONE`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS sender_name VARCHAR(255)`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS sender_email VARCHAR(255)`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS success_count INTEGER DEFAULT 0`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS failed_count INTEGER DEFAULT 0`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS error_details JSONB DEFAULT '[]'::jsonb`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS recipient_emails TEXT[] DEFAULT '{}'::text[]`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS sent_recipients TEXT[] DEFAULT '{}'::text[]`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS bounce_count INTEGER DEFAULT 0`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS complaint_count INTEGER DEFAULT 0`);
     try {
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reputation_status VARCHAR(50) DEFAULT 'good'`;
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reputation_message TEXT`;
@@ -647,12 +653,16 @@ app.get('/api/onboarding', protectRoute, async (req, res) => {
         await sql`UPDATE users SET monthly_volume = 20000 WHERE kinde_id = ${userId}`;
       }
       
-      const stats = await sql`SELECT SUM(bounce_count) as total_bounces, SUM(total_sent) as total_sent_all FROM campaigns WHERE kinde_id = ${userId}`;
       let globalBounceRate = 0;
-      if (stats.length > 0 && stats[0].total_sent_all > 0) {
-         const bounces = parseInt(stats[0].total_bounces || 0);
-         const sentAll = parseInt(stats[0].total_sent_all || 0);
-         globalBounceRate = (bounces / sentAll) * 100;
+      try {
+        const stats = await sql`SELECT SUM(bounce_count) as total_bounces, SUM(total_sent) as total_sent_all FROM campaigns WHERE kinde_id = ${userId}`;
+        if (stats.length > 0 && stats[0].total_sent_all > 0) {
+           const bounces = parseInt(stats[0].total_bounces || 0);
+           const sentAll = parseInt(stats[0].total_sent_all || 0);
+           globalBounceRate = (bounces / sentAll) * 100;
+        }
+      } catch (statsErr) {
+        console.error('Error fetching stats for bounce rate:', statsErr);
       }
 
       const isPro = vol >= 20000;
