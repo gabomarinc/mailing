@@ -2313,7 +2313,8 @@ app.post('/api/campaigns/:id/resume', protectRoute, express.json(), async (req, 
 
     await sql`
       UPDATE campaigns 
-      SET status = 'sending' 
+      SET status = 'sending',
+          sent_at = CURRENT_TIMESTAMP
       WHERE id = ${campaignId}
     `;
 

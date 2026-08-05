@@ -4116,25 +4116,52 @@
               dateStr = displayDate.toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
             } catch(e) {}
             
-            let badge = `<span class="bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-100 text-[10px]">Enviado</span>`;
-            if (c.status === 'scheduled') {
-              badge = `<span class="bg-amber-50 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-100 text-[10px]">Programado</span>`;
-            } else if (c.status === 'sending') {
-              badge = `<span class="bg-blue-50 text-blue-800 font-bold px-2 py-0.5 rounded-full border border-blue-100 text-[10px] animate-pulse">Enviando...</span>`;
-            } else if (c.status === 'failed') {
-              badge = `<span class="bg-red-50 text-red-800 font-bold px-2 py-0.5 rounded-full border border-red-100 text-[10px]">Fallido</span>`;
-            }
-
-            const sender = c.senderEmail ? `${c.senderName || ''} <${c.senderEmail}>` : 'Por defecto (SES)';
             const successCount = c.successCount || 0;
             const failedCount = c.failedCount || 0;
             const isCompleted = (successCount + failedCount) >= c.totalSent;
 
+            let badge = `<span class="bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-100 text-[10px]">Enviado</span>`;
+            if (c.status === 'scheduled') {
+              badge = `<span class="bg-amber-50 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-100 text-[10px]">Programado</span>`;
+            } else if (c.status === 'sending') {
+              const pct = c.totalSent > 0 ? Math.round((successCount / c.totalSent) * 100) : 0;
+              badge = `
+                <div class="w-full min-w-[120px]">
+                  <div class="flex items-center justify-between text-[9px] font-bold text-blue-800 mb-1">
+                    <span class="animate-pulse">Enviando (${pct}%)</span>
+                    <span>${successCount}/${c.totalSent}</span>
+                  </div>
+                  <div class="w-full bg-blue-100 rounded-full h-1.5 overflow-hidden">
+                    <div class="bg-blue-600 h-1.5 rounded-full transition-all duration-300" style="width: ${pct}%"></div>
+                  </div>
+                </div>
+              `;
+            } else if (c.status === 'failed') {
+              if (successCount > 0 && successCount < c.totalSent) {
+                const pct = Math.round((successCount / c.totalSent) * 100);
+                badge = `
+                  <div class="w-full min-w-[120px]">
+                    <div class="flex items-center justify-between text-[9px] font-bold text-amber-800 mb-1">
+                      <span>Interrumpido (${pct}%)</span>
+                      <span>${successCount}/${c.totalSent}</span>
+                    </div>
+                    <div class="w-full bg-amber-100 rounded-full h-1.5 overflow-hidden">
+                      <div class="bg-amber-500 h-1.5 rounded-full" style="width: ${pct}%"></div>
+                    </div>
+                  </div>
+                `;
+              } else {
+                badge = `<span class="bg-red-50 text-red-800 font-bold px-2 py-0.5 rounded-full border border-red-100 text-[10px]">Fallido</span>`;
+              }
+            }
+
+            const sender = c.senderEmail ? `${c.senderName || ''} <${c.senderEmail}>` : 'Por defecto (SES)';
+
             let resumeBtn = '';
             if (!isCompleted && c.status !== 'scheduled') {
               resumeBtn = `
-                <button onclick="resumeCampaign('${c.id}')" class="text-blue-600 hover:text-white font-bold bg-blue-50 border border-blue-100 hover:bg-blue-600 px-3 py-1.5 rounded-lg transition-all inline-block text-[10px] uppercase tracking-wide ml-1.5 shadow-sm">
-                  Reanudar
+                <button onclick="resumeCampaign('${c.id}')" class="text-white font-bold bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg transition-all inline-block text-[10px] uppercase tracking-wide ml-1.5 shadow-sm border border-blue-700">
+                  Completar Envío
                 </button>
               `;
             }
@@ -5382,6 +5409,37 @@
       const delivered = c.successCount;
       const errors = c.failedCount;
       const total = c.totalSent;
+
+      // Control del Banner de Progreso en Vivo / Interrumpido
+      const progBanner = document.getElementById('campaign-progress-banner');
+      if (progBanner) {
+        const pct = total > 0 ? Math.round((delivered / total) * 100) : 0;
+        if (c.status === 'sending') {
+          progBanner.className = "mb-6 p-5 rounded-[1.5rem] bg-blue-50 border border-blue-100 flex flex-col gap-2.5";
+          document.getElementById('progress-banner-indicator').className = "w-2.5 h-2.5 bg-blue-500 rounded-full animate-ping";
+          document.getElementById('progress-banner-title').className = "text-xs font-black text-blue-900";
+          document.getElementById('progress-banner-title').textContent = `Enviando Campaña (En tiempo real - ${pct}%)`;
+          document.getElementById('progress-banner-numbers').className = "font-mono text-xs font-bold text-blue-900";
+          document.getElementById('progress-banner-numbers').textContent = `${delivered.toLocaleString()} / ${total.toLocaleString()}`;
+          document.getElementById('progress-banner-bar').className = "bg-blue-600 h-full transition-all duration-300 rounded-full";
+          document.getElementById('progress-banner-bar').style.width = `${pct}%`;
+          document.getElementById('progress-banner-desc').textContent = "Procesando el envío de correos en paralelo. No cierres esta ventana para un seguimiento en tiempo real.";
+          progBanner.classList.remove('hidden');
+        } else if (c.status === 'failed' && delivered < total) {
+          progBanner.className = "mb-6 p-5 rounded-[1.5rem] bg-amber-50 border border-amber-100 flex flex-col gap-2.5";
+          document.getElementById('progress-banner-indicator').className = "w-2.5 h-2.5 bg-amber-500 rounded-full";
+          document.getElementById('progress-banner-title').className = "text-xs font-black text-amber-900";
+          document.getElementById('progress-banner-title').textContent = `Envío Interrumpido / Fallido (${pct}%)`;
+          document.getElementById('progress-banner-numbers').className = "font-mono text-xs font-bold text-amber-900";
+          document.getElementById('progress-banner-numbers').textContent = `${delivered.toLocaleString()} / ${total.toLocaleString()}`;
+          document.getElementById('progress-banner-bar').className = "bg-amber-500 h-full transition-all duration-300 rounded-full";
+          document.getElementById('progress-banner-bar').style.width = `${pct}%`;
+          document.getElementById('progress-banner-desc').textContent = "El envío se detuvo parcialmente. Puedes pulsar el botón Completar Envío en el listado para despachar a los destinatarios restantes sin duplicaciones.";
+          progBanner.classList.remove('hidden');
+        } else {
+          progBanner.classList.add('hidden');
+        }
+      }
       
       const deliveredPct = total > 0 ? ((delivered / total) * 100).toFixed(2) : '0.00';
       const errorsPct = total > 0 ? ((errors / total) * 100).toFixed(2) : '0.00';
@@ -6340,6 +6398,21 @@
         <div id="report-loading-container" class="absolute inset-0 bg-white flex flex-col items-center justify-center gap-3 z-50">
           <div class="w-8 h-8 border-4 border-slate-100 border-t-[#27bea5] rounded-full animate-spin"></div>
           <span class="text-xs text-slate-400 font-bold">Cargando estadísticas de campaña...</span>
+        </div>
+
+        <!-- Live progress panel for sending/interrupted campaigns -->
+        <div id="campaign-progress-banner" class="hidden mb-6 p-5 rounded-[1.5rem] bg-slate-50 border border-slate-100 flex flex-col gap-2.5">
+          <div class="flex items-center justify-between text-xs font-bold text-slate-700">
+             <span class="flex items-center gap-1.5">
+               <span id="progress-banner-indicator" class="w-2.5 h-2.5 bg-blue-500 rounded-full animate-ping"></span>
+               <span id="progress-banner-title">Progreso del Envío</span>
+             </span>
+             <span id="progress-banner-numbers" class="font-mono">0 / 0</span>
+          </div>
+          <div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+             <div id="progress-banner-bar" class="bg-blue-600 h-full transition-all duration-300 rounded-full" style="width: 0%"></div>
+          </div>
+          <p id="progress-banner-desc" class="text-[10px] text-slate-400 font-bold mt-1">Enviando correos de la lista...</p>
         </div>
 
         <!-- View 1: Stats -->
