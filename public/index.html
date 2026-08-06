@@ -6249,6 +6249,10 @@
       switchReportTab('stats');
     }
 
+    window.toggleExcludeBots = function() {
+      renderReportData();
+    };
+
     async function resumeCampaign(id) {
       const campaign = campaigns.find(c => c.id === id);
       const isLegacy = campaign && (!campaign.successCount || campaign.successCount === 0);
