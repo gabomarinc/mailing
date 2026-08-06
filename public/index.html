@@ -4504,23 +4504,7 @@
         totalOpens += c.opens || 0;
       });
 
-      // Intentar obtener estadísticas de envíos REALES directamente de Amazon SES API
-      try {
-        const token = sessionStorage.getItem('kns_token');
-        const sesRes = await fetch('/api/aws/ses-stats', {
-          headers: { 'Authorization': token ? `Bearer ${token}` : '' }
-        });
-        if (sesRes.ok) {
-          const sesData = await sesRes.json();
-          if (sesData.success && sesData.stats) {
-            if (sesData.stats.totalHistoricalSent > 0) {
-              totalSent = sesData.stats.totalHistoricalSent;
-            } else if (sesData.stats.sentLast24Hours > 0) {
-              totalSent = Math.max(totalSent, sesData.stats.sentLast24Hours);
-            }
-          }
-        }
-      } catch(e) {}
+
 
       const kpiSent = document.getElementById('kpi-sent');
       if (kpiSent) kpiSent.textContent = totalSent.toLocaleString();
