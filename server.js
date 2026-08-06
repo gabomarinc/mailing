@@ -2039,7 +2039,13 @@ app.get('/api/campaigns/:id/track-open', async (req, res) => {
 
       // Read Vercel IP Country header, or guess from Accept-Language
       let country = req.headers['x-vercel-ip-country'] || req.headers['x-vercel-country'] || '';
-      if (!country) {
+      const uaLower = userAgent.toLowerCase();
+
+      if (uaLower.includes('googleimageproxy')) {
+        country = 'Proxy (Gmail)';
+      } else if (uaLower.includes('yahoooutsideimages')) {
+        country = 'Proxy (Yahoo)';
+      } else if (!country) {
         const acceptLanguage = req.headers['accept-language'] || '';
         if (acceptLanguage.includes('es')) {
           country = 'Latinoamérica';
@@ -2052,7 +2058,9 @@ app.get('/api/campaigns/:id/track-open', async (req, res) => {
           'ES': 'España', 'US': 'Estados Unidos', 'PE': 'Perú', 'VE': 'Venezuela',
           'UY': 'Uruguay', 'EC': 'Ecuador', 'GT': 'Guatemala', 'BO': 'Bolivia',
           'CR': 'Costa Rica', 'PA': 'Panamá', 'HN': 'Honduras', 'SV': 'El Salvador',
-          'NI': 'Nicaragua', 'PY': 'Paraguay', 'DO': 'República Dominicana', 'PR': 'Puerto Rico'
+          'NI': 'Nicaragua', 'PY': 'Paraguay', 'DO': 'República Dominicana', 'PR': 'Puerto Rico',
+          'PT': 'Portugal', 'BR': 'Brasil', 'FR': 'Francia', 'IT': 'Italia', 'DE': 'Alemania',
+          'GB': 'Reino Unido', 'CA': 'Canadá'
         };
         country = countriesMap[country.toUpperCase()] || country;
       }
