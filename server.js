@@ -18,6 +18,9 @@ const PORT = process.env.PORT || 3000;
 const dbUrl = process.env.DATABASE_URL || 'postgresql://user:pass@ep-host.neon.tech/db?sslmode=require';
 const sql = neon(dbUrl);
 
+// Asegurar que exista la columna de bloqueo para envíos concurrentes
+sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS locked_at TIMESTAMP;`.catch(e => console.error('Error adding locked_at column:', e));
+
 // Dominios desechables y cache de MX para validaciones rápidas
 let disposableDomains = new Set(['yopmail.com', 'mailinator.com', '10minutemail.com', 'guerrillamail.com', 'tempmail.com', 'sharklasers.com', 'guerrillamailblock.com', 'guerrillamail.net', 'guerrillamail.org', 'guerrillamail.biz', 'pokemail.net', 'grr.la', 'trashmail.com']);
 
@@ -2428,6 +2431,19 @@ async function sendCampaignIncremental(campaignId, host) {
 
     if (campaign.status !== 'sending') return;
 
+    // BLOQUEO (MUTEX) para evitar envíos concurrentes de la misma campaña
+    const lockResult = await sql`
+      UPDATE campaigns 
+      SET locked_at = CURRENT_TIMESTAMP
+      WHERE id = ${campaignId} 
+        AND (locked_at IS NULL OR locked_at < CURRENT_TIMESTAMP - INTERVAL '5 minutes')
+      RETURNING id
+    `;
+    if (lockResult.length === 0) {
+      console.log(`[AWS SES] Campaña ${campaignId} ignorada: Ya está siendo procesada por otro trabajador.`);
+      return;
+    }
+
     const userId = campaign.kinde_id;
     let userAws = null;
     try {
@@ -2622,6 +2638,12 @@ async function sendCampaignIncremental(campaignId, host) {
     }
   } catch (err) {
     console.error('Error en sendCampaignIncremental:', err);
+  } finally {
+    try {
+      await sql`UPDATE campaigns SET locked_at = NULL WHERE id = ${campaignId}`;
+    } catch(e) {
+      console.error('Error liberando lock de campaña:', e);
+    }
   }
 }
 
