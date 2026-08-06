@@ -2470,9 +2470,19 @@ async function sendCampaignIncremental(campaignId, host) {
     const errorDetails = campaign.error_details || [];
     const failedRecipients = new Set(errorDetails.map(e => e.email.toLowerCase().trim()));
 
-    const pendingRecipients = totalRecipients.filter(email => {
+    const pendingRecipients = [];
+    const seenEmails = new Set();
+    
+    totalRecipients.forEach(email => {
       const cleanEmail = email.toLowerCase().trim();
-      return !successRecipients.has(cleanEmail) && !failedRecipients.has(cleanEmail);
+      if (
+        !seenEmails.has(cleanEmail) && 
+        !successRecipients.has(cleanEmail) && 
+        !failedRecipients.has(cleanEmail)
+      ) {
+        seenEmails.add(cleanEmail);
+        pendingRecipients.push(email);
+      }
     });
 
     if (pendingRecipients.length === 0) {
