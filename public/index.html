@@ -6025,6 +6025,9 @@
       
       const openOffset = (openCountVal / totalDonutVal) * 226.2;
       const unopenedOffset = 226.2 - openOffset;
+
+      const openPct = ((openCountVal / totalDonutVal) * 100).toFixed(1);
+      const unopenedPct = ((unopenedCountVal / totalDonutVal) * 100).toFixed(1);
       
       const donutSvg = document.getElementById('rep-donut-chart');
       if (donutSvg) {
@@ -6032,9 +6035,13 @@
           <svg viewBox="0 0 100 100" class="w-full h-full transform -rotate-90">
             <circle cx="50" cy="50" r="36" fill="transparent" stroke="#f1f5f9" stroke-width="12" />
             <circle cx="50" cy="50" r="36" fill="transparent" stroke="#27bea5" stroke-width="12"
-                    stroke-dasharray="${openOffset} 226.2" />
-            <circle cx="50" cy="50" r="36" fill="transparent" stroke="#f43f5e" stroke-width="12"
-                    stroke-dasharray="${unopenedOffset} 226.2" stroke-dashoffset="-${openOffset}" />
+                    stroke-dasharray="${openOffset} 226.2" class="cursor-pointer transition-all hover:opacity-80">
+              <title>Abiertos: ${openCountVal} (${openPct}%)</title>
+            </circle>
+            <circle cx="50" cy="50" r="36" fill="transparent" stroke="#cbd5e1" stroke-width="12"
+                    stroke-dasharray="${unopenedOffset} 226.2" stroke-dashoffset="-${openOffset}" class="cursor-pointer transition-all hover:opacity-80">
+              <title>Sin abrir: ${unopenedCountVal} (${unopenedPct}%)</title>
+            </circle>
           </svg>
           <div class="absolute inset-0 flex flex-col items-center justify-center">
             <span class="text-[10px] uppercase font-bold text-slate-400 leading-none">Abierto</span>
@@ -8084,15 +8091,15 @@
         <!-- View 1: Stats -->
         <div id="report-view-stats" class="flex-1 overflow-y-auto pr-1 space-y-6">
           <div class="grid grid-cols-3 gap-4">
-            <div class="bg-blue-50/50 border border-blue-100/50 p-4 rounded-2xl text-center">
+            <div onclick="switchReportTab('recipients')" class="bg-blue-50/50 hover:bg-blue-100/30 border border-blue-100/50 p-4 rounded-2xl text-center cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]" title="Ver correos entregados">
               <span class="text-[9px] font-bold text-blue-500 uppercase tracking-wider block">Enviado</span>
               <p id="rep-stat-total" class="text-2xl font-black text-[#1c2938] mt-1">0</p>
             </div>
-            <div class="bg-[#27bea5]/5 border border-[#27bea5]/10 p-4 rounded-2xl text-center">
+            <div onclick="switchReportTab('recipients')" class="bg-[#27bea5]/5 hover:bg-[#27bea5]/10 border border-[#27bea5]/10 p-4 rounded-2xl text-center cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]" title="Ver correos entregados">
               <span class="text-[9px] font-bold text-[#27bea5] uppercase tracking-wider block">Entregado</span>
               <p id="rep-stat-delivered" class="text-2xl font-black text-[#1c2938] mt-1">0</p>
             </div>
-            <div class="bg-red-50/50 border border-red-100/50 p-4 rounded-2xl text-center">
+            <div onclick="switchReportTab('errors')" class="bg-red-50/50 hover:bg-red-100/40 border border-red-100/50 p-4 rounded-2xl text-center cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]" title="Ver estadísticas de error">
               <span class="text-[9px] font-bold text-red-500 uppercase tracking-wider block">Errores</span>
               <p id="rep-stat-errors" class="text-2xl font-black text-[#1c2938] mt-1">0</p>
             </div>
