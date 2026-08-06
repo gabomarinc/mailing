@@ -5991,7 +5991,18 @@
       const deliveredPct = total > 0 ? ((delivered / total) * 100).toFixed(2) : '0.00';
       const errorsPct = total > 0 ? ((errors / total) * 100).toFixed(2) : '0.00';
 
-      const openRate = delivered > 0 ? ((c.opensCount / delivered) * 100).toFixed(2) : '0.00';
+      // LEER ESTADO DE FILTRADO DE BOTS
+      const excludeBots = document.getElementById('chk-exclude-bots')?.checked || false;
+      let opensToUse = data.opens || [];
+      if (excludeBots) {
+        opensToUse = opensToUse.filter(o => {
+          const countryStr = (o.country || '').toLowerCase();
+          return !countryStr.includes('proxy');
+        });
+      }
+      const opensCountVal = opensToUse.length;
+
+      const openRate = delivered > 0 ? ((opensCountVal / delivered) * 100).toFixed(2) : '0.00';
       const clickRate = delivered > 0 ? ((c.clicksCount / delivered) * 100).toFixed(2) : '0.00';
 
       // 1. Stats view
@@ -6001,14 +6012,14 @@
 
       document.getElementById('rep-bar-opens').style.width = `${Math.min(100, openRate)}%`;
       document.getElementById('rep-bar-opens-text').textContent = `Abierto: ${openRate}%`;
-      document.getElementById('rep-count-opens').textContent = c.opensCount;
+      document.getElementById('rep-count-opens').textContent = opensCountVal;
 
       document.getElementById('rep-bar-clicks').style.width = `${Math.min(100, clickRate)}%`;
       document.getElementById('rep-bar-clicks-text').textContent = `Clics: ${clickRate}%`;
       document.getElementById('rep-count-clicks').textContent = c.clicksCount;
 
       // Donut Chart SVG
-      const openCountVal = c.opensCount;
+      const openCountVal = opensCountVal;
       const unopenedCountVal = Math.max(0, delivered - openCountVal);
       const totalDonutVal = delivered || 1;
       
@@ -6040,16 +6051,26 @@
       }
       document.getElementById('rep-total-microcopy').textContent = `Total enviado: ${delivered} correos electrónicos`;
 
-      // 2. Locations view
+      // 2. Locations view (Agregado Dinámico según filtro de Bots)
       const locBody = document.getElementById('rep-locations-table-body');
       locBody.innerHTML = '';
-      if (data.locations.length === 0) {
+      
+      const locMap = {};
+      opensToUse.forEach(o => {
+        const country = o.country || 'Desconocido';
+        locMap[country] = (locMap[country] || 0) + 1;
+      });
+      const locationsToUse = Object.entries(locMap)
+        .map(([country, count]) => ({ country, count }))
+        .sort((a, b) => b.count - a.count);
+
+      if (locationsToUse.length === 0) {
         locBody.innerHTML = `<tr><td colspan="3" class="py-8 text-center text-slate-400 text-xs font-bold">No hay datos de ubicación disponibles todavía.</td></tr>`;
       } else {
-        const maxLocOpens = Math.max(...data.locations.map(l => l.count)) || 1;
+        const maxLocOpens = Math.max(...locationsToUse.map(l => l.count)) || 1;
         let locHtml = '';
-        data.locations.forEach(l => {
-          const pct = c.opensCount > 0 ? ((l.count / c.opensCount) * 100).toFixed(1) : '0.0';
+        locationsToUse.forEach(l => {
+          const pct = opensCountVal > 0 ? ((l.count / opensCountVal) * 100).toFixed(1) : '0.0';
           const barPct = ((l.count / maxLocOpens) * 100).toFixed(0);
           locHtml += `
             <tr class="border-b border-slate-50 text-slate-600 font-bold">
@@ -6104,15 +6125,25 @@
         clickBody.innerHTML = clickHtml;
       }
 
-      // 4. Devices view
+      // 4. Devices view (Agregado Dinámico según filtro de Bots)
       const devBody = document.getElementById('rep-devices-container');
       devBody.innerHTML = '';
-      if (data.devices.length === 0) {
+      
+      const devMap = {};
+      opensToUse.forEach(o => {
+        const dev = o.device || 'Desktop';
+        devMap[dev] = (devMap[dev] || 0) + 1;
+      });
+      const devicesToUse = Object.entries(devMap)
+        .map(([device, count]) => ({ device, count }))
+        .sort((a, b) => b.count - a.count);
+
+      if (devicesToUse.length === 0) {
         devBody.innerHTML = `<p class="py-8 text-center text-slate-400 text-xs font-bold w-full col-span-3">No hay datos de dispositivos para mostrar.</p>`;
       } else {
         let devHtml = '';
-        data.devices.forEach(d => {
-          const pct = c.opensCount > 0 ? ((d.count / c.opensCount) * 100).toFixed(1) : '0.0';
+        devicesToUse.forEach(d => {
+          const pct = opensCountVal > 0 ? ((d.count / opensCountVal) * 100).toFixed(1) : '0.0';
           let icon = 'monitor';
           let color = 'text-blue-500 bg-blue-50 border-blue-100';
           if (d.device.toLowerCase() === 'mobile') {
@@ -6156,15 +6187,15 @@
         errBody.innerHTML = errHtml;
       }
 
-      // 6. Detailed Opens View
+      // 6. Detailed Opens View (Usa lista filtrada de Bots)
       const opensBody = document.getElementById('rep-opens-table-body');
       if (opensBody) {
         opensBody.innerHTML = '';
-        if (!data.opens || data.opens.length === 0) {
+        if (opensToUse.length === 0) {
           opensBody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-400 text-xs font-bold">No hay datos de apertura registrados todavía.</td></tr>`;
         } else {
           let opensHtml = '';
-          data.opens.forEach(o => {
+          opensToUse.forEach(o => {
             const openDate = new Date(o.opened_at || o.openedAt).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
             opensHtml += `
               <tr class="border-b border-slate-50 text-slate-600 font-bold text-xs">
@@ -6204,8 +6235,7 @@
       // Update tab headers with counts
       const opensTabBtn = document.getElementById('btn-report-tab-opens');
       if (opensTabBtn) {
-        const opensCount = data.opens ? data.opens.length : 0;
-        opensTabBtn.textContent = `Aperturas (${opensCount})`;
+        opensTabBtn.textContent = `Aperturas (${openCountVal})`;
       }
       
       const recipientsTabBtn = document.getElementById('btn-report-tab-recipients');
@@ -6297,6 +6327,11 @@
 
     window.openCampaignDetail = async function(id) {
       activeDetailCampaignId = id;
+
+      // Resetear checkbox de exclusión de bots
+      const chkBots = document.getElementById('chk-exclude-bots');
+      if (chkBots) chkBots.checked = false;
+
       openModal('modal-campaign-detail');
       
       const modal = document.getElementById('modal-campaign-detail');
@@ -8038,31 +8073,40 @@
       </div>
 
       <!-- Tabs Selector -->
-      <div class="flex border-b border-slate-100 overflow-x-auto gap-2 select-none scrollbar-none pb-1">
-        <button onclick="switchReportTab('stats')" id="btn-report-tab-stats" class="px-4 py-2 text-xs font-bold border-b-2 border-[#27bea5] text-[#27bea5] transition-all whitespace-nowrap">
-          Estadísticas de la campaña
-        </button>
-        <button onclick="switchReportTab('opens')" id="btn-report-tab-opens" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
-          Aperturas (Correos)
-        </button>
-        <button onclick="switchReportTab('recipients')" id="btn-report-tab-recipients" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
-          Entregados (Correos)
-        </button>
-        <button onclick="switchReportTab('locations')" id="btn-report-tab-locations" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
-          Aperturas por ubicación
-        </button>
-        <button onclick="switchReportTab('clicks')" id="btn-report-tab-clicks" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
-          Mapa de clics
-        </button>
-        <button onclick="switchReportTab('devices')" id="btn-report-tab-devices" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
-          Dispositivos
-        </button>
-        <button onclick="switchReportTab('errors')" id="btn-report-tab-errors" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
-          Estadísticas de error
-        </button>
-        <button onclick="switchReportTab('preview')" id="btn-report-tab-preview" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
-          Contenido Enviado
-        </button>
+      <div class="flex flex-col md:flex-row justify-between md:items-center border-b border-slate-100 pb-1 gap-3">
+        <div class="flex overflow-x-auto gap-2 select-none scrollbar-none flex-1">
+          <button onclick="switchReportTab('stats')" id="btn-report-tab-stats" class="px-4 py-2 text-xs font-bold border-b-2 border-[#27bea5] text-[#27bea5] transition-all whitespace-nowrap">
+            Estadísticas de la campaña
+          </button>
+          <button onclick="switchReportTab('opens')" id="btn-report-tab-opens" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
+            Aperturas (Correos)
+          </button>
+          <button onclick="switchReportTab('recipients')" id="btn-report-tab-recipients" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
+            Entregados (Correos)
+          </button>
+          <button onclick="switchReportTab('locations')" id="btn-report-tab-locations" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
+            Aperturas por ubicación
+          </button>
+          <button onclick="switchReportTab('clicks')" id="btn-report-tab-clicks" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
+            Mapa de clics
+          </button>
+          <button onclick="switchReportTab('devices')" id="btn-report-tab-devices" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
+            Dispositivos
+          </button>
+          <button onclick="switchReportTab('errors')" id="btn-report-tab-errors" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
+            Estadísticas de error
+          </button>
+          <button onclick="switchReportTab('preview')" id="btn-report-tab-preview" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all whitespace-nowrap">
+            Contenido Enviado
+          </button>
+        </div>
+        <div class="flex items-center gap-2 px-2 self-start md:self-auto pb-1 md:pb-0">
+          <label class="relative inline-flex items-center cursor-pointer select-none">
+            <input type="checkbox" id="chk-exclude-bots" onchange="toggleExcludeBots()" class="sr-only peer">
+            <div class="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#27bea5]"></div>
+            <span class="ms-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Filtro Antivirtual (Excluir Bots)</span>
+          </label>
+        </div>
       </div>
 
       <!-- Content Area Wrapper -->
