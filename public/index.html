@@ -518,6 +518,7 @@
               <div class="mt-4 relative z-10">
                 <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Base de Contactos</p>
                 <h3 class="text-3xl font-black text-[#1c2938] tracking-tight mt-0.5" id="kpi-contacts">0</h3>
+                <p class="text-[9px] text-slate-400 font-bold mt-1.5">Total (inc. inactivos): <span id="kpi-contacts-total">0</span></p>
               </div>
             </div>
 
@@ -4485,8 +4486,12 @@
 
     async function updateDashboardStats() {
       const activeContacts = contacts.filter(c => c.status === 'active').length;
+      const totalContacts = contacts.length;
       const kpiContacts = document.getElementById('kpi-contacts');
       if (kpiContacts) kpiContacts.textContent = activeContacts.toLocaleString();
+      
+      const kpiContactsTotal = document.getElementById('kpi-contacts-total');
+      if (kpiContactsTotal) kpiContactsTotal.textContent = totalContacts.toLocaleString();
 
       const unsubs = contacts.filter(c => c.status === 'unsubscribe').length;
       const kpiUnsubs = document.getElementById('kpi-unsubs');
@@ -6058,10 +6063,11 @@
         locBody.innerHTML = `<tr><td colspan="3" class="py-8 text-center text-slate-400 text-xs font-bold">No hay datos de ubicación disponibles todavía.</td></tr>`;
       } else {
         const maxLocOpens = Math.max(...data.locations.map(l => l.count)) || 1;
+        let locHtml = '';
         data.locations.forEach(l => {
           const pct = c.opensCount > 0 ? ((l.count / c.opensCount) * 100).toFixed(1) : '0.0';
           const barPct = ((l.count / maxLocOpens) * 100).toFixed(0);
-          locBody.innerHTML += `
+          locHtml += `
             <tr class="border-b border-slate-50 text-slate-600 font-bold">
               <td class="py-3.5 px-4 flex items-center gap-2">
                 <i data-lucide="map-pin" class="w-3.5 h-3.5 text-slate-400"></i> ${l.country}
@@ -6078,6 +6084,7 @@
             </tr>
           `;
         });
+        locBody.innerHTML = locHtml;
       }
 
       // 3. Clicks view
@@ -6087,10 +6094,11 @@
         clickBody.innerHTML = `<tr><td colspan="3" class="py-8 text-center text-slate-400 text-xs font-bold">No se registraron clics en enlaces para esta campaña.</td></tr>`;
       } else {
         const maxClicks = Math.max(...data.clicks.map(l => l.count)) || 1;
+        let clickHtml = '';
         data.clicks.forEach(l => {
           const ctr = delivered > 0 ? ((l.count / delivered) * 100).toFixed(1) : '0.0';
           const barPct = ((l.count / maxClicks) * 100).toFixed(0);
-          clickBody.innerHTML += `
+          clickHtml += `
             <tr class="border-b border-slate-50 text-slate-600 font-bold">
               <td class="py-3.5 px-4 font-mono text-[10px] text-left truncate max-w-xs">
                 <a href="${l.url}" target="_blank" class="text-blue-500 hover:underline flex items-center gap-1">
@@ -6109,6 +6117,7 @@
             </tr>
           `;
         });
+        clickBody.innerHTML = clickHtml;
       }
 
       // 4. Devices view
@@ -6117,6 +6126,7 @@
       if (data.devices.length === 0) {
         devBody.innerHTML = `<p class="py-8 text-center text-slate-400 text-xs font-bold w-full col-span-3">No hay datos de dispositivos para mostrar.</p>`;
       } else {
+        let devHtml = '';
         data.devices.forEach(d => {
           const pct = c.opensCount > 0 ? ((d.count / c.opensCount) * 100).toFixed(1) : '0.0';
           let icon = 'monitor';
@@ -6128,7 +6138,7 @@
             icon = 'tablet';
             color = 'text-purple-500 bg-purple-50 border-purple-100';
           }
-          devBody.innerHTML += `
+          devHtml += `
             <div class="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm flex items-center gap-4">
               <div class="${color} border p-3.5 rounded-2xl">
                 <i data-lucide="${icon}" class="w-6 h-6"></i>
@@ -6141,6 +6151,7 @@
             </div>
           `;
         });
+        devBody.innerHTML = devHtml;
       }
 
       // 5. Errors view
@@ -6149,14 +6160,16 @@
       if (data.campaign.errorDetails.length === 0) {
         errBody.innerHTML = `<tr><td colspan="2" class="py-8 text-center text-slate-400 text-xs font-bold">No se registraron errores de envío en esta campaña. ¡Todo entregado!</td></tr>`;
       } else {
+        let errHtml = '';
         data.campaign.errorDetails.forEach(e => {
-          errBody.innerHTML += `
+          errHtml += `
             <tr class="border-b border-slate-50 text-slate-600 font-bold text-xs">
               <td class="py-3.5 px-4">${e.email}</td>
               <td class="py-3.5 px-4 text-red-500">${e.error}</td>
             </tr>
           `;
         });
+        errBody.innerHTML = errHtml;
       }
 
       // 6. Detailed Opens View
@@ -6166,9 +6179,10 @@
         if (!data.opens || data.opens.length === 0) {
           opensBody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-400 text-xs font-bold">No hay datos de apertura registrados todavía.</td></tr>`;
         } else {
+          let opensHtml = '';
           data.opens.forEach(o => {
             const openDate = new Date(o.opened_at || o.openedAt).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-            opensBody.innerHTML += `
+            opensHtml += `
               <tr class="border-b border-slate-50 text-slate-600 font-bold text-xs">
                 <td class="py-3.5 px-4">${o.email}</td>
                 <td class="py-3.5 px-4">${o.device || 'Desktop'}</td>
@@ -6177,6 +6191,7 @@
               </tr>
             `;
           });
+          opensBody.innerHTML = opensHtml;
         }
       }
 
@@ -6187,8 +6202,9 @@
         if (!data.sentRecipients || data.sentRecipients.length === 0) {
           recBody.innerHTML = `<tr><td colspan="2" class="py-8 text-center text-slate-400 text-xs font-bold">No hay registros de correos entregados.</td></tr>`;
         } else {
+          let recHtml = '';
           data.sentRecipients.forEach(email => {
-            recBody.innerHTML += `
+            recHtml += `
               <tr class="border-b border-slate-50 text-slate-600 font-bold text-xs">
                 <td class="py-3.5 px-4">${email}</td>
                 <td class="py-3.5 px-4 text-right text-emerald-600 font-extrabold flex items-center justify-end gap-1">
@@ -6197,6 +6213,7 @@
               </tr>
             `;
           });
+          recBody.innerHTML = recHtml;
         }
       }
 
