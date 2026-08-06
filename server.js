@@ -2041,10 +2041,29 @@ app.get('/api/campaigns/:id/track-open', async (req, res) => {
       let country = req.headers['x-vercel-ip-country'] || req.headers['x-vercel-country'] || '';
       const uaLower = userAgent.toLowerCase();
 
+      // Detección de Proxies de Correo y Filtros de Seguridad (Antivirus/Bots)
+      const isAppleMPP = uaLower.includes('macintosh') && 
+                         uaLower.includes('intel mac os x 10_15_7') && 
+                         uaLower.includes('applewebkit/605.1.15') && 
+                         !uaLower.includes('safari/');
+      
+      const isGenericBot = uaLower.includes('bot') || 
+                           uaLower.includes('crawler') || 
+                           uaLower.includes('spider') ||
+                           uaLower.includes('microsoft office') ||
+                           uaLower.includes('office365') ||
+                           uaLower.includes('outlook-express') ||
+                           uaLower.includes('pingdom') ||
+                           uaLower.includes('safe links');
+
       if (uaLower.includes('googleimageproxy')) {
         country = 'Proxy (Gmail)';
       } else if (uaLower.includes('yahoooutsideimages')) {
         country = 'Proxy (Yahoo)';
+      } else if (isAppleMPP) {
+        country = 'Proxy (Apple Mail)';
+      } else if (isGenericBot) {
+        country = 'Proxy (Filtro Antivirus)';
       } else if (!country) {
         const acceptLanguage = req.headers['accept-language'] || '';
         if (acceptLanguage.includes('es')) {
@@ -2174,18 +2193,54 @@ app.get('/api/campaigns/:id/report', protectRoute, async (req, res) => {
 
     // Obtener lista detallada de aperturas reales
     const opensList = await sql`
-      SELECT email, device_type as device, location_country as country, opened_at 
+      SELECT email, device_type as device, location_country as country, user_agent as "userAgent", opened_at 
       FROM campaign_opens 
       WHERE campaign_id = ${campaignId} 
       ORDER BY opened_at DESC
     `;
+
+    const processedOpens = opensList.map(o => {
+      let country = o.country;
+      const uaLower = (o.userAgent || '').toLowerCase();
+      
+      const isAppleMPP = uaLower.includes('macintosh') && 
+                         uaLower.includes('intel mac os x 10_15_7') && 
+                         uaLower.includes('applewebkit/605.1.15') && 
+                         !uaLower.includes('safari/');
+      
+      const isGenericBot = uaLower.includes('bot') || 
+                           uaLower.includes('crawler') || 
+                           uaLower.includes('spider') ||
+                           uaLower.includes('microsoft office') ||
+                           uaLower.includes('office365') ||
+                           uaLower.includes('outlook-express') ||
+                           uaLower.includes('pingdom') ||
+                           uaLower.includes('safe links');
+
+      if (uaLower.includes('googleimageproxy')) {
+        country = 'Proxy (Gmail)';
+      } else if (uaLower.includes('yahoooutsideimages')) {
+        country = 'Proxy (Yahoo)';
+      } else if (isAppleMPP) {
+        country = 'Proxy (Apple Mail)';
+      } else if (isGenericBot) {
+        country = 'Proxy (Filtro Antivirus)';
+      }
+      
+      return {
+        email: o.email,
+        device: o.device,
+        country: country,
+        opened_at: o.opened_at
+      };
+    });
 
     let finalLocations = locations;
     let finalDevices = devices;
     let finalClicks = clicks;
     let finalOpensCount = opensCount;
     let finalClicksCount = clicksCount;
-    let finalOpens = opensList;
+    let finalOpens = processedOpens;
     let finalSentRecipients = campaign.sent_recipients || campaign.recipient_emails || [];
     let finalSuccessCount = campaign.success_count;
     if (finalSuccessCount === 0 && campaign.status === 'sent') {
