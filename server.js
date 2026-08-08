@@ -1671,15 +1671,17 @@ app.get('/api/templates/:id', protectRoute, async (req, res) => {
 app.post('/api/templates', protectRoute, express.json(), async (req, res) => {
   try {
     const userId = req.user.id;
-    const { name, html, design_json, footer_settings } = req.body;
+    const { name, html, html_content, design_json, blocks, footer_settings } = req.body;
+    const finalHtml = html || html_content;
+    const finalDesignJson = design_json || blocks || [];
 
-    if (!name || !html) {
+    if (!name || !finalHtml) {
       return res.status(400).json({ success: false, message: 'Falta nombre o contenido HTML' });
     }
 
     const inserted = await sql`
       INSERT INTO templates (kinde_id, name, html, design_json, footer_settings)
-      VALUES (${userId}, ${name}, ${html}, ${JSON.stringify(design_json || {})}, ${JSON.stringify(footer_settings || {})})
+      VALUES (${userId}, ${name}, ${finalHtml}, ${JSON.stringify(finalDesignJson)}, ${JSON.stringify(footer_settings || {})})
       RETURNING id, name, created_at
     `;
 
@@ -1694,17 +1696,19 @@ app.put('/api/templates/:id', protectRoute, express.json(), async (req, res) => 
   try {
     const userId = req.user.id;
     const { id } = req.params;
-    const { name, html, design_json, footer_settings } = req.body;
+    const { name, html, html_content, design_json, blocks, footer_settings } = req.body;
+    const finalHtml = html || html_content;
+    const finalDesignJson = design_json || blocks || [];
 
-    if (!name || !html) {
+    if (!name || !finalHtml) {
       return res.status(400).json({ success: false, message: 'Falta nombre o contenido HTML' });
     }
 
     const updated = await sql`
       UPDATE templates 
       SET name = ${name}, 
-          html = ${html}, 
-          design_json = ${JSON.stringify(design_json || {})},
+          html = ${finalHtml}, 
+          design_json = ${JSON.stringify(finalDesignJson)},
           footer_settings = ${JSON.stringify(footer_settings || {})}
       WHERE id = ${id} AND kinde_id = ${userId}
       RETURNING id, name, created_at
