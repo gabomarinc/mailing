@@ -1763,9 +1763,13 @@ app.post('/api/global-footers', protectRoute, express.json(), async (req, res) =
     const userId = req.user.id;
     const { 
       id, name, show_logo, logo_url, logo_width, address, email, phone, 
-      facebook, instagram, twitter, linkedin, unsubscribe_text, link_color, 
-      use_icons, is_default 
+      unsubscribe_text, link_color, use_icons, is_default 
     } = req.body;
+    
+    const facebook = req.body.facebook || req.body.socials?.facebook;
+    const instagram = req.body.instagram || req.body.socials?.instagram;
+    const twitter = req.body.twitter || req.body.socials?.twitter;
+    const linkedin = req.body.linkedin || req.body.socials?.linkedin;
 
     if (!name) {
       return res.status(400).json({ success: false, message: 'Falta el nombre del footer global.' });

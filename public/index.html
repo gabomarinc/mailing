@@ -7289,7 +7289,12 @@
       footerSettings.address = gf.address;
       footerSettings.email = gf.email;
       footerSettings.phone = gf.phone;
-      footerSettings.socials = { ...gf.socials };
+      footerSettings.socials = {
+        facebook: gf.facebook || gf.socials?.facebook || '',
+        instagram: gf.instagram || gf.socials?.instagram || '',
+        twitter: gf.twitter || gf.socials?.twitter || '',
+        linkedin: gf.linkedin || gf.socials?.linkedin || ''
+      };
       footerSettings.linkColor = gf.link_color;
       footerSettings.useIcons = gf.use_icons;
       footerSettings.unsubscribeText = gf.unsubscribe_text;
@@ -7313,7 +7318,12 @@
       templateFooterSettings.address = gf.address;
       templateFooterSettings.email = gf.email;
       templateFooterSettings.phone = gf.phone;
-      templateFooterSettings.socials = { ...gf.socials };
+      templateFooterSettings.socials = {
+        facebook: gf.facebook || gf.socials?.facebook || '',
+        instagram: gf.instagram || gf.socials?.instagram || '',
+        twitter: gf.twitter || gf.socials?.twitter || '',
+        linkedin: gf.linkedin || gf.socials?.linkedin || ''
+      };
       templateFooterSettings.linkColor = gf.link_color;
       templateFooterSettings.useIcons = gf.use_icons;
       templateFooterSettings.unsubscribeText = gf.unsubscribe_text;
@@ -7324,10 +7334,10 @@
       document.getElementById('tpl-footer-address').value = gf.address || '';
       document.getElementById('tpl-footer-email').value = gf.email || '';
       document.getElementById('tpl-footer-phone').value = gf.phone || '';
-      document.getElementById('tpl-footer-fb').value = gf.socials?.facebook || '';
-      document.getElementById('tpl-footer-ig').value = gf.socials?.instagram || '';
-      document.getElementById('tpl-footer-tw').value = gf.socials?.twitter || '';
-      document.getElementById('tpl-footer-li').value = gf.socials?.linkedin || '';
+      document.getElementById('tpl-footer-fb').value = gf.facebook || gf.socials?.facebook || '';
+      document.getElementById('tpl-footer-ig').value = gf.instagram || gf.socials?.instagram || '';
+      document.getElementById('tpl-footer-tw').value = gf.twitter || gf.socials?.twitter || '';
+      document.getElementById('tpl-footer-li').value = gf.linkedin || gf.socials?.linkedin || '';
       document.getElementById('tpl-footer-link-color').value = gf.link_color || '#27bea5';
       document.getElementById('tpl-footer-use-icons').value = gf.use_icons ? 'true' : 'false';
       document.getElementById('tpl-footer-unsub').value = gf.unsubscribe_text || 'Desuscribirse';
@@ -7346,6 +7356,63 @@
       templateFooterSettings.socials[key] = val;
       document.getElementById('gf-template-select').value = 'custom';
       updateTemplateLivePreview();
+    };
+
+    window.saveTemplateFooterAsGlobal = async function() {
+      const name = prompt("Introduce un nombre para este Footer Global:", "Footer Global Desde Plantilla");
+      if (!name || !name.trim()) return;
+
+      const payload = {
+        name: name.trim(),
+        show_logo: !!templateFooterSettings.showLogo,
+        logo_url: templateFooterSettings.logoUrl || '',
+        logo_width: parseInt(templateFooterSettings.logoWidth || 120, 10),
+        address: templateFooterSettings.address || '',
+        email: templateFooterSettings.email || '',
+        phone: templateFooterSettings.phone || '',
+        socials: {
+          facebook: templateFooterSettings.socials?.facebook || '',
+          instagram: templateFooterSettings.socials?.instagram || '',
+          twitter: templateFooterSettings.socials?.twitter || '',
+          linkedin: templateFooterSettings.socials?.linkedin || ''
+        },
+        link_color: templateFooterSettings.linkColor || '#27bea5',
+        use_icons: !!templateFooterSettings.useIcons,
+        unsubscribe_text: templateFooterSettings.unsubscribeText || 'Desuscribirse',
+        is_default: false
+      };
+
+      try {
+        const res = await fetch('/api/global-footers', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}`
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Footer guardado como global con éxito', 'success');
+          if (window.loadGlobalFootersList) {
+            await window.loadGlobalFootersList();
+          }
+          if (window.populateGlobalFooterSelects) {
+            window.populateGlobalFooterSelects();
+          }
+          if (data.footer && data.footer.id) {
+            const selectEl = document.getElementById('gf-template-select');
+            if (selectEl) {
+              selectEl.value = data.footer.id;
+            }
+          }
+        } else {
+          showToast(data.message || 'Error al guardar footer', 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Error de conexión', 'error');
+      }
     };
 
 
@@ -8431,10 +8498,15 @@
           <div class="bg-slate-50/50 border border-slate-100 rounded-[1.5rem] p-5 space-y-4 text-left">
             <div class="space-y-1.5">
               <label for="gf-template-select" class="text-xs font-bold text-[#1c2938] uppercase tracking-wider block">Configuración de Footer</label>
-              <select id="gf-template-select" onchange="applyGlobalFooterToTemplate(this.value)" class="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5] cursor-pointer">
-                <option value="custom">Personalizado para esta plantilla</option>
-                <!-- Loaded Dynamically -->
-              </select>
+              <div class="flex flex-col sm:flex-row gap-2">
+                <select id="gf-template-select" onchange="applyGlobalFooterToTemplate(this.value)" class="flex-1 p-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5] cursor-pointer">
+                  <option value="custom">Personalizado para esta plantilla</option>
+                  <!-- Loaded Dynamically -->
+                </select>
+                <button type="button" onclick="saveTemplateFooterAsGlobal()" class="px-3 py-2 bg-[#27bea5]/10 hover:bg-[#27bea5]/20 text-[#27bea5] rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-1 border border-[#27bea5]/20" title="Guardar cambios manuales como Footer Global">
+                  <i data-lucide="save" class="w-3.5 h-3.5"></i> Guardar como Global
+                </button>
+              </div>
             </div>
             
             <div class="flex items-center justify-between">
