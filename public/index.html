@@ -7531,7 +7531,7 @@
         });
         const data = await res.json();
         if (data.success) {
-          const t = data.data;
+          const t = data.template || data.data;
           editingTemplateName = t.name;
           templateBlocks = t.blocks || [];
           templateFooterSettings = t.footer_settings || { ...templateFooterSettings };
