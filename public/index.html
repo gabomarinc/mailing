@@ -5110,7 +5110,8 @@
           body: JSON.stringify({
             name,
             html,
-            design_json: campaignBlocks
+            design_json: campaignBlocks,
+            footer_settings: footerSettings
           })
         });
 
@@ -5205,6 +5206,21 @@
         if (data.success && data.template) {
           const tpl = data.template;
           campaignBlocks = tpl.design_json || [];
+          
+          // Cargar footer de la plantilla si existe
+          if (tpl.footer_settings && Object.keys(tpl.footer_settings).length > 0) {
+            Object.assign(footerSettings, tpl.footer_settings);
+            const campSelect = document.getElementById('gf-campaign-select');
+            if (campSelect) campSelect.value = 'custom';
+            
+            const form = document.getElementById('footer-config-form');
+            if (form) form.classList.remove('hidden');
+            
+            if (window.initializeFooterInputs) {
+              window.initializeFooterInputs();
+            }
+          }
+
           renderBuilderCanvas();
           updateLivePreview();
           showToast('Plantilla cargada con éxito.', 'success');
