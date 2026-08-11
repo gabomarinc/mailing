@@ -7967,6 +7967,44 @@
       }
     }
 
+    function initializeTemplateFooterInputs() {
+      const showLogo = document.getElementById('tpl-footer-show-logo');
+      if (showLogo) showLogo.checked = !!templateFooterSettings.showLogo;
+      
+      const logoUrl = document.getElementById('tpl-footer-logo-url');
+      if (logoUrl) logoUrl.value = templateFooterSettings.logoUrl || '';
+      
+      const address = document.getElementById('tpl-footer-address');
+      if (address) address.value = templateFooterSettings.address || '';
+      
+      const email = document.getElementById('tpl-footer-email');
+      if (email) email.value = templateFooterSettings.email || '';
+      
+      const phone = document.getElementById('tpl-footer-phone');
+      if (phone) phone.value = templateFooterSettings.phone || '';
+      
+      const fb = document.getElementById('tpl-footer-fb');
+      if (fb) fb.value = templateFooterSettings.socials?.facebook || '';
+      
+      const ig = document.getElementById('tpl-footer-ig');
+      if (ig) ig.value = templateFooterSettings.socials?.instagram || '';
+      
+      const tw = document.getElementById('tpl-footer-tw');
+      if (tw) tw.value = templateFooterSettings.socials?.twitter || '';
+      
+      const li = document.getElementById('tpl-footer-li');
+      if (li) li.value = templateFooterSettings.socials?.linkedin || '';
+      
+      const linkColor = document.getElementById('tpl-footer-link-color');
+      if (linkColor) linkColor.value = templateFooterSettings.linkColor || '#27bea5';
+      
+      const useIcons = document.getElementById('tpl-footer-use-icons');
+      if (useIcons) useIcons.value = templateFooterSettings.useIcons ? 'true' : 'false';
+      
+      const unsub = document.getElementById('tpl-footer-unsub');
+      if (unsub) unsub.value = templateFooterSettings.unsubscribeText || 'Desuscribirse';
+    }
+
     // --- DISEÑADOR MULTI-BLOQUE INDEPENDIENTE ---
     window.openCreateTemplateEditor = function() {
       editingTemplateId = null;
@@ -7994,6 +8032,7 @@
         document.getElementById('gf-template-select').value = 'custom';
       }
 
+      initializeTemplateFooterInputs();
       document.getElementById('template-editor-title').textContent = 'NUEVA PLANTILLA DE MAILING';
       document.getElementById('template-editor-subtitle').textContent = 'Construye tu correo modular Lego y guárdalo como plantilla.';
       
@@ -8026,6 +8065,7 @@
           
           document.getElementById('gf-template-select').value = 'custom';
 
+          initializeTemplateFooterInputs();
           renderTemplateBuilderCanvas();
           updateTemplateLivePreview();
 
