@@ -1084,6 +1084,122 @@
                   </div>
 
 
+                  <!-- A/B Testing Toggle Card -->
+                  <div class="bg-slate-50 border border-slate-100 rounded-3xl p-6 mt-6 space-y-4">
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-3">
+                        <div class="bg-purple-100 text-purple-600 p-2 rounded-xl">
+                          <i data-lucide="split" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                          <h4 class="text-xs font-extrabold text-[#1B2939] uppercase tracking-wide">Prueba A/B (Split Testing)</h4>
+                          <p class="text-[10px] text-slate-400 mt-0.5">Compara dos versiones de tu campaña para optimizar el rendimiento.</p>
+                        </div>
+                      </div>
+                      <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="campaign-ab-toggle" onchange="toggleAbTestingSection(this.checked)" class="sr-only peer">
+                        <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#27bea5]"></div>
+                      </label>
+                    </div>
+
+                    <!-- Panel de configuración A/B -->
+                    <div id="ab-testing-config-panel" class="hidden space-y-5 pt-4 border-t border-slate-200/60 text-left">
+                      <!-- Variable a Probar -->
+                      <div class="space-y-1.5">
+                        <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Variable a comparar</label>
+                        <div class="grid grid-cols-3 gap-2">
+                          <label class="flex flex-col items-center justify-center p-3 bg-white border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors text-center">
+                            <input type="radio" name="ab-test-variable" value="subject" checked onchange="handleAbVariableChange('subject')" class="sr-only peer">
+                            <i data-lucide="mail" class="w-4 h-4 text-slate-400 mb-1"></i>
+                            <span class="text-[10px] font-bold text-slate-700">Asunto</span>
+                          </label>
+                          <label class="flex flex-col items-center justify-center p-3 bg-white border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors text-center">
+                            <input type="radio" name="ab-test-variable" value="sender" onchange="handleAbVariableChange('sender')" class="sr-only peer">
+                            <i data-lucide="user" class="w-4 h-4 text-slate-400 mb-1"></i>
+                            <span class="text-[10px] font-bold text-slate-700">Remitente</span>
+                          </label>
+                          <label class="flex flex-col items-center justify-center p-3 bg-white border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors text-center">
+                            <input type="radio" name="ab-test-variable" value="content" onchange="handleAbVariableChange('content')" class="sr-only peer">
+                            <i data-lucide="layout" class="w-4 h-4 text-slate-400 mb-1"></i>
+                            <span class="text-[10px] font-bold text-slate-700">Contenido</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <!-- Campos de Variación B -->
+                      <div id="ab-var-b-fields" class="space-y-4">
+                        <!-- Campos para Asunto B -->
+                        <div id="ab-var-b-subject-container" class="space-y-2">
+                          <label for="campaign-ab-subject-b" class="text-xs font-bold text-[#1c2938]">Asunto del Correo (Variación B)</label>
+                          <input 
+                            type="text" 
+                            id="campaign-ab-subject-b" 
+                            placeholder="Ej: Oferta imperdible solo por hoy ⚡"
+                            class="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] transition-all"
+                          >
+                        </div>
+
+                        <!-- Campos para Remitente B -->
+                        <div id="ab-var-b-sender-container" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                          <div class="space-y-2">
+                            <label for="campaign-ab-sender-name-b" class="text-xs font-bold text-[#1c2938]">Nombre del Remitente (Variación B)</label>
+                            <input 
+                              type="text" 
+                              id="campaign-ab-sender-name-b" 
+                              placeholder="Ej: Soporte Kônsul"
+                              class="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] transition-all"
+                            >
+                          </div>
+                          <div class="space-y-2">
+                            <label for="campaign-ab-sender-email-b" class="text-xs font-bold text-[#1c2938]">Email del Remitente (Variación B)</label>
+                            <select id="campaign-ab-sender-email-b" class="w-full p-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-[#1c2938] outline-none focus:border-[#27bea5] transition-all cursor-pointer">
+                              <option value="">Cargando remitentes...</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <!-- Info de Contenido B -->
+                        <div id="ab-var-b-content-info" class="hidden p-4 bg-purple-50 border border-purple-100 rounded-2xl text-left">
+                          <p class="text-[10px] text-purple-700 font-bold uppercase tracking-wider mb-1">Diseño de Contenidos Diferentes</p>
+                          <p class="text-[11px] text-purple-800 leading-relaxed">Podrás diseñar y alternar entre el diseño de la <strong>Variación A</strong> y la <strong>Variación B</strong> en el siguiente paso (Paso 3) usando pestañas dedicadas.</p>
+                        </div>
+                      </div>
+
+                      <!-- Distribución y Criterio -->
+                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-200/50 pt-4 text-left">
+                        <div class="space-y-2">
+                          <div class="flex justify-between items-center">
+                            <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Tamaño de la Prueba (Split)</label>
+                            <span id="ab-split-pct-label" class="text-[11px] font-extrabold text-[#27bea5]">20%</span>
+                          </div>
+                          <input type="range" id="campaign-ab-split" min="10" max="50" step="5" value="20" oninput="document.getElementById('ab-split-pct-label').textContent = this.value + '%'" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#27bea5]">
+                          <p class="text-[9px] text-slate-400 mt-1">Se enviará a un <span class="font-bold">10%</span> la versión A, a otro <span class="font-bold">10%</span> la versión B, y el <span class="font-bold">80%</span> restante recibirá el ganador.</p>
+                        </div>
+
+                        <div class="space-y-2">
+                          <label for="campaign-ab-metric" class="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Criterio para elegir ganador</label>
+                          <select id="campaign-ab-metric" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5] cursor-pointer">
+                            <option value="opens">Mayor Tasa de Apertura (Opens)</option>
+                            <option value="clicks">Mayor Tasa de Clicks</option>
+                          </select>
+
+                          <div class="flex items-center gap-2 mt-2">
+                            <label for="campaign-ab-hours" class="text-[11px] font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">Esperar</label>
+                            <select id="campaign-ab-hours" class="w-20 px-2 py-1 bg-white border border-slate-200 rounded-xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5] cursor-pointer">
+                              <option value="1">1 hora</option>
+                              <option value="2">2 horas</option>
+                              <option value="4" selected>4 horas</option>
+                              <option value="8">8 horas</option>
+                              <option value="12">12 horas</option>
+                              <option value="24">24 horas</option>
+                            </select>
+                            <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wide">para decidir</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
 
                 <div class="flex justify-between pt-4 border-t border-slate-100">
@@ -1111,6 +1227,18 @@
                       <div>
                         <h3 class="text-sm font-extrabold text-[#1B2939]">PASO 3: DISEÑO</h3>
                         <p class="text-xs text-brand-gray mt-0.5">Elige un estilo y personaliza el texto.</p>
+                      </div>
+                    </div>
+
+                    <!-- A/B Content Toggle Tabs (Hidden by default) -->
+                    <div id="ab-content-tabs-container" class="hidden flex items-center justify-between bg-purple-50/50 p-3 border border-purple-100 rounded-2xl mb-4 text-left">
+                      <div>
+                        <span class="text-[9px] font-bold text-purple-400 uppercase tracking-wide block">Editando Variación</span>
+                        <span id="ab-active-var-label" class="text-xs font-bold text-purple-800">Variación A (Control)</span>
+                      </div>
+                      <div class="flex gap-1.5">
+                        <button type="button" id="ab-tab-a" onclick="switchAbVariation('a')" class="px-4 py-2 text-xs font-bold rounded-xl bg-[#27bea5] text-white shadow-sm transition-all">Variación A</button>
+                        <button type="button" id="ab-tab-b" onclick="switchAbVariation('b')" class="px-4 py-2 text-xs font-bold rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all">Variación B</button>
                       </div>
                     </div>
 
@@ -4731,6 +4859,25 @@
           showToast('Por favor completa todos los campos de configuración (Nombre, Remitente, Email y Asunto).', 'error');
           return;
         }
+
+        const abToggle = document.getElementById('campaign-ab-toggle').checked;
+        if (abToggle) {
+          const abTestType = document.querySelector('input[name="ab-test-variable"]:checked').value;
+          if (abTestType === 'subject') {
+            const subjectB = document.getElementById('campaign-ab-subject-b').value.trim();
+            if (!subjectB) {
+              showToast('Introduce el Asunto para la Variación B de tu prueba A/B.', 'error');
+              return;
+            }
+          } else if (abTestType === 'sender') {
+            const senderNameB = document.getElementById('campaign-ab-sender-name-b').value.trim();
+            const senderEmailB = document.getElementById('campaign-ab-sender-email-b').value.trim();
+            if (!senderNameB || !senderEmailB) {
+              showToast('Completa el Nombre y Email para la Variación B del Remitente.', 'error');
+              return;
+            }
+          }
+        }
       }
 
       currentCampaignStep = step;
@@ -4760,10 +4907,124 @@
 
       if (step === 3) {
         initializeFooterInputs();
+        
+        // Manejo de A/B Content Tabs
+        const abTabs = document.getElementById('ab-content-tabs-container');
+        const abToggle = document.getElementById('campaign-ab-toggle');
+        const isAbTest = abToggle ? abToggle.checked : false;
+        const abTestType = document.querySelector('input[name="ab-test-variable"]:checked')?.value || 'subject';
+        
+        if (isAbTest && abTestType === 'content') {
+          if (abTabs) abTabs.classList.remove('hidden');
+          window.currentAbVariation = 'a';
+          window.abBlocks = { a: JSON.parse(JSON.stringify(campaignBlocks)), b: window.abBlocks.b || [] };
+          
+          const tabA = document.getElementById('ab-tab-a');
+          const tabB = document.getElementById('ab-tab-b');
+          if (tabA && tabB) {
+            tabA.className = "px-4 py-2 text-xs font-bold rounded-xl bg-[#27bea5] text-white shadow-sm transition-all";
+            tabB.className = "px-4 py-2 text-xs font-bold rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all";
+          }
+          const label = document.getElementById('ab-active-var-label');
+          if (label) label.textContent = 'Variación A (Control)';
+        } else {
+          if (abTabs) abTabs.classList.add('hidden');
+        }
+
         renderBuilderCanvas();
         updateLivePreview();
       }
       lucide.createIcons();
+    }
+
+    // A/B Testing Helper Functions
+    window.toggleAbTestingSection = function(isChecked) {
+      const panel = document.getElementById('ab-testing-config-panel');
+      if (isChecked) {
+        panel.classList.remove('hidden');
+        // Clonar remitentes
+        const primarySelect = document.getElementById('campaign-sender-email');
+        const selectB = document.getElementById('campaign-ab-sender-email-b');
+        if (primarySelect && selectB) {
+          selectB.innerHTML = primarySelect.innerHTML;
+          // select first option by default
+          selectB.selectedIndex = primarySelect.selectedIndex;
+        }
+      } else {
+        panel.classList.add('hidden');
+      }
+      lucide.createIcons();
+    };
+
+    window.handleAbVariableChange = function(variable) {
+      const subjectCont = document.getElementById('ab-var-b-subject-container');
+      const senderCont = document.getElementById('ab-var-b-sender-container');
+      const contentInfo = document.getElementById('ab-var-b-content-info');
+      
+      subjectCont.classList.add('hidden');
+      senderCont.classList.add('hidden');
+      contentInfo.classList.add('hidden');
+      
+      if (variable === 'subject') {
+        subjectCont.classList.remove('hidden');
+      } else if (variable === 'sender') {
+        senderCont.classList.remove('hidden');
+      } else if (variable === 'content') {
+        contentInfo.classList.remove('hidden');
+      }
+      lucide.createIcons();
+    };
+
+    window.abBlocks = { a: [], b: [] };
+    window.currentAbVariation = 'a';
+
+    window.syncCurrentAbBlocks = function() {
+      if (window.currentAbVariation === 'a') {
+        window.abBlocks.a = JSON.parse(JSON.stringify(campaignBlocks));
+      } else {
+        window.abBlocks.b = JSON.parse(JSON.stringify(campaignBlocks));
+      }
+    };
+
+    window.switchAbVariation = function(target) {
+      if (window.currentAbVariation === target) return;
+      
+      window.syncCurrentAbBlocks();
+      window.currentAbVariation = target;
+      
+      if (target === 'b' && (!window.abBlocks.b || window.abBlocks.b.length === 0) && window.abBlocks.a.length > 0) {
+        window.abBlocks.b = JSON.parse(JSON.stringify(window.abBlocks.a));
+      }
+      
+      campaignBlocks = JSON.parse(JSON.stringify(window.abBlocks[target] || []));
+      
+      renderBuilderCanvas();
+      updateLivePreview();
+      
+      const label = document.getElementById('ab-active-var-label');
+      if (label) {
+        label.textContent = target === 'a' ? 'Variación A (Control)' : 'Variación B (Test)';
+      }
+
+      const tabA = document.getElementById('ab-tab-a');
+      const tabB = document.getElementById('ab-tab-b');
+      if (tabA && tabB) {
+        if (target === 'a') {
+          tabA.className = "px-4 py-2 text-xs font-bold rounded-xl bg-[#27bea5] text-white shadow-sm transition-all";
+          tabB.className = "px-4 py-2 text-xs font-bold rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all";
+        } else {
+          tabA.className = "px-4 py-2 text-xs font-bold rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all";
+          tabB.className = "px-4 py-2 text-xs font-bold rounded-xl bg-[#27bea5] text-white shadow-sm transition-all";
+        }
+      }
+    };
+
+    function compileVariationHtml(blocks, isLivePreview = false) {
+      const originalBlocks = campaignBlocks;
+      campaignBlocks = blocks;
+      const html = compileBuilderHtml(isLivePreview);
+      campaignBlocks = originalBlocks;
+      return html;
     }
 
     function updateLivePreview() {
@@ -5788,6 +6049,21 @@
         microcopyText.textContent = microcopies[microIndex];
       }, 3500);
 
+      const abToggle = document.getElementById('campaign-ab-toggle').checked;
+      const abTestType = abToggle ? document.querySelector('input[name="ab-test-variable"]:checked').value : null;
+      const abVarBSubject = abToggle && abTestType === 'subject' ? document.getElementById('campaign-ab-subject-b').value.trim() : null;
+      const abVarBSenderName = abToggle && abTestType === 'sender' ? document.getElementById('campaign-ab-sender-name-b').value.trim() : null;
+      const abVarBSenderEmail = abToggle && abTestType === 'sender' ? document.getElementById('campaign-ab-sender-email-b').value.trim() : null;
+      const abSplitPct = abToggle ? parseInt(document.getElementById('campaign-ab-split').value) : 20;
+      const abWinnerMetric = abToggle ? document.getElementById('campaign-ab-metric').value : 'opens';
+      const abDurationHours = abToggle ? parseInt(document.getElementById('campaign-ab-hours').value) : 4;
+      
+      let abVarBBody = null;
+      if (abToggle && abTestType === 'content') {
+        window.syncCurrentAbBlocks();
+        abVarBBody = compileVariationHtml(window.abBlocks.b, false);
+      }
+
       try {
         const response = await fetch('/api/send-bulk', {
           method: 'POST',
@@ -5800,7 +6076,16 @@
             recipients: targets,
             limit,
             targetTags: isAllSelected ? [] : selectedTags,
-            scheduledFor
+            scheduledFor,
+            isAbTest: abToggle,
+            abTestType,
+            abVarBSubject,
+            abVarBBody,
+            abVarBSenderName,
+            abVarBSenderEmail,
+            abSplitPct,
+            abWinnerMetric,
+            abDurationHours
           })
         });
 
@@ -5952,6 +6237,86 @@
       if (!currentCampaignReport) return;
       const data = currentCampaignReport;
       const c = data.campaign;
+
+      // A/B Comparative View
+      const abCard = document.getElementById('rep-ab-comparison-card');
+      if (abCard) {
+        if (c.isAbTest) {
+          abCard.classList.remove('hidden');
+          
+          // Set Type Badge
+          const typeBadge = document.getElementById('rep-ab-type-badge');
+          let testTypeLabel = 'Asunto';
+          if (c.abTestType === 'sender') testTypeLabel = 'Remitente';
+          if (c.abTestType === 'content') testTypeLabel = 'Contenido';
+          if (typeBadge) typeBadge.textContent = `Comparando: ${testTypeLabel}`;
+          
+          // Set Details
+          const detailA = document.getElementById('rep-ab-detail-a');
+          const detailB = document.getElementById('rep-ab-detail-b');
+          if (c.abTestType === 'subject') {
+            if (detailA) detailA.textContent = c.subject;
+            if (detailB) detailB.textContent = c.abVarBSubject;
+          } else if (c.abTestType === 'sender') {
+            if (detailA) detailA.textContent = `${c.senderName || 'Por defecto'} (${c.senderEmail})`;
+            if (detailB) detailB.textContent = `${c.abVarBSenderName || 'Por defecto'} (${c.abVarBSenderEmail})`;
+          } else if (c.abTestType === 'content') {
+            if (detailA) detailA.textContent = 'Plantilla / Contenido A (Control)';
+            if (detailB) detailB.textContent = 'Plantilla / Contenido B (Variante)';
+          }
+
+          // Set counts
+          const opensA = c.abOpensA || 0;
+          const opensB = c.abOpensB || 0;
+          const clicksA = c.abClicksA || 0;
+          const clicksB = c.abClicksB || 0;
+          
+          const sizeA = c.abRecipientsCountA || 1;
+          const sizeB = c.abRecipientsCountB || 1;
+          
+          const openRateA = ((opensA / sizeA) * 100).toFixed(1);
+          const openRateB = ((opensB / sizeB) * 100).toFixed(1);
+          const clickRateA = ((clicksA / sizeA) * 100).toFixed(1);
+          const clickRateB = ((clicksB / sizeB) * 100).toFixed(1);
+
+          document.getElementById('rep-ab-opens-a').innerHTML = `${opensA} <span class="text-[10px] font-bold text-slate-400">(${openRateA}%)</span>`;
+          document.getElementById('rep-ab-opens-b').innerHTML = `${opensB} <span class="text-[10px] font-bold text-slate-400">(${openRateB}%)</span>`;
+          document.getElementById('rep-ab-clicks-a').innerHTML = `${clicksA} <span class="text-[10px] font-bold text-slate-400">(${clickRateA}%)</span>`;
+          document.getElementById('rep-ab-clicks-b').innerHTML = `${clicksB} <span class="text-[10px] font-bold text-slate-400">(${clickRateB}%)</span>`;
+
+          // Winner Badges and Status description
+          const badgeA = document.getElementById('rep-ab-badge-a');
+          const badgeB = document.getElementById('rep-ab-badge-b');
+          const winnerBadge = document.getElementById('rep-ab-winner-badge');
+          const footerDesc = document.getElementById('rep-ab-footer-desc');
+
+          badgeA.classList.add('hidden');
+          badgeB.classList.add('hidden');
+
+          if (c.abStatus === 'testing') {
+            winnerBadge.className = "px-3 py-1 bg-amber-500 text-white font-extrabold text-[10px] uppercase rounded-full shadow-sm";
+            winnerBadge.textContent = "Prueba en curso ⏳";
+            
+            const hours = c.abDurationHours || 4;
+            footerDesc.textContent = `La prueba A/B se enviará al grupo ganador automáticamente tras ${hours} horas de evaluación.`;
+          } else if (c.abStatus === 'completed') {
+            const winner = c.abWinnerSelected || 'a';
+            winnerBadge.className = "px-3 py-1 bg-emerald-500 text-white font-extrabold text-[10px] uppercase rounded-full shadow-sm";
+            winnerBadge.textContent = `Ganador: Versión ${winner.toUpperCase()} 🎉`;
+            
+            if (winner === 'a') {
+              badgeA.classList.remove('hidden');
+            } else {
+              badgeB.classList.remove('hidden');
+            }
+            
+            const metricLabel = c.abWinnerMetric === 'clicks' ? 'clicks' : 'aperturas';
+            footerDesc.textContent = `La versión ${winner.toUpperCase()} ganó por mayor número de ${metricLabel} y fue enviada al resto de la lista de distribución.`;
+          }
+        } else {
+          abCard.classList.add('hidden');
+        }
+      }
 
       const delivered = c.successCount;
       const errors = c.failedCount;
@@ -7911,6 +8276,37 @@
       }
     };
 
+    window.uploadTemplateFooterLogo = async function(input) {
+      const file = input.files[0];
+      if (!file) return;
+
+      const statusSpan = document.getElementById('tpl-footer-logo-upload-status');
+      if (statusSpan) {
+        statusSpan.className = 'text-[9px] font-bold text-slate-400';
+        statusSpan.textContent = '⏳ Subiendo...';
+        statusSpan.classList.remove('hidden');
+      }
+
+      try {
+        const logoUrl = await uploadFileToCatbox(file);
+        updateTemplateFooterSetting('logoUrl', logoUrl);
+        const logoInput = document.getElementById('tpl-footer-logo-url');
+        if (logoInput) logoInput.value = logoUrl;
+        
+        if (statusSpan) {
+          statusSpan.className = 'text-[9px] font-bold text-emerald-500';
+          statusSpan.textContent = '✓ Subida';
+        }
+      } catch (err) {
+        console.error(err);
+        if (statusSpan) {
+          statusSpan.className = 'text-[9px] font-bold text-rose-500';
+          statusSpan.textContent = '❌ Error';
+        }
+        showToast('No se pudo subir el logo.', 'error');
+      }
+    };
+
     function compileTemplateBuilderHtml() {
       let blocksHtml = '';
 
@@ -8273,6 +8669,73 @@
 
         <!-- View 1: Stats -->
         <div id="report-view-stats" class="flex-1 overflow-y-auto pr-1 space-y-6">
+          <!-- A/B Comparison Card (Hidden by default) -->
+          <div id="rep-ab-comparison-card" class="hidden mb-6 p-6 bg-purple-50/50 border border-purple-100 rounded-[2rem] space-y-4 text-left">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="bg-purple-100 text-purple-600 p-2.5 rounded-2xl">
+                  <i data-lucide="split" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h4 class="text-sm font-extrabold text-purple-900">Resultado de la Prueba A/B</h4>
+                  <p class="text-[10px] text-purple-600 font-bold uppercase tracking-wider mt-0.5" id="rep-ab-type-badge">Comparando Asunto</p>
+                </div>
+              </div>
+              <div id="rep-ab-winner-badge" class="px-3 py-1 bg-purple-600 text-white font-extrabold text-[10px] uppercase rounded-full shadow-sm">
+                Esperando resultados...
+              </div>
+            </div>
+
+            <!-- Comparación A vs B -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Versión A -->
+              <div class="bg-white border border-slate-100 rounded-2xl p-4 space-y-3 relative overflow-hidden">
+                <div class="flex justify-between items-center">
+                  <span class="text-[10px] font-bold text-slate-400 uppercase">Versión A (Control)</span>
+                  <span id="rep-ab-badge-a" class="hidden px-2 py-0.5 bg-emerald-500 text-white font-black text-[9px] uppercase rounded-md">Ganadora</span>
+                </div>
+                <div class="space-y-1">
+                  <p class="text-[10px] font-bold text-slate-400 uppercase">Detalle probado</p>
+                  <p id="rep-ab-detail-a" class="text-xs font-bold text-slate-700 break-all"></p>
+                </div>
+                <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100/60">
+                  <div>
+                    <span class="text-[9px] font-bold text-slate-400 uppercase">Aperturas</span>
+                    <p id="rep-ab-opens-a" class="text-sm font-black text-slate-800">0</p>
+                  </div>
+                  <div>
+                    <span class="text-[9px] font-bold text-slate-400 uppercase">Clicks</span>
+                    <p id="rep-ab-clicks-a" class="text-sm font-black text-slate-800">0</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Versión B -->
+              <div class="bg-white border border-slate-100 rounded-2xl p-4 space-y-3 relative overflow-hidden">
+                <div class="flex justify-between items-center">
+                  <span class="text-[10px] font-bold text-slate-400 uppercase">Versión B (Test)</span>
+                  <span id="rep-ab-badge-b" class="hidden px-2 py-0.5 bg-emerald-500 text-white font-black text-[9px] uppercase rounded-md">Ganadora</span>
+                </div>
+                <div class="space-y-1">
+                  <p class="text-[10px] font-bold text-slate-400 uppercase">Detalle probado</p>
+                  <p id="rep-ab-detail-b" class="text-xs font-bold text-slate-700 break-all"></p>
+                </div>
+                <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100/60">
+                  <div>
+                    <span class="text-[9px] font-bold text-slate-400 uppercase">Aperturas</span>
+                    <p id="rep-ab-opens-b" class="text-sm font-black text-slate-800">0</p>
+                  </div>
+                  <div>
+                    <span class="text-[9px] font-bold text-slate-400 uppercase">Clicks</span>
+                    <p id="rep-ab-clicks-b" class="text-sm font-black text-slate-800">0</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <p id="rep-ab-footer-desc" class="text-[9.5px] text-purple-700 leading-relaxed font-bold text-center mt-2"></p>
+          </div>
+
           <div class="grid grid-cols-3 gap-4">
             <div onclick="switchReportTab('recipients')" class="bg-blue-50/50 hover:bg-blue-100/30 border border-blue-100/50 p-4 rounded-2xl text-center cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]" title="Ver correos entregados">
               <span class="text-[9px] font-bold text-blue-500 uppercase tracking-wider block">Enviado</span>
@@ -8523,8 +8986,17 @@
                 <label for="tpl-footer-show-logo" class="text-[10px] font-bold text-slate-500 uppercase cursor-pointer">Mostrar Logotipo</label>
               </div>
               <div class="space-y-1">
-                <label class="text-[9px] font-bold text-slate-400 uppercase">Logo URL</label>
-                <input type="text" id="tpl-footer-logo-url" oninput="updateTemplateFooterSetting('logoUrl', this.value)" placeholder="https://..." class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5]">
+                <div class="flex items-center justify-between">
+                  <label class="text-[9px] font-bold text-slate-400 uppercase">Logo URL</label>
+                  <span id="tpl-footer-logo-upload-status" class="text-[9px] font-bold text-slate-400 hidden"></span>
+                </div>
+                <div class="flex gap-2">
+                  <input type="text" id="tpl-footer-logo-url" oninput="updateTemplateFooterSetting('logoUrl', this.value)" placeholder="https://..." class="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5]">
+                  <button type="button" onclick="document.getElementById('tpl-footer-logo-upload-input').click()" class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs hover:bg-slate-50 transition-colors flex items-center justify-center text-slate-600" title="Subir imagen">
+                    <i class="fas fa-upload"></i>
+                  </button>
+                  <input type="file" id="tpl-footer-logo-upload-input" onchange="uploadTemplateFooterLogo(this)" class="hidden" accept="image/*">
+                </div>
               </div>
               <div class="space-y-1">
                 <label class="text-[9px] font-bold text-slate-400 uppercase">Dirección Física</label>

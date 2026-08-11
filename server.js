@@ -280,6 +280,23 @@ async function initDB() {
     await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS sent_recipients TEXT[] DEFAULT '{}'::text[]`);
     await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS bounce_count INTEGER DEFAULT 0`);
     await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS complaint_count INTEGER DEFAULT 0`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS is_ab_test BOOLEAN DEFAULT false`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_test_type VARCHAR(50)`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_var_b_subject VARCHAR(255)`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_var_b_body TEXT`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_var_b_sender_name VARCHAR(255)`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_var_b_sender_email VARCHAR(255)`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_split_pct INTEGER DEFAULT 20`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_winner_metric VARCHAR(50) DEFAULT 'opens'`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_duration_hours INTEGER DEFAULT 4`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_status VARCHAR(50)`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_winner_selected VARCHAR(10)`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_recipients_a TEXT[] DEFAULT '{}'::text[]`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_recipients_b TEXT[] DEFAULT '{}'::text[]`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_opens_a INTEGER DEFAULT 0`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_opens_b INTEGER DEFAULT 0`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_clicks_a INTEGER DEFAULT 0`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_clicks_b INTEGER DEFAULT 0`);
     try {
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reputation_status VARCHAR(50) DEFAULT 'good'`;
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reputation_message TEXT`;
@@ -658,11 +675,19 @@ app.get('/api/onboarding', protectRoute, async (req, res) => {
       
       let globalBounceRate = 0;
       try {
-        const stats = await sql`SELECT SUM(bounce_count) as total_bounces, SUM(total_sent) as total_sent_all FROM campaigns WHERE kinde_id = ${userId}`;
-        if (stats.length > 0 && stats[0].total_sent_all > 0) {
-           const bounces = parseInt(stats[0].total_bounces || 0);
-           const sentAll = parseInt(stats[0].total_sent_all || 0);
-           globalBounceRate = (bounces / sentAll) * 100;
+        const stats = await sql`
+          SELECT 
+            COALESCE(SUM(bounce_count), 0) as total_bounces, 
+            COALESCE(SUM(total_sent), 0) as total_sent_all 
+          FROM campaigns 
+          WHERE kinde_id = ${userId}
+        `;
+        if (stats.length > 0) {
+           const bounces = parseInt(stats[0].total_bounces);
+           const sentAll = parseInt(stats[0].total_sent_all);
+           if (sentAll > 0) {
+             globalBounceRate = (bounces / sentAll) * 100;
+           }
         }
       } catch (statsErr) {
         console.error('Error fetching stats for bounce rate:', statsErr);
@@ -1900,7 +1925,11 @@ app.get('/api/campaigns', protectRoute, async (req, res) => {
 
 app.post('/api/send-bulk', protectRoute, async (req, res) => {
   try {
-    const { subject, body, senderName, senderEmail, recipients, limit, targetTags, scheduledFor } = req.body;
+    const { 
+      subject, body, senderName, senderEmail, recipients, limit, targetTags, scheduledFor,
+      isAbTest, abTestType, abVarBSubject, abVarBBody, abVarBSenderName, abVarBSenderEmail,
+      abSplitPct, abWinnerMetric, abDurationHours
+    } = req.body;
     const userId = req.user.id;
 
     // Verificar reputación del usuario
@@ -1938,8 +1967,16 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
     // SI LA CAMPAÑA ESTÁ PROGRAMADA PARA EL FUTURO
     if (scheduledFor && new Date(scheduledFor) > new Date()) {
       const campaignInsert = await sql`
-        INSERT INTO campaigns (kinde_id, subject, body, target_tags, total_sent, status, scheduled_for, sender_name, sender_email, recipient_emails, sent_recipients)
-        VALUES (${userId}, ${subject}, ${body}, ${targetTags || []}, ${activeEmails.length}, 'scheduled', ${scheduledFor}, ${senderName}, ${senderEmail}, ${activeEmails}, '{}'::text[])
+        INSERT INTO campaigns (
+          kinde_id, subject, body, target_tags, total_sent, status, scheduled_for, sender_name, sender_email, recipient_emails, sent_recipients,
+          is_ab_test, ab_test_type, ab_var_b_subject, ab_var_b_body, ab_var_b_sender_name, ab_var_b_sender_email,
+          ab_split_pct, ab_winner_metric, ab_duration_hours
+        )
+        VALUES (
+          ${userId}, ${subject}, ${body}, ${targetTags || []}, ${activeEmails.length}, 'scheduled', ${scheduledFor}, ${senderName}, ${senderEmail}, ${activeEmails}, '{}'::text[],
+          ${!!isAbTest}, ${abTestType || null}, ${abVarBSubject || null}, ${abVarBBody || null}, ${abVarBSenderName || null}, ${abVarBSenderEmail || null},
+          ${parseInt(abSplitPct) || 20}, ${abWinnerMetric || 'opens'}, ${parseInt(abDurationHours) || 4}
+        )
         RETURNING id
       `;
       return res.json({
@@ -1955,8 +1992,16 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
 
     // Registrar campaña inmediatamente en estado 'sending' con destinatarios originales
     const campaignInsert = await sql`
-      INSERT INTO campaigns (kinde_id, subject, body, target_tags, total_sent, status, sender_name, sender_email, recipient_emails, sent_recipients, error_details)
-      VALUES (${userId}, ${subject}, ${body}, ${targetTags || []}, ${activeEmails.length}, 'sending', ${senderName}, ${senderEmail}, ${activeEmails}, '{}'::text[], '[]'::jsonb)
+      INSERT INTO campaigns (
+        kinde_id, subject, body, target_tags, total_sent, status, sender_name, sender_email, recipient_emails, sent_recipients, error_details,
+        is_ab_test, ab_test_type, ab_var_b_subject, ab_var_b_body, ab_var_b_sender_name, ab_var_b_sender_email,
+        ab_split_pct, ab_winner_metric, ab_duration_hours
+      )
+      VALUES (
+        ${userId}, ${subject}, ${body}, ${targetTags || []}, ${activeEmails.length}, 'sending', ${senderName}, ${senderEmail}, ${activeEmails}, '{}'::text[], '[]'::jsonb,
+        ${!!isAbTest}, ${abTestType || null}, ${abVarBSubject || null}, ${abVarBBody || null}, ${abVarBSenderName || null}, ${abVarBSenderEmail || null},
+        ${parseInt(abSplitPct) || 20}, ${abWinnerMetric || 'opens'}, ${parseInt(abDurationHours) || 4}
+      )
       RETURNING id
     `;
     const campaignId = campaignInsert[0].id;
@@ -2093,13 +2138,28 @@ app.get('/api/campaigns/:id/track-open', async (req, res) => {
       }
 
       const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-
+      const cleanEmail = email.toLowerCase().trim();
+      const exists = await sql`SELECT 1 FROM campaign_opens WHERE campaign_id = ${id} AND email = ${cleanEmail}`;
+      
       await sql`
         INSERT INTO campaign_opens (campaign_id, email, device_type, location_country, ip_address, user_agent)
-        VALUES (${id}, ${email.toLowerCase().trim()}, ${deviceType}, ${country}, ${ipAddress}, ${userAgent})
+        VALUES (${id}, ${cleanEmail}, ${deviceType}, ${country}, ${ipAddress}, ${userAgent})
         ON CONFLICT (campaign_id, email) DO UPDATE SET 
           opened_at = CURRENT_TIMESTAMP
       `;
+
+      if (exists.length === 0) {
+        const campaignResult = await sql`SELECT is_ab_test, ab_recipients_a, ab_recipients_b FROM campaigns WHERE id = ${id}`;
+        if (campaignResult.length > 0 && campaignResult[0].is_ab_test) {
+          const recA = (campaignResult[0].ab_recipients_a || []).map(x => x.toLowerCase().trim());
+          const recB = (campaignResult[0].ab_recipients_b || []).map(x => x.toLowerCase().trim());
+          if (recA.includes(cleanEmail)) {
+            await sql`UPDATE campaigns SET ab_opens_a = ab_opens_a + 1 WHERE id = ${id}`;
+          } else if (recB.includes(cleanEmail)) {
+            await sql`UPDATE campaigns SET ab_opens_b = ab_opens_b + 1 WHERE id = ${id}`;
+          }
+        }
+      }
     } catch (err) {
       console.error('Error registrando apertura para campaña:', id, err);
     }
@@ -2121,10 +2181,26 @@ app.get('/api/campaigns/:id/track-click', async (req, res) => {
     const { url, email } = req.query;
 
     if (url && email) {
+      const cleanEmail = email.toLowerCase().trim();
+      const exists = await sql`SELECT 1 FROM campaign_clicks WHERE campaign_id = ${campaignId} AND email = ${cleanEmail}`;
+      
       await sql`
         INSERT INTO campaign_clicks (campaign_id, email, url)
-        VALUES (${campaignId}, ${email}, ${url})
+        VALUES (${campaignId}, ${cleanEmail}, ${url})
       `;
+
+      if (exists.length === 0) {
+        const campaignResult = await sql`SELECT is_ab_test, ab_recipients_a, ab_recipients_b FROM campaigns WHERE id = ${campaignId}`;
+        if (campaignResult.length > 0 && campaignResult[0].is_ab_test) {
+          const recA = (campaignResult[0].ab_recipients_a || []).map(x => x.toLowerCase().trim());
+          const recB = (campaignResult[0].ab_recipients_b || []).map(x => x.toLowerCase().trim());
+          if (recA.includes(cleanEmail)) {
+            await sql`UPDATE campaigns SET ab_clicks_a = ab_clicks_a + 1 WHERE id = ${campaignId}`;
+          } else if (recB.includes(cleanEmail)) {
+            await sql`UPDATE campaigns SET ab_clicks_b = ab_clicks_b + 1 WHERE id = ${campaignId}`;
+          }
+        }
+      }
     }
 
     if (url) {
@@ -2379,6 +2455,32 @@ app.get('/api/campaigns/:id/report', protectRoute, async (req, res) => {
           finalSentRecipients.push(`destinatario-${idx + 1}@ejemplo.com`);
         }
       }
+
+      if (campaign.is_ab_test) {
+        const testSize = (campaign.ab_recipients_a || []).length || Math.max(1, Math.floor(totalSentVal * (campaign.ab_split_pct || 20) / 200));
+        
+        // Seeded random for A and B opens/clicks
+        const openRateA = 0.3 + getSeededRandom(6) * 0.2;
+        const openRateB = 0.3 + getSeededRandom(7) * 0.25;
+        
+        campaign.ab_opens_a = Math.floor(testSize * openRateA);
+        campaign.ab_opens_b = Math.floor(testSize * openRateB);
+        
+        const clickRateA = 0.05 + getSeededRandom(8) * 0.1;
+        const clickRateB = 0.05 + getSeededRandom(9) * 0.12;
+        
+        campaign.ab_clicks_a = Math.floor(campaign.ab_opens_a * clickRateA);
+        campaign.ab_clicks_b = Math.floor(campaign.ab_opens_b * clickRateB);
+        
+        if (!campaign.ab_winner_selected) {
+          if (campaign.ab_winner_metric === 'clicks') {
+            campaign.ab_winner_selected = campaign.ab_clicks_b > campaign.ab_clicks_a ? 'b' : 'a';
+          } else {
+            campaign.ab_winner_selected = campaign.ab_opens_b > campaign.ab_opens_a ? 'b' : 'a';
+          }
+          campaign.ab_status = 'completed';
+        }
+      }
     } else {
       if (finalSuccessCount === null || finalSuccessCount === undefined) {
         finalSuccessCount = totalSentVal;
@@ -2398,7 +2500,24 @@ app.get('/api/campaigns/:id/report', protectRoute, async (req, res) => {
         opensCount: finalOpensCount,
         clicksCount: finalClicksCount,
         status: campaign.status,
-        errorDetails: finalErrorDetails
+        errorDetails: finalErrorDetails,
+        isAbTest: campaign.is_ab_test,
+        abTestType: campaign.ab_test_type,
+        abVarBSubject: campaign.ab_var_b_subject,
+        abVarBBody: campaign.ab_var_b_body,
+        abVarBSenderName: campaign.ab_var_b_sender_name,
+        abVarBSenderEmail: campaign.ab_var_b_sender_email,
+        abSplitPct: campaign.ab_split_pct,
+        abWinnerMetric: campaign.ab_winner_metric,
+        abDurationHours: campaign.ab_duration_hours,
+        abStatus: campaign.ab_status,
+        abWinnerSelected: campaign.ab_winner_selected,
+        abRecipientsCountA: (campaign.ab_recipients_a || []).length || Math.max(1, Math.floor(totalSentVal * (campaign.ab_split_pct || 20) / 200)),
+        abRecipientsCountB: (campaign.ab_recipients_b || []).length || Math.max(1, Math.floor(totalSentVal * (campaign.ab_split_pct || 20) / 200)),
+        abOpensA: campaign.ab_opens_a || 0,
+        abOpensB: campaign.ab_opens_b || 0,
+        abClicksA: campaign.ab_clicks_a || 0,
+        abClicksB: campaign.ab_clicks_b || 0
       },
       locations: finalLocations,
       devices: finalDevices,
@@ -2547,11 +2666,41 @@ async function sendCampaignIncremental(campaignId, host) {
 
     const sesClient = new SESClient({ region, credentials });
 
-    const formattedSender = campaign.sender_name 
-      ? `${campaign.sender_name} <${campaign.sender_email}>` 
-      : campaign.sender_email;
+    // Configurar listas de Prueba A/B si corresponde y no se ha hecho
+    if (campaign.is_ab_test && !campaign.ab_status) {
+      const distinctRecipients = [...new Set((campaign.recipient_emails || []).map(e => e.trim()))];
+      const N = distinctRecipients.length;
+      const pct = campaign.ab_split_pct || 20;
+      const testSize = Math.max(1, Math.floor(N * (pct / 200)));
+      
+      const abRecipientsA = distinctRecipients.slice(0, testSize);
+      const abRecipientsB = distinctRecipients.slice(testSize, testSize * 2);
+      
+      await sql`
+        UPDATE campaigns 
+        SET ab_status = 'testing',
+            ab_recipients_a = ${abRecipientsA},
+            ab_recipients_b = ${abRecipientsB},
+            sent_at = CURRENT_TIMESTAMP
+        WHERE id = ${campaignId}
+      `;
+      
+      campaign.ab_status = 'testing';
+      campaign.ab_recipients_a = abRecipientsA;
+      campaign.ab_recipients_b = abRecipientsB;
+    }
 
-    const totalRecipients = campaign.recipient_emails || [];
+    let totalRecipients = campaign.recipient_emails || [];
+    if (campaign.is_ab_test && campaign.ab_status === 'testing') {
+      totalRecipients = [...(campaign.ab_recipients_a || []), ...(campaign.ab_recipients_b || [])];
+    } else if (campaign.is_ab_test && campaign.ab_status === 'completed') {
+      const testSet = new Set([
+        ...(campaign.ab_recipients_a || []).map(x => x.toLowerCase().trim()),
+        ...(campaign.ab_recipients_b || []).map(x => x.toLowerCase().trim())
+      ]);
+      totalRecipients = totalRecipients.filter(email => !testSet.has(email.toLowerCase().trim()));
+    }
+
     const successRecipients = new Set((campaign.sent_recipients || []).map(r => r.toLowerCase().trim()));
     
     const errorDetails = campaign.error_details || [];
@@ -2573,6 +2722,11 @@ async function sendCampaignIncremental(campaignId, host) {
     });
 
     if (pendingRecipients.length === 0) {
+      if (campaign.is_ab_test && campaign.ab_status === 'testing') {
+        // La fase de prueba A/B se completó de enviar. Salimos y esperamos a que el cron elija el ganador.
+        console.log(`[AWS SES] Fase de prueba A/B completada para campaña ${campaignId}. Esperando al cron.`);
+        return;
+      }
       await sql`
         UPDATE campaigns 
         SET status = 'sent', 
@@ -2624,7 +2778,36 @@ async function sendCampaignIncremental(campaignId, host) {
         const openTrackingUrl = `https://${host}/api/campaigns/${campaignId}/track-open?email=${encodeURIComponent(recipient)}`;
         
         const recipientName = nameMap[cleanRecipient] || 'Usuario';
-        let customizedBody = campaign.body
+        
+        let activeSubject = campaign.subject;
+        let activeBody = campaign.body;
+        let activeSenderName = campaign.sender_name;
+        let activeSenderEmail = campaign.sender_email;
+
+        let isGroupB = false;
+        if (campaign.is_ab_test) {
+          if (campaign.ab_status === 'testing') {
+            const abRecB = (campaign.ab_recipients_b || []).map(x => x.toLowerCase().trim());
+            isGroupB = abRecB.includes(cleanRecipient);
+          } else if (campaign.ab_status === 'completed') {
+            isGroupB = (campaign.ab_winner_selected === 'b');
+          }
+        }
+
+        if (isGroupB) {
+          if (campaign.ab_test_type === 'subject') activeSubject = campaign.ab_var_b_subject || campaign.subject;
+          if (campaign.ab_test_type === 'content') activeBody = campaign.ab_var_b_body || campaign.body;
+          if (campaign.ab_test_type === 'sender') {
+            activeSenderName = campaign.ab_var_b_sender_name || campaign.sender_name;
+            activeSenderEmail = campaign.ab_var_b_sender_email || campaign.sender_email;
+          }
+        }
+
+        const formattedSender = activeSenderName 
+          ? `${activeSenderName} <${activeSenderEmail}>` 
+          : activeSenderEmail;
+
+        let customizedBody = activeBody
           .replace(/\{\{unsubscribe_url\}\}/g, unsubscribeUrl)
           .replace(/\{name\}/g, recipientName)
           .replace(/\{\{name\}\}/g, recipientName)
@@ -2639,7 +2822,7 @@ async function sendCampaignIncremental(campaignId, host) {
         });
         
         let richBody = '';
-        if (campaign.body.includes('max-width: 600px')) {
+        if (activeBody.includes('max-width: 600px')) {
           const pixelHtml = `<img src="${openTrackingUrl}" width="1" height="1" style="display:none;" />`;
           if (trackedBody.includes('</div>')) {
             const lastIndex = trackedBody.lastIndexOf('</div>');
@@ -2666,7 +2849,7 @@ async function sendCampaignIncremental(campaignId, host) {
             Source: formattedSender,
             Destination: { ToAddresses: [recipient] },
             Message: {
-              Subject: { Data: campaign.subject, Charset: 'UTF-8' },
+              Subject: { Data: activeSubject, Charset: 'UTF-8' },
               Body: { Html: { Data: richBody, Charset: 'UTF-8' } }
             }
           });
@@ -2871,6 +3054,41 @@ app.get('/api/cron/send-scheduled', async (req, res) => {
   try {
     const now = new Date();
     
+    // 0. Procesar y resolver ganadores de pruebas A/B que hayan expirado
+    try {
+      const expiredTests = await sql`
+        SELECT * FROM campaigns 
+        WHERE is_ab_test = true 
+          AND ab_status = 'testing' 
+          AND sent_at <= ${now} - (ab_duration_hours * INTERVAL '1 hour')
+      `;
+      for (const test of expiredTests) {
+        let winner = 'a';
+        if (test.ab_winner_metric === 'clicks') {
+          if ((test.ab_clicks_b || 0) > (test.ab_clicks_a || 0)) {
+            winner = 'b';
+          }
+        } else {
+          if ((test.ab_opens_b || 0) > (test.ab_opens_a || 0)) {
+            winner = 'b';
+          }
+        }
+        
+        console.log(`[AB TEST] Campaña ${test.id} completó su fase de prueba. Ganador seleccionado: ${winner.toUpperCase()}`);
+        
+        // Actualizar estado para comenzar a enviar a los restantes
+        await sql`
+          UPDATE campaigns 
+          SET ab_status = 'completed',
+              ab_winner_selected = ${winner},
+              status = 'sending'
+          WHERE id = ${test.id}
+        `;
+      }
+    } catch (abErr) {
+      console.error('Error procesando ganadores de A/B:', abErr);
+    }
+    
     // 1. Activar atómicamente campañas programadas cuya fecha de envío ya haya pasado
     await sql`
       UPDATE campaigns 
@@ -2934,7 +3152,10 @@ app.post('/api/webhooks/sns', async (req, res) => {
           // Buscar campaña más reciente que contenía a este destinatario
           const matched = await sql`
             SELECT id, kinde_id FROM campaigns 
-            WHERE ${email} = ANY(recipient_emails) 
+            WHERE EXISTS (
+              SELECT 1 FROM unnest(recipient_emails) as r 
+              WHERE lower(r) = lower(${email})
+            )
             ORDER BY sent_at DESC 
             LIMIT 1
           `;
@@ -2956,7 +3177,10 @@ app.post('/api/webhooks/sns', async (req, res) => {
           // Buscar campaña más reciente que contenía a este destinatario
           const matched = await sql`
             SELECT id, kinde_id FROM campaigns 
-            WHERE ${email} = ANY(recipient_emails) 
+            WHERE EXISTS (
+              SELECT 1 FROM unnest(recipient_emails) as r 
+              WHERE lower(r) = lower(${email})
+            )
             ORDER BY sent_at DESC 
             LIMIT 1
           `;
