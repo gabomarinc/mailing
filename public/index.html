@@ -1172,8 +1172,8 @@
                             <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Tamaño de la Prueba (Split)</label>
                             <span id="ab-split-pct-label" class="text-[11px] font-extrabold text-[#27bea5]">20%</span>
                           </div>
-                          <input type="range" id="campaign-ab-split" min="10" max="50" step="5" value="20" oninput="document.getElementById('ab-split-pct-label').textContent = this.value + '%'" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#27bea5]">
-                          <p class="text-[9px] text-slate-400 mt-1">Se enviará a un <span class="font-bold">10%</span> la versión A, a otro <span class="font-bold">10%</span> la versión B, y el <span class="font-bold">80%</span> restante recibirá el ganador.</p>
+                          <input type="range" id="campaign-ab-split" min="10" max="50" step="5" value="20" oninput="updateAbSplitText(this.value)" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#27bea5]">
+                          <p id="ab-split-desc-text" class="text-[9px] text-slate-400 mt-1">Se enviará a un <span class="font-bold">10%</span> la versión A, a otro <span class="font-bold">10%</span> la versión B, y el <span class="font-bold">80%</span> restante recibirá el ganador.</p>
                         </div>
 
                         <div class="space-y-2">
@@ -1294,10 +1294,15 @@
                     <div class="space-y-4 pt-4 border-t border-slate-50 text-left">
                       <div class="space-y-1.5 mb-2">
                         <label for="gf-campaign-select" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Seleccionar Configuración de Footer</label>
-                        <select id="gf-campaign-select" onchange="applyGlobalFooterToCampaign(this.value)" class="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5] cursor-pointer">
-                          <option value="custom">Personalizado para esta campaña</option>
-                          <!-- Loaded Dynamically -->
-                        </select>
+                        <div class="flex flex-col sm:flex-row gap-2">
+                          <select id="gf-campaign-select" onchange="applyGlobalFooterToCampaign(this.value)" class="flex-1 p-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-[#1c2938] outline-none focus:border-[#27bea5] cursor-pointer">
+                            <option value="custom">Personalizado para esta campaña</option>
+                            <!-- Loaded Dynamically -->
+                          </select>
+                          <button type="button" onclick="saveCampaignFooterAsGlobal()" class="px-3 py-2 bg-[#27bea5]/10 hover:bg-[#27bea5]/20 text-[#27bea5] rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-1 border border-[#27bea5]/20" title="Guardar cambios manuales como Footer Global">
+                            <i data-lucide="save" class="w-3.5 h-3.5"></i> Guardar como Global
+                          </button>
+                        </div>
                       </div>
 
                       <div class="flex items-center justify-between">
@@ -7775,6 +7780,72 @@
       updateTemplateLivePreview();
     };
 
+    window.updateAbSplitText = function(value) {
+      const val = parseInt(value, 10);
+      const half = val / 2;
+      const rest = 100 - val;
+      
+      const abSplitPctLabel = document.getElementById('ab-split-pct-label');
+      if (abSplitPctLabel) abSplitPctLabel.textContent = val + '%';
+      
+      const abSplitText = document.getElementById('ab-split-desc-text');
+      if (abSplitText) {
+        abSplitText.innerHTML = `Se enviará a un <span class="font-bold">${half}%</span> la versión A, a otro <span class="font-bold">${half}%</span> la versión B, y el <span class="font-bold">${rest}%</span> restante recibirá el ganador.`;
+      }
+    };
+
+    window.saveCampaignFooterAsGlobal = async function() {
+      const name = prompt("Introduce un nombre para este Footer Global:", "Footer Global Desde Campaña");
+      if (!name || !name.trim()) return;
+
+      const payload = {
+        name: name.trim(),
+        show_logo: !!footerSettings.showLogo,
+        logo_url: footerSettings.logoUrl || '',
+        logo_width: parseInt(footerSettings.logoWidth || 100, 10),
+        address: footerSettings.address || '',
+        email: footerSettings.email || '',
+        phone: footerSettings.phone || '',
+        socials: {
+          facebook: footerSettings.socials?.facebook || '',
+          instagram: footerSettings.socials?.instagram || '',
+          twitter: footerSettings.socials?.twitter || '',
+          linkedin: footerSettings.socials?.linkedin || ''
+        },
+        link_color: footerSettings.linkColor || '#27bea5',
+        use_icons: !!footerSettings.useIcons,
+        unsubscribe_text: footerSettings.unsubscribeText || 'Desuscribirse',
+        is_default: false
+      };
+
+      try {
+        const res = await fetch('/api/global-footers', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}`
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Footer guardado como global con éxito', 'success');
+          if (window.loadGlobalFootersList) {
+            await window.loadGlobalFootersList();
+          }
+          const campSelect = document.getElementById('gf-campaign-select');
+          if (campSelect && data.footer) {
+            campSelect.value = data.footer.id;
+          }
+        } else {
+          showToast(data.message || 'Error al guardar footer global', 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Error de conexión', 'error');
+      }
+    };
+
     window.saveTemplateFooterAsGlobal = async function() {
       const name = prompt("Introduce un nombre para este Footer Global:", "Footer Global Desde Plantilla");
       if (!name || !name.trim()) return;
@@ -7973,6 +8044,13 @@
       
       const logoUrl = document.getElementById('tpl-footer-logo-url');
       if (logoUrl) logoUrl.value = templateFooterSettings.logoUrl || '';
+
+      const logoWidth = document.getElementById('tpl-footer-logo-width');
+      if (logoWidth) {
+        logoWidth.value = templateFooterSettings.logoWidth || 100;
+        const widthValSpan = document.getElementById('tpl-footer-logo-width-val');
+        if (widthValSpan) widthValSpan.textContent = (templateFooterSettings.logoWidth || 100) + 'px';
+      }
       
       const address = document.getElementById('tpl-footer-address');
       if (address) address.value = templateFooterSettings.address || '';
@@ -9079,15 +9157,24 @@
               </div>
               <div class="space-y-1">
                 <div class="flex items-center justify-between">
-                  <label class="text-[9px] font-bold text-slate-400 uppercase">Logo URL</label>
+                  <label class="text-[9px] font-bold text-slate-400 uppercase">Logo del Footer</label>
                   <span id="tpl-footer-logo-upload-status" class="text-[9px] font-bold text-slate-400 hidden"></span>
                 </div>
-                <div class="flex gap-2">
-                  <input type="text" id="tpl-footer-logo-url" oninput="updateTemplateFooterSetting('logoUrl', this.value)" placeholder="https://..." class="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5]">
-                  <button type="button" onclick="document.getElementById('tpl-footer-logo-upload-input').click()" class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs hover:bg-slate-50 transition-colors flex items-center justify-center text-slate-600" title="Subir imagen">
-                    <i class="fas fa-upload"></i>
-                  </button>
+                <input type="text" id="tpl-footer-logo-url" oninput="updateTemplateFooterSetting('logoUrl', this.value)" placeholder="https://..." class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-[#27bea5]">
+                
+                <div class="flex items-center gap-2 mt-1">
                   <input type="file" id="tpl-footer-logo-upload-input" onchange="uploadTemplateFooterLogo(this)" class="hidden" accept="image/*">
+                  <button type="button" onclick="document.getElementById('tpl-footer-logo-upload-input').click()" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 transition-all">
+                    <i data-lucide="upload" class="w-3 h-3"></i> Subir Logo (Nube)
+                  </button>
+                </div>
+
+                <div class="space-y-1 mt-2">
+                  <div class="flex justify-between items-center text-[9px] font-bold text-slate-400 uppercase">
+                    <span>Ancho Logo Footer</span>
+                    <span id="tpl-footer-logo-width-val">100px</span>
+                  </div>
+                  <input type="range" id="tpl-footer-logo-width" min="30" max="250" value="100" oninput="updateTemplateFooterSetting('logoWidth', this.value); document.getElementById('tpl-footer-logo-width-val').textContent = this.value + 'px';" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#27bea5]">
                 </div>
               </div>
               <div class="space-y-1">
