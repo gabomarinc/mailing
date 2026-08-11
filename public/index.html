@@ -4950,6 +4950,10 @@
           // select first option by default
           selectB.selectedIndex = primarySelect.selectedIndex;
         }
+        
+        // Disparar estilos visuales iniciales
+        const currentVar = document.querySelector('input[name="ab-test-variable"]:checked')?.value || 'subject';
+        handleAbVariableChange(currentVar);
       } else {
         panel.classList.add('hidden');
       }
@@ -4972,6 +4976,38 @@
       } else if (variable === 'content') {
         contentInfo.classList.remove('hidden');
       }
+      
+      // Actualizar estilos visuales de las opciones de radio
+      const radios = document.querySelectorAll('input[name="ab-test-variable"]');
+      radios.forEach(radio => {
+        const label = radio.closest('label');
+        const icon = label.querySelector('i');
+        const text = label.querySelector('span');
+        
+        if (radio.checked) {
+          label.classList.add('border-[#27bea5]', 'bg-[#27bea5]/5');
+          label.classList.remove('border-slate-200', 'bg-white');
+          if (icon) {
+            icon.classList.add('text-[#27bea5]');
+            icon.classList.remove('text-slate-400');
+          }
+          if (text) {
+            text.classList.add('text-[#27bea5]');
+            text.classList.remove('text-slate-700');
+          }
+        } else {
+          label.classList.remove('border-[#27bea5]', 'bg-[#27bea5]/5');
+          label.classList.add('border-slate-200', 'bg-white');
+          if (icon) {
+            icon.classList.remove('text-[#27bea5]');
+            icon.classList.add('text-slate-400');
+          }
+          if (text) {
+            text.classList.remove('text-[#27bea5]');
+            text.classList.add('text-slate-700');
+          }
+        }
+      });
       lucide.createIcons();
     };
 
