@@ -6030,7 +6030,20 @@
       const limit = 10000;
 
       const scheduleCheck = document.getElementById('campaign-schedule-check').checked;
-      const scheduledFor = scheduleCheck ? document.getElementById('campaign-schedule-time').value : null;
+      let scheduledFor = null;
+      if (scheduleCheck) {
+        const rawTime = document.getElementById('campaign-schedule-time').value;
+        if (rawTime) {
+          const parts = rawTime.split(/[-THH:]/); // [YYYY, MM, DD, HH, MM]
+          if (parts.length >= 5) {
+            // new Date(year, monthIndex, day, hours, minutes) parses in local time
+            const localDate = new Date(parts[0], parts[1] - 1, parts[2], parts[3], parts[4]);
+            scheduledFor = localDate.toISOString();
+          } else {
+            scheduledFor = new Date(rawTime).toISOString();
+          }
+        }
+      }
 
       if (onboardingData && onboardingData.reputationStatus === 'blocked') {
         showToast('Tu cuenta está suspendida temporalmente para realizar envíos debido a una alta tasa de rebotes.', 'error');
