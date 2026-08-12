@@ -1361,7 +1361,7 @@ app.post('/api/contacts/add-tag-bulk', protectRoute, async (req, res) => {
         SELECT DISTINCT t 
         FROM unnest(coalesce(tags, ARRAY[]::text[]) || ARRAY[${cleanTag}::text]) t
       )
-      WHERE kinde_id = ${userId} AND id = ANY(${ids.map(Number)})
+      WHERE kinde_id = ${userId} AND id = ANY(${ids})
     `;
     res.json({ success: true, message: 'Etiqueta agregada correctamente.' });
   } catch (err) {
