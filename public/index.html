@@ -780,9 +780,14 @@
                 <span id="selected-contacts-count">0</span> contactos seleccionados
                 <span id="select-all-filtered-action"></span>
               </span>
-              <button onclick="deleteSelectedContacts()" class="bg-rose-50 border border-rose-100 text-rose-600 font-bold px-4 py-2 rounded-xl hover:bg-rose-100 transition-all text-xs flex items-center gap-1.5">
-                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Eliminar seleccionados
-              </button>
+              <div class="flex items-center gap-2">
+                <button onclick="bulkAddTagPrompt()" class="bg-emerald-50 border border-emerald-100 text-[#27bea5] font-bold px-4 py-2 rounded-xl hover:bg-emerald-100 transition-all text-xs flex items-center gap-1.5">
+                  <i data-lucide="tag" class="w-3.5 h-3.5"></i> Agregar etiqueta
+                </button>
+                <button onclick="deleteSelectedContacts()" class="bg-rose-50 border border-rose-100 text-rose-600 font-bold px-4 py-2 rounded-xl hover:bg-rose-100 transition-all text-xs flex items-center gap-1.5">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Eliminar seleccionados
+                </button>
+              </div>
             </div>
 
             <div class="overflow-y-auto max-h-[480px] custom-scroll">
@@ -801,10 +806,9 @@
               <div class="flex items-center gap-2 text-xs text-brand-gray font-medium">
                 <span>Mostrar</span>
                 <select id="contacts-per-page" onchange="changeContactsPerPage(this.value)" class="px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white font-bold text-[#1c2938] outline-none focus:border-[#27bea5]">
-                  <option value="10">10</option>
-                  <option value="25">25</option>
-                  <option value="50">50</option>
                   <option value="100">100</option>
+                  <option value="200">200</option>
+                  <option value="400">400</option>
                 </select>
                 <span>contactos por página</span>
               </div>
@@ -2302,7 +2306,7 @@
     let senders = [];
     let selectedTag = 'all';
     let onboardingData = null;
-    let contactsPerPage = 10;
+    let contactsPerPage = 100;
     let currentPage = 1;
     let selectedContacts = [];
     let filteredContacts = [];
@@ -4361,9 +4365,14 @@
           
           if (extraSpan) {
              if (filteredContacts.length > selectedContacts.length && selectedContacts.length >= document.querySelectorAll('.contact-row-checkbox:checked').length) {
-                extraSpan.innerHTML = `<button onclick="selectAllFilteredContacts()" class="ml-3 underline text-[#27bea5] hover:text-emerald-600 transition-colors">Seleccionar los ${filteredContacts.length} contactos de la lista</button>`;
+                extraSpan.innerHTML = `
+                  <button onclick="selectAllFilteredContacts()" class="ml-3 underline text-[#27bea5] hover:text-emerald-600 transition-colors">Seleccionar los ${filteredContacts.length} de la lista</button>
+                  <button onclick="deselectAllContacts()" class="ml-3 underline text-slate-400 hover:text-slate-600 transition-colors">Deseleccionar todo</button>
+                `;
              } else {
-                extraSpan.innerHTML = '';
+                extraSpan.innerHTML = `
+                  <button onclick="deselectAllContacts()" class="ml-3 underline text-slate-400 hover:text-slate-600 transition-colors">Deseleccionar todo</button>
+                `;
              }
           }
         } else {
@@ -4382,6 +4391,41 @@
        if (masterCheckbox) masterCheckbox.checked = true;
        
        updateBulkActionUI();
+    };
+
+    window.deselectAllContacts = function() {
+       selectedContacts = [];
+       const tbody = document.getElementById('contacts-table-body');
+       const checkboxes = tbody.querySelectorAll('.contact-row-checkbox');
+       checkboxes.forEach(cb => { cb.checked = false; });
+       const masterCheckbox = document.getElementById('selectAllContacts');
+       if (masterCheckbox) masterCheckbox.checked = false;
+       updateBulkActionUI();
+    };
+
+    window.bulkAddTagPrompt = async function() {
+       if (selectedContacts.length === 0) return;
+       const tag = prompt(`Escribe la etiqueta (tag) que deseas agregar a los ${selectedContacts.length} contactos seleccionados:`);
+       if (!tag || tag.trim() === '') return;
+       
+       const cleanTag = tag.trim();
+       try {
+         const res = await fetch('/api/contacts/add-tag-bulk', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ ids: selectedContacts, tag: cleanTag })
+         });
+         const data = await res.json();
+         if (data.success) {
+           showToast(`Etiqueta "${cleanTag}" agregada correctamente a los contactos seleccionados.`, 'success');
+           deselectAllContacts();
+           await fetchContacts();
+         } else {
+           showToast(data.message || 'Error al agregar etiqueta.', 'error');
+         }
+       } catch (err) {
+         showToast('Error de red al agregar etiqueta.', 'error');
+       }
     };
 
     function renderPagination(totalItems) {

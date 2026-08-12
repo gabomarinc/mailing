@@ -1344,6 +1344,32 @@ app.post('/api/contacts/delete-bulk', protectRoute, async (req, res) => {
   }
 });
 
+app.post('/api/contacts/add-tag-bulk', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { ids, tag } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0 || !tag) {
+      return res.status(400).json({ success: false, message: 'Faltan parámetros.' });
+    }
+
+    const cleanTag = tag.trim();
+    if (!cleanTag) return res.status(400).json({ success: false, message: 'La etiqueta no puede estar vacía.' });
+
+    await sql`
+      UPDATE contacts 
+      SET tags = ARRAY(
+        SELECT DISTINCT t 
+        FROM unnest(coalesce(tags, ARRAY[]::text[]) || ARRAY[${cleanTag}::text]) t
+      )
+      WHERE kinde_id = ${userId} AND id = ANY(${ids.map(Number)})
+    `;
+    res.json({ success: true, message: 'Etiqueta agregada correctamente.' });
+  } catch (err) {
+    console.error('Error add tag bulk:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
 app.post('/api/contacts/delete-by-tag', protectRoute, async (req, res) => {
   try {
     const userId = req.user.id;
