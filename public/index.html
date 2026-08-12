@@ -2506,6 +2506,15 @@
   </div>
 
   <script>
+    window.addEventListener('error', function(event) {
+      console.error("Global Error Captured: ", event.error);
+      if (window.showToast) {
+        window.showToast("Error de la App: " + event.message, "error");
+      } else {
+        alert("Error de la App: " + event.message);
+      }
+    });
+
     // Variables globales
     let currentOnboardingVolume = 10000;
     let contacts = [];
@@ -7656,65 +7665,89 @@
     window.refreshActiveCampaignReport = refreshActiveCampaignReport;
 
     window.openCampaignDetail = async function(id) {
-      activeDetailCampaignId = id;
-
-      // Resetear checkbox de exclusión de bots
-      const chkBots = document.getElementById('chk-exclude-bots');
-      if (chkBots) chkBots.checked = false;
-
-      openModal('modal-campaign-detail');
-      
-      const modal = document.getElementById('modal-campaign-detail');
-      requestAnimationFrame(() => {
-        modal.classList.remove('opacity-0');
-        modal.children[0].classList.remove('scale-95');
-      });
-
-      const campaign = campaigns.find(c => c.id.toString() === id.toString());
-      if (!campaign) return;
-
-      document.getElementById('detail-camp-subject').textContent = campaign.subject;
-      const dateStr = new Date(campaign.sentDate || campaign.scheduledFor).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-      const sender = campaign.senderEmail ? `${campaign.senderName || ''} <${campaign.senderEmail}>` : 'Por defecto (SES)';
-      document.getElementById('detail-camp-meta').textContent = `Remitente: ${sender} | Fecha: ${dateStr}`;
-
-      // Configurar Badge de Estado
-      const statusBadge = document.getElementById('detail-camp-status-badge');
-      if (campaign.status === 'scheduled') {
-        statusBadge.className = 'bg-amber-50 text-amber-800 font-bold px-2.5 py-0.5 rounded-full border border-amber-100 text-[10px]';
-        statusBadge.textContent = 'Programado';
-      } else if (campaign.status === 'sending') {
-        statusBadge.className = 'bg-blue-50 text-blue-800 font-bold px-2.5 py-0.5 rounded-full border border-blue-100 text-[10px] animate-pulse';
-        statusBadge.textContent = 'Enviando...';
-      } else if (campaign.status === 'failed') {
-        statusBadge.className = 'bg-red-50 text-red-800 font-bold px-2.5 py-0.5 rounded-full border border-red-100 text-[10px]';
-        statusBadge.textContent = 'Fallado';
-      } else {
-        statusBadge.className = 'bg-emerald-50 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full border border-emerald-100 text-[10px]';
-        statusBadge.textContent = 'Enviado';
-      }
-
-      // Vista previa HTML inicial
-      const iframe = document.getElementById('detail-camp-body-preview');
-      const doc = iframe.contentDocument || iframe.contentWindow.document;
-      doc.open();
-      doc.write(campaign.body);
-      doc.close();
-
-      showReportLoading();
-
       try {
-        const res = await fetch(`/api/campaigns/${id}/report`);
-        const report = await res.json();
-        if (report.success) {
-          currentCampaignReport = report;
-          renderReportData();
-        } else {
-          showReportError('No se pudo cargar el reporte.');
+        activeDetailCampaignId = id;
+
+        // Resetear checkbox de exclusión de bots
+        const chkBots = document.getElementById('chk-exclude-bots');
+        if (chkBots) chkBots.checked = false;
+
+        openModal('modal-campaign-detail');
+        
+        const modal = document.getElementById('modal-campaign-detail');
+        if (modal) {
+          requestAnimationFrame(() => {
+            modal.classList.remove('opacity-0');
+            if (modal.children && modal.children[0]) {
+              modal.children[0].classList.remove('scale-95');
+            }
+          });
         }
-      } catch (err) {
-        console.error(err);
-        showReportError('Error al conectar con el servidor.');
+
+        const campaign = campaigns.find(c => c.id.toString() === id.toString());
+        if (!campaign) {
+          console.warn("Campaña no encontrada:", id);
+          return;
+        }
+
+        const subjectEl = document.getElementById('detail-camp-subject');
+        if (subjectEl) subjectEl.textContent = campaign.subject || '';
+
+        const dateStr = new Date(campaign.sentDate || campaign.scheduledFor).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const sender = campaign.senderEmail ? `${campaign.senderName || ''} <${campaign.senderEmail}>` : 'Por defecto (SES)';
+        
+        const metaEl = document.getElementById('detail-camp-meta');
+        if (metaEl) metaEl.textContent = `Remitente: ${sender} | Fecha: ${dateStr}`;
+
+        // Configurar Badge de Estado
+        const statusBadge = document.getElementById('detail-camp-status-badge');
+        if (statusBadge) {
+          if (campaign.status === 'scheduled') {
+            statusBadge.className = 'bg-amber-50 text-amber-800 font-bold px-2.5 py-0.5 rounded-full border border-amber-100 text-[10px]';
+            statusBadge.textContent = 'Programado';
+          } else if (campaign.status === 'sending') {
+            statusBadge.className = 'bg-blue-50 text-blue-800 font-bold px-2.5 py-0.5 rounded-full border border-blue-100 text-[10px] animate-pulse';
+            statusBadge.textContent = 'Enviando...';
+          } else if (campaign.status === 'failed') {
+            statusBadge.className = 'bg-red-50 text-red-800 font-bold px-2.5 py-0.5 rounded-full border border-red-100 text-[10px]';
+            statusBadge.textContent = 'Fallado';
+          } else {
+            statusBadge.className = 'bg-emerald-50 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full border border-emerald-100 text-[10px]';
+            statusBadge.textContent = 'Enviado';
+          }
+        }
+
+        // Vista previa HTML inicial
+        const iframe = document.getElementById('detail-camp-body-preview');
+        if (iframe) {
+          const doc = iframe.contentDocument || iframe.contentWindow.document;
+          doc.open();
+          doc.write(campaign.body || '');
+          doc.close();
+        }
+
+        showReportLoading();
+
+        try {
+          const res = await fetch(`/api/campaigns/${id}/report`);
+          const report = await res.json();
+          if (report.success) {
+            currentCampaignReport = report;
+            renderReportData();
+          } else {
+            showReportError('No se pudo cargar el reporte.');
+          }
+        } catch (err) {
+          console.error(err);
+          showReportError('Error al conectar con el servidor.');
+        }
+      } catch (globalErr) {
+        console.error("Error global en openCampaignDetail:", globalErr);
+        if (window.showToast) {
+          window.showToast("Error al abrir detalle: " + globalErr.message, "error");
+        } else {
+          alert("Error al abrir detalle: " + globalErr.message);
+        }
       }
     };
 
