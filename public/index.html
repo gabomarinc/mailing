@@ -2506,51 +2506,7 @@
   </div>
 
   <script>
-    // Visual debug overlay for console.error and console.warn
-    (function() {
-      if (document.getElementById('debug-overlay')) return;
-      const debugDiv = document.createElement('div');
-      debugDiv.id = 'debug-overlay';
-      debugDiv.style.cssText = 'position:fixed;bottom:10px;left:10px;z-index:99999;background:rgba(15,23,42,0.95);color:#38bdf8;font-family:monospace;font-size:10px;padding:12px;max-height:180px;overflow-y:auto;width:320px;border-radius:12px;border:1px solid #334155;box-shadow:0 10px 15px -3px rgba(0,0,0,0.3);pointer-events:none;';
-      debugDiv.innerHTML = '<div style="font-weight:bold;border-bottom:1px solid #334155;margin-bottom:6px;padding-bottom:4px;color:#f97316;">Consola de Diagnóstico Kônsul</div>';
-      
-      // Wait for body to be available to append
-      if (document.body) {
-        document.body.appendChild(debugDiv);
-      } else {
-        window.addEventListener('DOMContentLoaded', () => document.body.appendChild(debugDiv));
-      }
 
-      function logToOverlay(msg, color = '#38bdf8') {
-        const item = document.createElement('div');
-        item.style.color = color;
-        item.style.marginBottom = '4px';
-        item.style.wordBreak = 'break-all';
-        item.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
-        debugDiv.appendChild(item);
-        debugDiv.scrollTop = debugDiv.scrollHeight;
-      }
-
-      const originalConsoleError = console.error;
-      console.error = function(...args) {
-        logToOverlay(args.map(x => typeof x === 'object' ? JSON.stringify(x) : String(x)).join(' '), '#ef4444');
-        originalConsoleError.apply(console, args);
-      };
-
-      const originalConsoleWarn = console.warn;
-      console.warn = function(...args) {
-        logToOverlay(args.map(x => typeof x === 'object' ? JSON.stringify(x) : String(x)).join(' '), '#f59e0b');
-        originalConsoleWarn.apply(console, args);
-      };
-
-      window.addEventListener('error', function(event) {
-        logToOverlay('Error: ' + event.message + ' at ' + event.filename + ':' + event.lineno, '#ef4444');
-      });
-
-      window.addEventListener('unhandledrejection', function(event) {
-        logToOverlay('Unhandled rejection: ' + event.reason, '#ef4444');
-      });
-    })();
 
     // Variables globales
     let currentOnboardingVolume = 10000;
@@ -2911,17 +2867,32 @@
       }
     }
 
-    // Modal helpers (Corrigiendo ReferenceErrors)
+    // Modal helpers (Corrigiendo ReferenceErrors y problemas de transición)
     function openModal(id) {
       const modal = document.getElementById(id);
-      if (modal) modal.classList.remove('hidden');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      // Forzar reflujo del navegador para que la transición de opacidad se aplique correctamente
+      modal.offsetHeight; 
+      modal.classList.remove('opacity-0');
+      if (modal.children && modal.children[0]) {
+        modal.children[0].classList.remove('scale-95');
+      }
     }
     function closeModal(id) {
       const modal = document.getElementById(id);
-      if (modal) modal.classList.add('hidden');
-      if (id === 'modal-campaign-detail') {
-        activeDetailCampaignId = null;
+      if (!modal) return;
+      modal.classList.add('opacity-0');
+      if (modal.children && modal.children[0]) {
+        modal.children[0].classList.add('scale-95');
       }
+      // Ocultar del DOM tras completarse la animación (300ms)
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        if (id === 'modal-campaign-detail') {
+          activeDetailCampaignId = null;
+        }
+      }, 300);
     }
     window.openModal = openModal;
     window.closeModal = closeModal;
@@ -7710,16 +7681,6 @@
         if (chkBots) chkBots.checked = false;
 
         openModal('modal-campaign-detail');
-        
-        const modal = document.getElementById('modal-campaign-detail');
-        if (modal) {
-          requestAnimationFrame(() => {
-            modal.classList.remove('opacity-0');
-            if (modal.children && modal.children[0]) {
-              modal.children[0].classList.remove('scale-95');
-            }
-          });
-        }
 
         const campaign = campaigns.find(c => c.id.toString() === id.toString());
         if (!campaign) {
@@ -7856,11 +7817,7 @@
 
         msgEl.textContent = message;
         
-        modal.classList.remove('hidden');
-        requestAnimationFrame(() => {
-          modal.classList.remove('opacity-0');
-          modal.children[0].classList.remove('scale-95');
-        });
+        openModal('modal-confirm');
 
         function onCancel() {
           cleanup();
@@ -7873,9 +7830,7 @@
         }
 
         function cleanup() {
-          modal.classList.add('opacity-0');
-          modal.children[0].classList.add('scale-95');
-          setTimeout(() => modal.classList.add('hidden'), 300);
+          closeModal('modal-confirm');
           btnCancel.removeEventListener('click', onCancel);
           btnOk.removeEventListener('click', onOk);
         }
@@ -7896,12 +7851,8 @@
         msgEl.textContent = message;
         inputEl.value = defaultValue;
         
-        modal.classList.remove('hidden');
-        requestAnimationFrame(() => {
-          modal.classList.remove('opacity-0');
-          modal.children[0].classList.remove('scale-95');
-          inputEl.focus();
-        });
+        openModal('modal-prompt');
+        setTimeout(() => inputEl.focus(), 50);
 
         function onCancel() {
           cleanup();
@@ -7914,9 +7865,7 @@
         }
 
         function cleanup() {
-          modal.classList.add('opacity-0');
-          modal.children[0].classList.add('scale-95');
-          setTimeout(() => modal.classList.add('hidden'), 300);
+          closeModal('modal-prompt');
           btnCancel.removeEventListener('click', onCancel);
           btnOk.removeEventListener('click', onOk);
         }
