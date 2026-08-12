@@ -2968,13 +2968,16 @@ async function sendCampaignIncremental(campaignId, host) {
     const batchToProcess = pendingRecipients.slice(0, maxBatchSize);
 
     const activeContacts = await sql`
-      SELECT email, name FROM contacts 
+      SELECT email, name, custom_fields FROM contacts 
       WHERE kinde_id = ${userId} AND status = 'active' 
       AND email = ANY(${batchToProcess})
     `;
     const nameMap = {};
+    const customFieldsMap = {};
     activeContacts.forEach(c => {
-      nameMap[c.email.toLowerCase().trim()] = c.name || 'Usuario';
+      const emailKey = c.email.toLowerCase().trim();
+      nameMap[emailKey] = c.name || 'Usuario';
+      customFieldsMap[emailKey] = c.custom_fields || {};
     });
 
     const CONCURRENCY = 4;
@@ -3005,6 +3008,7 @@ async function sendCampaignIncremental(campaignId, host) {
         const openTrackingUrl = `https://${host}/api/campaigns/${campaignId}/track-open?email=${encodeURIComponent(recipient)}`;
         
         const recipientName = nameMap[cleanRecipient] || 'Usuario';
+        const recipientCustomFields = customFieldsMap[cleanRecipient] || {};
         
         let activeSubject = campaign.subject;
         let activeBody = campaign.body;
@@ -3034,11 +3038,26 @@ async function sendCampaignIncremental(campaignId, host) {
           ? `${activeSenderName} <${activeSenderEmail}>` 
           : activeSenderEmail;
 
+        let customizedSubject = activeSubject
+          .replace(/\{name\}/g, recipientName)
+          .replace(/\{\{name\}\}/g, recipientName)
+          .replace(/\{\{\s*name\s*\}\}/g, recipientName)
+          .replace(/\{\{email\}\}/g, cleanRecipient)
+          .replace(/\{\{\s*email\s*\}\}/g, cleanRecipient);
+
         let customizedBody = activeBody
           .replace(/\{\{unsubscribe_url\}\}/g, unsubscribeUrl)
           .replace(/\{name\}/g, recipientName)
           .replace(/\{\{name\}\}/g, recipientName)
-          .replace(/\{\{\s*name\s*\}\}/g, recipientName);
+          .replace(/\{\{\s*name\s*\}\}/g, recipientName)
+          .replace(/\{\{email\}\}/g, cleanRecipient)
+          .replace(/\{\{\s*email\s*\}\}/g, cleanRecipient);
+
+        Object.entries(recipientCustomFields).forEach(([key, val]) => {
+          const regex = new RegExp(`\\{\\{\\s*${key.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\s*\\}\\}`, 'gi');
+          customizedSubject = customizedSubject.replace(regex, val || '');
+          customizedBody = customizedBody.replace(regex, val || '');
+        });
 
         const trackedBody = customizedBody.replace(/<a\b([^>]*)\bhref=["']([^"']+)["']([^>]*)>/gi, (match, prefix, url, suffix) => {
           if (url.startsWith('#') || url.includes('/unsubscribe/') || url.includes('/track-click')) {
@@ -3076,7 +3095,7 @@ async function sendCampaignIncremental(campaignId, host) {
             Source: formattedSender,
             Destination: { ToAddresses: [recipient] },
             Message: {
-              Subject: { Data: activeSubject, Charset: 'UTF-8' },
+              Subject: { Data: customizedSubject, Charset: 'UTF-8' },
               Body: { Html: { Data: richBody, Charset: 'UTF-8' } }
             }
           });

@@ -1114,7 +1114,12 @@
                   </div>
 
                   <div class="space-y-2">
-                    <label for="campaign-subject" class="text-xs font-bold text-[#1c2938]">Asunto del Correo</label>
+                    <div class="flex justify-between items-center">
+                      <label for="campaign-subject" class="text-xs font-bold text-[#1c2938]">Asunto del Correo</label>
+                      <select id="subject-variables-select" onchange="insertVariableIntoInput('campaign-subject', this.value); this.value='';" class="text-[10px] font-bold text-[#27bea5] bg-transparent border-0 outline-none cursor-pointer">
+                        <!-- Populated dynamically -->
+                      </select>
+                    </div>
                     <input 
                       type="text" 
                       id="campaign-subject" 
@@ -1170,7 +1175,12 @@
                       <div id="ab-var-b-fields" class="space-y-4">
                         <!-- Campos para Asunto B -->
                         <div id="ab-var-b-subject-container" class="space-y-2">
-                          <label for="campaign-ab-subject-b" class="text-xs font-bold text-[#1c2938]">Asunto del Correo (Variación B)</label>
+                          <div class="flex justify-between items-center">
+                            <label for="campaign-ab-subject-b" class="text-xs font-bold text-[#1c2938]">Asunto del Correo (Variación B)</label>
+                            <select id="subject-b-variables-select" onchange="insertVariableIntoInput('campaign-ab-subject-b', this.value); this.value='';" class="text-[10px] font-bold text-[#27bea5] bg-transparent border-0 outline-none cursor-pointer">
+                              <!-- Populated dynamically -->
+                            </select>
+                          </div>
                           <input 
                             type="text" 
                             id="campaign-ab-subject-b" 
@@ -2733,6 +2743,7 @@
         updateCustomFiltersUI();
         renderColumnsMenu();
         populateCampaignFilters();
+        updateVariablesDropdowns();
 
         updateListMetricsBanner(selectedTag);
         renderContacts();
@@ -4708,6 +4719,63 @@
       }
     }
 
+    window.insertVariableIntoInput = function(inputId, variable) {
+      if (!variable) return;
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      
+      const start = input.selectionStart;
+      const end = input.selectionEnd;
+      const val = input.value;
+      input.value = val.substring(0, start) + variable + val.substring(end);
+      
+      input.selectionStart = input.selectionEnd = start + variable.length;
+      input.focus();
+      
+      const event = new Event('input', { bubbles: true });
+      input.dispatchEvent(event);
+    };
+
+    window.insertVariableIntoTextarea = function(textareaId, variable) {
+      if (!variable) return;
+      const textarea = document.getElementById(textareaId);
+      if (!textarea) return;
+      
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const val = textarea.value;
+      textarea.value = val.substring(0, start) + variable + val.substring(end);
+      
+      textarea.selectionStart = textarea.selectionEnd = start + variable.length;
+      textarea.focus();
+      
+      const blockId = textareaId.replace('block-text-', '');
+      updateBlockProperty(blockId, 'content', textarea.value);
+    };
+
+    function getVariablesSelectOptionsHtml() {
+      let html = `
+        <option value="">✨ Insertar Variable...</option>
+        <option value="{{name}}">Nombre Completo ({{name}})</option>
+        <option value="{{email}}">Correo ({{email}})</option>
+      `;
+      availableCustomFields.forEach(field => {
+        html += `<option value="{{${field}}}">${field} ({{${field}}})</option>`;
+      });
+      return html;
+    }
+
+    window.updateVariablesDropdowns = function() {
+      const subjectSelect = document.getElementById('subject-variables-select');
+      if (subjectSelect) {
+        subjectSelect.innerHTML = getVariablesSelectOptionsHtml();
+      }
+      const subjectBSelect = document.getElementById('subject-b-variables-select');
+      if (subjectBSelect) {
+        subjectBSelect.innerHTML = getVariablesSelectOptionsHtml();
+      }
+    };
+
     function renderTagsFilter() {
       const container = document.getElementById('contacts-tags-filter');
       container.innerHTML = `<button onclick="filterContactsByTag('all')" class="px-3 py-1 rounded-full text-xs font-bold ${selectedTag === 'all' ? 'bg-brand-dark text-white' : 'bg-brand-light text-brand-gray hover:bg-brand-border' }">Todos</button>`;
@@ -6166,13 +6234,16 @@
               </div>
             `;
           } else if (block.type === 'text') {
+            const variablesHtml = getVariablesSelectOptionsHtml();
             editorFormHtml += `
               <div class="space-y-1 text-left">
                 <div class="flex justify-between items-center">
                   <label class="text-[10px] font-bold text-slate-400 uppercase">Contenido de Texto</label>
-                  <span class="text-[9px] text-[#27bea5] font-bold">Usa [texto](url) y {name}</span>
+                  <select onchange="insertVariableIntoTextarea('block-text-${block.id}', this.value); this.value='';" class="text-[10px] font-bold text-[#27bea5] bg-transparent border-0 outline-none cursor-pointer">
+                    ${variablesHtml}
+                  </select>
                 </div>
-                <textarea oninput="updateBlockProperty('${block.id}', 'content', this.value)" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs text-[#1c2938] outline-none focus:border-[#27bea5] h-28 resize-none leading-relaxed" placeholder="Escribe el texto de tu correo aquí...">${block.content || ''}</textarea>
+                <textarea id="block-text-${block.id}" oninput="updateBlockProperty('${block.id}', 'content', this.value)" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs text-[#1c2938] outline-none focus:border-[#27bea5] h-28 resize-none leading-relaxed" placeholder="Escribe el texto de tu correo aquí...">${block.content || ''}</textarea>
               </div>
             `;
           } else if (block.type === 'image') {
