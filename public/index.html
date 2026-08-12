@@ -7790,23 +7790,28 @@
           modal.children[0].classList.remove('scale-95');
         });
 
-        const cleanup = () => {
+        function onCancel() {
+          cleanup();
+          resolve(false);
+        }
+
+        function onOk() {
+          cleanup();
+          resolve(true);
+        }
+
+        function cleanup() {
           modal.classList.add('opacity-0');
           modal.children[0].classList.add('scale-95');
           setTimeout(() => modal.classList.add('hidden'), 300);
           btnCancel.removeEventListener('click', onCancel);
           btnOk.removeEventListener('click', onOk);
-        };
-
-        const onCancel = () => { cleanup(); resolve(false); };
-        const onOk = () => { cleanup(); resolve(true); };
+        }
 
         btnCancel.addEventListener('click', onCancel);
         btnOk.addEventListener('click', onOk);
       });
     }
-    window.showConfirm = showConfirm;
-    window.showToast = showToast;
 
     function showPrompt(message, defaultValue = '') {
       return new Promise((resolve) => {
@@ -7826,21 +7831,32 @@
           inputEl.focus();
         });
 
-        const cleanup = () => {
+        function onCancel() {
+          cleanup();
+          resolve(null);
+        }
+
+        function onOk() {
+          cleanup();
+          resolve(inputEl.value);
+        }
+
+        function cleanup() {
           modal.classList.add('opacity-0');
           modal.children[0].classList.add('scale-95');
           setTimeout(() => modal.classList.add('hidden'), 300);
           btnCancel.removeEventListener('click', onCancel);
           btnOk.removeEventListener('click', onOk);
-        };
-
-        const onCancel = () => { cleanup(); resolve(null); };
-        const onOk = () => { cleanup(); resolve(inputEl.value); };
+        }
 
         btnCancel.addEventListener('click', onCancel);
         btnOk.addEventListener('click', onOk);
       });
     }
+
+    window.showConfirm = showConfirm;
+    window.showToast = showToast;
+    window.showPrompt = showPrompt;
 
     // SECCIÓN: REMITENTES, DOMINIOS, IP Y CADENCIA
     // ==========================================
