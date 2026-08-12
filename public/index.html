@@ -774,6 +774,38 @@
           <!-- Table Container -->
           <div class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm flex flex-col gap-4">
             
+            <!-- Segment metric banner -->
+            <div id="contacts-list-header-banner" class="hidden bg-slate-50 border border-slate-100/80 p-6 rounded-[2rem] flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div class="flex flex-col gap-1 text-left">
+                <h3 id="banner-list-name" class="text-base font-extrabold text-[#1B2939]">Nombre de la Lista</h3>
+                <p class="text-xs text-brand-gray">Resumen métrico de este segmento de contactos</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-6">
+                <div class="flex flex-col">
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total</span>
+                  <span id="banner-stat-total" class="text-lg font-extrabold text-[#1B2939]">0</span>
+                </div>
+                <div class="flex flex-col border-l border-slate-200 pl-4">
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-emerald-500">Activos</span>
+                  <span id="banner-stat-active" class="text-lg font-extrabold text-[#27bea5]">0</span>
+                </div>
+                <div class="flex flex-col border-l border-slate-200 pl-4">
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-rose-500">Bajas</span>
+                  <span id="banner-stat-unsub" class="text-lg font-extrabold text-rose-500">0</span>
+                </div>
+                <div class="flex flex-col border-l border-slate-200 pl-4">
+                  <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-amber-500">Rebotados</span>
+                  <span id="banner-stat-bounced" class="text-lg font-extrabold text-amber-500">0</span>
+                </div>
+                
+                <div class="flex items-center gap-2 border-l border-slate-200 pl-6 ml-2">
+                  <button onclick="openMergeModalFromBanner()" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-[#1c2938] text-white hover:bg-[#27bea5] transition-all flex items-center gap-1.5 shadow-sm">
+                    <i data-lucide="merge" class="w-3.5 h-3.5"></i> Unificar con otra lista
+                  </button>
+                </div>
+              </div>
+            </div>
+            
             <!-- Bulk Action Header (shown when checkboxes are selected) -->
             <div id="bulk-actions-bar" class="hidden flex items-center justify-between bg-slate-50 border border-slate-100 px-4 py-2.5 rounded-2xl">
               <span class="text-xs font-bold text-[#1c2938]">
@@ -2224,6 +2256,87 @@
     </div>
   </div>
 
+  <!-- MERGE LISTS MODAL -->
+  <div id="modal-merge-lists" class="fixed inset-0 bg-[#1B2939]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white max-w-lg w-full rounded-2xl border border-brand-border p-8 shadow-xl overflow-y-auto max-h-[90vh] custom-scroll flex flex-col gap-5">
+      <div class="flex justify-between items-center">
+        <h3 class="text-base font-extrabold text-[#1B2939]">Unificar / Fusionar Listas</h3>
+        <button onclick="closeModal('modal-merge-lists')" class="text-slate-400 hover:text-slate-650"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <!-- Step 1: Selection -->
+      <div id="merge-step-1" class="flex flex-col gap-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div class="flex flex-col gap-1 text-left">
+            <label class="text-xs font-semibold text-slate-700">Lista Origen A</label>
+            <select id="merge-source-a" onchange="onMergeSourcesChange()" class="w-full px-3 py-2 rounded-xl border border-brand-border text-xs outline-none focus:border-brand-accent font-medium text-[#1c2938]">
+              <option value="">Selecciona lista A...</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-1 text-left">
+            <label class="text-xs font-semibold text-slate-700">Lista Origen B</label>
+            <select id="merge-source-b" onchange="onMergeSourcesChange()" class="w-full px-3 py-2 rounded-xl border border-brand-border text-xs outline-none focus:border-brand-accent font-medium text-[#1c2938]">
+              <option value="">Selecciona lista B...</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1 text-left">
+          <label class="text-xs font-semibold text-slate-700">Nombre de la Lista Destino</label>
+          <input type="text" id="merge-dest-name" placeholder="Escribe el nombre de la lista resultante..." class="w-full px-3 py-2 rounded-xl border border-brand-border text-xs outline-none focus:border-brand-accent font-medium text-[#1c2938]">
+          <p class="text-[10px] text-brand-gray mt-0.5">Puedes escribir una nueva lista, o escribir el nombre de la Lista A o B para fusionar una dentro de la otra.</p>
+        </div>
+
+        <div class="flex items-center gap-2 text-left mt-2">
+          <input type="checkbox" id="merge-delete-sources" class="rounded text-[#27bea5] focus:ring-[#27bea5] w-4 h-4 border-slate-200 cursor-pointer">
+          <label for="merge-delete-sources" class="text-xs font-medium text-slate-650 cursor-pointer">Eliminar las listas origen después de la fusión</label>
+        </div>
+
+        <div class="flex justify-end gap-2 mt-4">
+          <button type="button" onclick="closeModal('modal-merge-lists')" class="px-4 py-2.5 rounded-xl text-xs font-semibold text-brand-gray hover:bg-brand-light">Cancelar</button>
+          <button type="button" onclick="analyzeMergeConflicts()" class="bg-brand-accent hover:bg-brand-accentHover text-white font-semibold px-5 py-2.5 rounded-xl text-xs shadow-sm flex items-center gap-1">
+            Siguiente <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: Conflict Resolution -->
+      <div id="merge-step-2" class="hidden flex flex-col gap-4">
+        <div class="bg-amber-50 border border-amber-100 p-4 rounded-xl text-left flex gap-3">
+          <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 mt-0.5"></i>
+          <div>
+            <h4 class="text-xs font-bold text-amber-800">Diferencias de Columnas Detectadas</h4>
+            <p class="text-[10px] text-amber-700 mt-0.5">Las listas que seleccionaste tienen columnas personalizadas distintas. Elige cómo deseas resolver cada diferencia antes de proceder.</p>
+          </div>
+        </div>
+
+        <div class="border border-slate-100 rounded-xl overflow-hidden max-h-60 overflow-y-auto custom-scroll text-left">
+          <table class="w-full text-xs">
+            <thead class="bg-slate-50 border-b border-slate-150">
+              <tr>
+                <th class="py-2 px-3 font-bold text-slate-400 uppercase text-[9px] tracking-wider w-1/3">Columna discrepante</th>
+                <th class="py-2 px-3 font-bold text-slate-400 uppercase text-[9px] tracking-wider w-1/3">Acción</th>
+                <th class="py-2 px-3 font-bold text-slate-400 uppercase text-[9px] tracking-wider w-1/3">Destino / Mapeo</th>
+              </tr>
+            </thead>
+            <tbody id="merge-conflicts-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex justify-between items-center mt-4">
+          <button type="button" onclick="goBackToMergeStep1()" class="px-4 py-2.5 rounded-xl text-xs font-semibold text-brand-gray bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors flex items-center gap-1">
+            <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Atrás
+          </button>
+          <button type="button" onclick="executeListMerge()" class="bg-[#27bea5] hover:bg-emerald-600 text-white font-semibold px-5 py-2.5 rounded-xl text-xs shadow-sm flex items-center gap-1">
+            FUSIONAR LISTAS <i data-lucide="check" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- IMPORT BULK CONTACTS MODAL -->
   <div id="modal-import-bulk" class="fixed inset-0 bg-[#1B2939]/40 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 hidden">
     <div class="bg-white max-w-3xl w-full rounded-[2rem] border border-brand-border p-8 shadow-2xl overflow-y-auto max-h-[90vh] custom-scroll">
@@ -2621,6 +2734,7 @@
         renderColumnsMenu();
         populateCampaignFilters();
 
+        updateListMetricsBanner(selectedTag);
         renderContacts();
         renderTagsFilter();
         updateDashboardStats();
@@ -4324,6 +4438,276 @@
       }
     };
 
+    function updateListMetricsBanner(tag) {
+      const banner = document.getElementById('contacts-list-header-banner');
+      if (!banner) return;
+      
+      if (tag === 'all') {
+        banner.classList.add('hidden');
+        return;
+      }
+      
+      banner.classList.remove('hidden');
+      document.getElementById('banner-list-name').textContent = `Lista: ${tag}`;
+      
+      const listContacts = contacts.filter(c => c.tags && c.tags.includes(tag));
+      
+      const total = listContacts.length;
+      const active = listContacts.filter(c => c.status === 'active').length;
+      const unsub = listContacts.filter(c => c.status === 'unsubscribe').length;
+      const bounced = listContacts.filter(c => c.status === 'bounced' || c.status === 'complained' || c.status === 'invalid').length;
+      
+      document.getElementById('banner-stat-total').textContent = total;
+      document.getElementById('banner-stat-active').textContent = active;
+      document.getElementById('banner-stat-unsub').textContent = unsub;
+      document.getElementById('banner-stat-bounced').textContent = bounced;
+    }
+
+    window.openMergeModalFromBanner = function() {
+      populateMergeDropdowns();
+      
+      const selectA = document.getElementById('merge-source-a');
+      if (selectA && selectedTag !== 'all') {
+        selectA.value = selectedTag;
+      }
+      
+      document.getElementById('merge-step-1').classList.remove('hidden');
+      document.getElementById('merge-step-2').classList.add('hidden');
+      
+      document.getElementById('merge-dest-name').value = '';
+      document.getElementById('merge-delete-sources').checked = false;
+      
+      openModal('modal-merge-lists');
+    };
+
+    function populateMergeDropdowns() {
+      const selectA = document.getElementById('merge-source-a');
+      const selectB = document.getElementById('merge-source-b');
+      
+      if (selectA && selectB) {
+        selectA.innerHTML = '<option value="">Selecciona lista A...</option>';
+        selectB.innerHTML = '<option value="">Selecciona lista B...</option>';
+        
+        lists.forEach(list => {
+          const optA = document.createElement('option');
+          optA.value = list;
+          optA.textContent = list;
+          selectA.appendChild(optA);
+          
+          const optB = document.createElement('option');
+          optB.value = list;
+          optB.textContent = list;
+          selectB.appendChild(optB);
+        });
+      }
+    }
+
+    window.onMergeSourcesChange = function() {
+      // Intentionally left empty
+    };
+
+    let currentConflicts = [];
+    
+    window.analyzeMergeConflicts = function() {
+      const sourceA = document.getElementById('merge-source-a').value;
+      const sourceB = document.getElementById('merge-source-b').value;
+      const destName = document.getElementById('merge-dest-name').value.trim();
+      
+      if (!sourceA || !sourceB) {
+        showToast('Debes seleccionar las dos listas origen.', 'error');
+        return;
+      }
+      if (sourceA === sourceB) {
+        showToast('Las listas origen no pueden ser la misma.', 'error');
+        return;
+      }
+      if (!destName) {
+        showToast('Debes definir el nombre de la lista destino.', 'error');
+        return;
+      }
+      
+      const contactsA = contacts.filter(c => c.tags && c.tags.includes(sourceA));
+      const fieldsA = new Set();
+      contactsA.forEach(c => {
+        if (c.custom_fields) Object.keys(c.custom_fields).forEach(k => fieldsA.add(k));
+      });
+      
+      const contactsB = contacts.filter(c => c.tags && c.tags.includes(sourceB));
+      const fieldsB = new Set();
+      contactsB.forEach(c => {
+        if (c.custom_fields) Object.keys(c.custom_fields).forEach(k => fieldsB.add(k));
+      });
+      
+      const mismatchedA = Array.from(fieldsA).filter(k => !fieldsB.has(k));
+      const mismatchedB = Array.from(fieldsB).filter(k => !fieldsA.has(k));
+      
+      if (mismatchedA.length === 0 && mismatchedB.length === 0) {
+        executeListMergeDirectly(sourceA, sourceB, destName, {}, []);
+        return;
+      }
+      
+      currentConflicts = [];
+      mismatchedA.forEach(k => {
+        currentConflicts.push({ key: k, source: 'A', otherFields: Array.from(fieldsB) });
+      });
+      mismatchedB.forEach(k => {
+        currentConflicts.push({ key: k, source: 'B', otherFields: Array.from(fieldsA) });
+      });
+      
+      const tbody = document.getElementById('merge-conflicts-tbody');
+      tbody.innerHTML = '';
+      
+      currentConflicts.forEach((conflict, idx) => {
+        const tr = document.createElement('tr');
+        tr.className = "border-b border-slate-100 last:border-0";
+        
+        let otherSelectOptions = `<option value="">Selecciona campo...</option>`;
+        conflict.otherFields.forEach(f => {
+          otherSelectOptions += `<option value="${f}">${f}</option>`;
+        });
+        
+        tr.innerHTML = `
+          <td class="py-3 px-3">
+            <span class="font-bold text-[#1c2938]">${conflict.key}</span>
+            <span class="block text-[9px] text-slate-450">Solo en Lista ${conflict.source}</span>
+          </td>
+          <td class="py-3 px-3">
+            <select id="conflict-action-${idx}" onchange="onConflictActionChange(${idx})" class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none bg-white font-medium">
+              <option value="keep">Mantener separado</option>
+              <option value="map">Unificar / Mapear a...</option>
+              <option value="ignore">Ignorar y eliminar</option>
+            </select>
+          </td>
+          <td class="py-3 px-3" id="conflict-dest-container-${idx}">
+            <span class="text-xs text-brand-gray font-medium">Se creará en destino</span>
+          </td>
+        `;
+        tbody.appendChild(tr);
+        
+        conflict.otherSelectOptions = otherSelectOptions;
+      });
+      
+      document.getElementById('merge-step-1').classList.add('hidden');
+      document.getElementById('merge-step-2').classList.remove('hidden');
+      
+      lucide.createIcons();
+    };
+
+    window.onConflictActionChange = function(idx) {
+      const action = document.getElementById(`conflict-action-${idx}`).value;
+      const container = document.getElementById(`conflict-dest-container-${idx}`);
+      const conflict = currentConflicts[idx];
+      
+      if (action === 'keep') {
+        container.innerHTML = `<span class="text-xs text-brand-gray font-medium">Se creará en destino</span>`;
+      } else if (action === 'ignore') {
+        container.innerHTML = `<span class="text-xs text-rose-500 font-bold">Se descartará</span>`;
+      } else if (action === 'map') {
+        container.innerHTML = `
+          <select id="conflict-map-target-${idx}" required class="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none bg-white font-medium">
+            ${conflict.otherSelectOptions}
+          </select>
+        `;
+      }
+    };
+
+    window.goBackToMergeStep1 = function() {
+      document.getElementById('merge-step-2').classList.add('hidden');
+      document.getElementById('merge-step-1').classList.remove('hidden');
+    };
+
+    window.executeListMerge = async function() {
+      const sourceA = document.getElementById('merge-source-a').value;
+      const sourceB = document.getElementById('merge-source-b').value;
+      const destName = document.getElementById('merge-dest-name').value.trim();
+      const deleteSources = document.getElementById('merge-delete-sources').checked;
+      
+      const mappings = {};
+      const ignoredKeys = [];
+      
+      let valid = true;
+      currentConflicts.forEach((conflict, idx) => {
+        const action = document.getElementById(`conflict-action-${idx}`).value;
+        if (action === 'ignore') {
+          ignoredKeys.push(conflict.key);
+        } else if (action === 'map') {
+          const targetSelect = document.getElementById(`conflict-map-target-${idx}`);
+          const targetValue = targetSelect ? targetSelect.value : '';
+          if (!targetValue) {
+            showToast(`Debes elegir a qué campo unificar "${conflict.key}".`, 'error');
+            valid = false;
+            return;
+          }
+          mappings[conflict.key] = targetValue;
+        }
+      });
+      
+      if (!valid) return;
+      
+      closeModal('modal-merge-lists');
+      
+      try {
+        const res = await fetch('/api/contacts/merge-lists', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sourceTagA: sourceA,
+            sourceTagB: sourceB,
+            destTag: destName,
+            mappings,
+            ignoredKeys,
+            deleteSources
+          })
+        });
+        
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Fusión completada: Listas unificadas bajo el segmento "${destName}".`, 'success');
+          if (deleteSources && (selectedTag === sourceA || selectedTag === sourceB)) {
+            selectedTag = 'all';
+          }
+          await fetchContacts();
+        } else {
+          showToast(data.message || 'Error al fusionar listas.', 'error');
+        }
+      } catch (err) {
+        showToast('Error de red al fusionar listas.', 'error');
+      }
+    };
+
+    async function executeListMergeDirectly(sourceA, sourceB, destName, mappings, ignoredKeys) {
+      const deleteSources = document.getElementById('merge-delete-sources').checked;
+      closeModal('modal-merge-lists');
+      
+      try {
+        const res = await fetch('/api/contacts/merge-lists', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sourceTagA: sourceA,
+            sourceTagB: sourceB,
+            destTag: destName,
+            mappings,
+            ignoredKeys,
+            deleteSources
+          })
+        });
+        
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Fusión completada: Listas unificadas bajo el segmento "${destName}".`, 'success');
+          if (deleteSources && (selectedTag === sourceA || selectedTag === sourceB)) {
+            selectedTag = 'all';
+          }
+          await fetchContacts();
+        } else {
+          showToast(data.message || 'Error al fusionar listas.', 'error');
+        }
+      } catch (err) {
+        showToast('Error de red al fusionar listas.', 'error');
+      }
+    }
+
     function renderTagsFilter() {
       const container = document.getElementById('contacts-tags-filter');
       container.innerHTML = `<button onclick="filterContactsByTag('all')" class="px-3 py-1 rounded-full text-xs font-bold ${selectedTag === 'all' ? 'bg-brand-dark text-white' : 'bg-brand-light text-brand-gray hover:bg-brand-border' }">Todos</button>`;
@@ -4394,6 +4778,7 @@
         listActionsGroup.classList.add('hidden');
       }
 
+      updateListMetricsBanner(tag);
       renderContacts();
     };
 

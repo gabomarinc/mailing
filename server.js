@@ -1370,6 +1370,29 @@ app.post('/api/contacts/add-tag-bulk', protectRoute, async (req, res) => {
   }
 });
 
+app.post('/api/contacts/remove-tag-bulk', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { ids, tag } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0 || !tag) {
+      return res.status(400).json({ success: false, message: 'Faltan parámetros.' });
+    }
+
+    const cleanTag = tag.trim();
+    if (!cleanTag) return res.status(400).json({ success: false, message: 'La etiqueta no puede estar vacía.' });
+
+    await sql`
+      UPDATE contacts 
+      SET tags = array_remove(tags, ${cleanTag})
+      WHERE kinde_id = ${userId} AND id = ANY(${ids})
+    `;
+    res.json({ success: true, message: 'Etiqueta removida correctamente de los contactos seleccionados.' });
+  } catch (err) {
+    console.error('Error remove tag bulk:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
 app.post('/api/contacts/remove-tag', protectRoute, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -1447,6 +1470,86 @@ app.post('/api/contacts/rename-tag', protectRoute, async (req, res) => {
     res.json({ success: true, message: `Lista renombrada correctamente a '${newTag}'.` });
   } catch (err) {
     console.error('Error rename tag:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+app.post('/api/contacts/merge-lists', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { sourceTagA, sourceTagB, destTag, mappings, ignoredKeys, deleteSources } = req.body;
+    if (!sourceTagA || !sourceTagB || !destTag) {
+      return res.status(400).json({ success: false, message: 'Faltan parámetros.' });
+    }
+
+    // 1. Fetch all contacts that have sourceTagA or sourceTagB
+    const contactsToMerge = await sql`
+      SELECT id, tags, custom_fields 
+      FROM contacts 
+      WHERE kinde_id = ${userId} AND (${sourceTagA} = ANY(tags) OR ${sourceTagB} = ANY(tags))
+    `;
+
+    if (contactsToMerge.length === 0) {
+      return res.json({ success: true, message: 'No hay contactos para fusionar.' });
+    }
+
+    // 2. Process each contact
+    const preparedList = contactsToMerge.map(contact => {
+      let currentTags = Array.isArray(contact.tags) ? contact.tags : [];
+      
+      // Add destTag if not exists
+      if (!currentTags.includes(destTag)) {
+        currentTags.push(destTag);
+      }
+      
+      // Remove sources if requested
+      if (deleteSources) {
+        currentTags = currentTags.filter(t => t !== sourceTagA && t !== sourceTagB);
+      }
+
+      // Process custom fields
+      let customFields = { ...(contact.custom_fields || {}) };
+
+      // First, rename keys according to mappings
+      if (mappings && typeof mappings === 'object') {
+        Object.entries(mappings).forEach(([oldKey, newKey]) => {
+          if (oldKey in customFields) {
+            const val = customFields[oldKey];
+            customFields[newKey] = val;
+            delete customFields[oldKey];
+          }
+        });
+      }
+
+      // Second, remove ignored keys
+      if (Array.isArray(ignoredKeys)) {
+        ignoredKeys.forEach(k => {
+          delete customFields[k];
+        });
+      }
+
+      return {
+        id: contact.id,
+        tags: currentTags,
+        custom_fields: customFields
+      };
+    });
+
+    // 3. Bulk update contacts back using JSON payload
+    const jsonPayload = JSON.stringify(preparedList);
+    
+    await sql`
+      UPDATE contacts AS c
+      SET 
+        tags = ARRAY(SELECT jsonb_array_elements_text(rec->'tags'))::text[],
+        custom_fields = (rec->'custom_fields')::jsonb
+      FROM jsonb_array_elements(${jsonPayload}::jsonb) as rec
+      WHERE c.id::text = rec->>'id' AND c.kinde_id = ${userId}
+    `;
+
+    res.json({ success: true, message: 'Listas unificadas correctamente.' });
+  } catch (err) {
+    console.error('Error merging lists:', err);
     res.status(500).json({ success: false, error: 'DB Error' });
   }
 });
