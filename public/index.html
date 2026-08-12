@@ -784,6 +784,9 @@
                 <button onclick="bulkAddTagPrompt()" class="bg-emerald-50 border border-emerald-100 text-[#27bea5] font-bold px-4 py-2 rounded-xl hover:bg-emerald-100 transition-all text-xs flex items-center gap-1.5">
                   <i data-lucide="tag" class="w-3.5 h-3.5"></i> Agregar etiqueta
                 </button>
+                <button onclick="bulkRemoveTagPrompt()" class="bg-amber-50 border border-amber-100 text-amber-600 font-bold px-4 py-2 rounded-xl hover:bg-amber-100 transition-all text-xs flex items-center gap-1.5">
+                  <i data-lucide="tag" class="w-3.5 h-3.5"></i> Quitar etiqueta
+                </button>
                 <button onclick="deleteSelectedContacts()" class="bg-rose-50 border border-rose-100 text-rose-600 font-bold px-4 py-2 rounded-xl hover:bg-rose-100 transition-all text-xs flex items-center gap-1.5">
                   <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Eliminar seleccionados
                 </button>
@@ -4489,6 +4492,34 @@
          }
        } catch (err) {
          showToast('Error de red al agregar etiqueta.', 'error');
+       }
+    };
+
+    window.bulkRemoveTagPrompt = async function() {
+       if (selectedContacts.length === 0) return;
+       const tag = prompt(`Escribe la etiqueta (tag) que deseas quitar a los ${selectedContacts.length} contactos seleccionados:`);
+       if (!tag || tag.trim() === '') return;
+       
+       const cleanTag = tag.trim();
+       const confirmAction = await showConfirm(`¿Estás seguro de que deseas quitar la etiqueta "${cleanTag}" de los ${selectedContacts.length} contactos seleccionados?`);
+       if (!confirmAction) return;
+
+       try {
+         const res = await fetch('/api/contacts/remove-tag-bulk', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ ids: selectedContacts, tag: cleanTag })
+         });
+         const data = await res.json();
+         if (data.success) {
+           showToast(`Etiqueta "${cleanTag}" removida correctamente de los contactos seleccionados.`, 'success');
+           deselectAllContacts();
+           await fetchContacts();
+         } else {
+           showToast(data.message || 'Error al remover la etiqueta.', 'error');
+         }
+       } catch (err) {
+         showToast('Error de red al remover la etiqueta.', 'error');
        }
     };
 
