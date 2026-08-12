@@ -1370,6 +1370,48 @@ app.post('/api/contacts/add-tag-bulk', protectRoute, async (req, res) => {
   }
 });
 
+app.post('/api/contacts/remove-tag', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id, tag } = req.body;
+    if (!id || !tag) {
+      return res.status(400).json({ success: false, message: 'Faltan parámetros.' });
+    }
+
+    await sql`
+      UPDATE contacts 
+      SET tags = array_remove(tags, ${tag}) 
+      WHERE kinde_id = ${userId} AND id = ${id}
+    `;
+    res.json({ success: true, message: 'Etiqueta eliminada correctamente.' });
+  } catch (err) {
+    console.error('Error remove tag:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+app.post('/api/contacts/update-tags', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id, tags } = req.body;
+    if (!id || !Array.isArray(tags)) {
+      return res.status(400).json({ success: false, message: 'Parámetros inválidos.' });
+    }
+
+    const cleanTags = tags.map(t => t.trim()).filter(Boolean);
+
+    await sql`
+      UPDATE contacts 
+      SET tags = ${cleanTags} 
+      WHERE kinde_id = ${userId} AND id = ${id}
+    `;
+    res.json({ success: true, message: 'Segmentos actualizados.' });
+  } catch (err) {
+    console.error('Error update tags:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
 app.post('/api/contacts/delete-by-tag', protectRoute, async (req, res) => {
   try {
     const userId = req.user.id;

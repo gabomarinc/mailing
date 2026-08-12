@@ -4044,7 +4044,12 @@
         const tr = document.createElement('tr');
         tr.className = "border-b border-brand-border text-xs font-medium text-brand-dark";
         
-        const tagsBadges = c.tags ? c.tags.map(t => `<span class="bg-brand-light px-2.5 py-0.5 border border-brand-border/60 rounded-full font-bold text-[9px] text-brand-gray mr-1">${t}</span>`).join('') : '';
+        const tagsBadges = c.tags ? c.tags.map(t => `
+          <span class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-100/60 px-2 py-0.5 rounded-full font-bold text-[10px] mr-1 mb-1 hover:bg-emerald-100 transition-colors">
+            ${t}
+            <button onclick="removeContactTag('${c.id}', '${t}')" class="text-emerald-400 hover:text-emerald-700 font-bold ml-0.5 focus:outline-none" style="line-height: 1;" title="Quitar de esta lista">&times;</button>
+          </span>
+        `).join('') : '';
         let statusBadge = '';
         if (c.status === 'active') {
           statusBadge = `<span class="bg-emerald-50 text-emerald-700 font-bold px-2.5 py-0.5 rounded-full text-[10px] border border-emerald-100">Activo</span>`;
@@ -4078,7 +4083,14 @@
         });
         
         if (visibleColumns.includes('actions')) {
-          trHtml += `<td class="py-3.5 px-4 text-right"><button onclick="deleteContact('${c.id}')" class="text-rose-500 hover:text-rose-700 font-bold">Eliminar</button></td>`;
+          trHtml += `
+            <td class="py-3.5 px-4 text-right">
+              <div class="flex items-center justify-end gap-3.5">
+                <button onclick="editContactTags('${c.id}')" class="text-[#27bea5] hover:text-emerald-700 font-bold">Segmentos</button>
+                <button onclick="deleteContact('${c.id}')" class="text-rose-500 hover:text-rose-700 font-bold">Eliminar</button>
+              </div>
+            </td>
+          `;
         }
 
         tr.innerHTML = trHtml;
@@ -4235,6 +4247,58 @@
         }
       } catch (err) {
         showToast('Error de red al eliminar el campo.', 'error');
+      }
+    };
+
+    window.removeContactTag = async function(contactId, tag) {
+      const confirmAction = await showConfirm(`¿Deseas quitar el segmento "${tag}" de este contacto?`);
+      if (!confirmAction) return;
+
+      try {
+        const res = await fetch('/api/contacts/remove-tag', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: contactId, tag: tag })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Segmento removido correctamente.', 'success');
+          await fetchContacts();
+        } else {
+          showToast(data.message || 'Error al remover el segmento.', 'error');
+        }
+      } catch (err) {
+        showToast('Error de red al remover el segmento.', 'error');
+      }
+    };
+
+    window.editContactTags = async function(contactId) {
+      const contact = contacts.find(c => c.id.toString() === contactId.toString());
+      if (!contact) return;
+      
+      const currentTags = contact.tags || [];
+      const newTagsStr = prompt(`Edita los segmentos/listas para ${contact.email} (separados por comas):`, currentTags.join(', '));
+      if (newTagsStr === null) return;
+      
+      const cleanTags = newTagsStr.split(',')
+                                  .map(t => t.trim())
+                                  .filter(t => t.length > 0);
+                                  
+      try {
+        const res = await fetch('/api/contacts/update-tags', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: contactId, tags: cleanTags })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Segmentos actualizados correctamente.', 'success');
+          await fetchContacts();
+        } else {
+          showToast(data.message || 'Error al actualizar segmentos.', 'error');
+        }
+      } catch (err) {
+        showToast('Error de red al actualizar segmentos.', 'error');
       }
     };
 
