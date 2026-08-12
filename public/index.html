@@ -2360,6 +2360,14 @@
       
       <!-- Phase 1: Upload -->
       <div id="import-phase-1" class="flex flex-col gap-4">
+        <div class="flex flex-col gap-1 text-left mb-2">
+          <label class="text-xs font-bold text-[#1B2939]">1. Selecciona la Lista Destino (Existente o Nueva)</label>
+          <input type="text" id="import-tag" list="existing-tags-datalist" placeholder="Escribe una nueva lista o selecciona una existente..." class="w-full px-4 py-3 rounded-xl border border-brand-border text-xs outline-none focus:border-brand-accent font-medium bg-slate-50">
+          <datalist id="existing-tags-datalist"></datalist>
+          <p class="text-[10px] text-brand-gray mt-1">Los contactos que importes se asignarán a esta lista. Si lo dejas vacío, se usará "Importados".</p>
+        </div>
+
+        <label class="text-xs font-bold text-[#1B2939] text-left">2. Sube tu archivo de Contactos</label>
         <div id="drop-zone" class="border-2 border-dashed border-slate-300 rounded-2xl p-10 flex flex-col items-center justify-center bg-slate-50 hover:bg-blue-50/50 hover:border-[#27bea5] transition-all cursor-pointer relative">
           <i data-lucide="upload-cloud" class="w-10 h-10 text-slate-400 mb-3 pointer-events-none"></i>
           <p class="text-sm font-bold text-[#1B2939] pointer-events-none">Haz clic o arrastra tu archivo aquí</p>
@@ -2416,12 +2424,7 @@
           </table>
         </div>
 
-        <div class="flex flex-col gap-1 mt-2">
-          <label class="text-xs font-bold text-brand-dark">Asignar a Lista (Etiqueta)</label>
-          <input type="text" id="import-tag" list="existing-tags-datalist" placeholder="Escribe una nueva o selecciona una existente..." class="w-full px-4 py-3 rounded-xl border border-brand-border text-xs outline-none focus:border-brand-accent font-medium bg-slate-50">
-          <datalist id="existing-tags-datalist"></datalist>
-          <p class="text-[10px] text-brand-gray mt-1">Si dejas esto vacío, se asignará "Importados" por defecto.</p>
-        </div>
+        <!-- List selection was moved to Phase 1 -->
 
         <div class="flex justify-end gap-3 mt-4">
           <button onclick="resetImport()" class="px-5 py-2.5 rounded-xl text-xs font-bold text-brand-gray bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors">Volver</button>
@@ -3206,12 +3209,29 @@
         const tbody = document.getElementById('mapping-table-body');
         tbody.innerHTML = '';
 
+        const targetList = document.getElementById('import-tag').value.trim();
+        const existingCustomColumns = new Set();
+        if (targetList && lists.includes(targetList)) {
+          contacts.forEach(c => {
+            if (c.tags && c.tags.includes(targetList) && c.custom_fields) {
+              Object.keys(c.custom_fields).forEach(k => existingCustomColumns.add(k));
+            }
+          });
+        }
+
         const appFields = [
           { id: '', name: '-- Ignorar --' },
           { id: 'email', name: 'Email (Obligatorio)' },
-          { id: 'name', name: 'Nombre Completo' },
-          { id: 'custom', name: '✨ Crear Campo Personalizado' }
+          { id: 'name', name: 'Nombre Completo' }
         ];
+
+        // Add existing list custom columns to the select
+        existingCustomColumns.forEach(col => {
+          appFields.push({ id: `existing_custom_${col}`, name: `Mapear a Columna Existente: ${col}` });
+        });
+
+        // Add standard "Crear Campo Personalizado" option
+        appFields.push({ id: 'custom', name: '✨ Crear Campo Personalizado Nuevo' });
 
         let selectOptionsHtml = '';
         appFields.forEach(field => {
@@ -3227,6 +3247,14 @@
           let bestMatchId = '';
           if (lowerHeader.includes('email') || lowerHeader.includes('correo') || lowerHeader.includes('e-mail')) bestMatchId = 'email';
           else if (lowerHeader.includes('name') || lowerHeader.includes('nombre')) bestMatchId = 'name';
+          
+          // If list already has a column matching this header name, auto-match it!
+          if (bestMatchId === '') {
+            const matchedCol = Array.from(existingCustomColumns).find(col => col.toLowerCase().trim() === lowerHeader);
+            if (matchedCol) {
+              bestMatchId = `existing_custom_${matchedCol}`;
+            }
+          }
           
           let exampleText = importData[0][header];
           if (exampleText === undefined || exampleText === null) exampleText = '-';
@@ -3279,6 +3307,10 @@
             const selectVal = document.getElementById(`map-col-${idx}`).value;
             if (selectVal === 'email') emailCol = header;
             else if (selectVal === 'name') nameCol = header;
+            else if (selectVal.startsWith('existing_custom_')) {
+              const customName = selectVal.replace('existing_custom_', '');
+              customMappings.push({ header: header, customName: customName });
+            }
             else if (selectVal === 'custom') {
               const customName = document.getElementById(`map-custom-${idx}`).value.trim() || header;
               customMappings.push({ header: header, customName: customName });
