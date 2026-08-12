@@ -1795,36 +1795,57 @@ app.post('/api/upload-proxy', protectRoute, async (req, res) => {
 
     let imageUrl = '';
     
-    // INTENTO 1: Imgur API (Acepta Base64 nativo y no bloquea Vercel)
+    // INTENTO 1: Guardar localmente en el servidor
     try {
-      const formData = new URLSearchParams();
-      formData.append('image', base64String);
-      formData.append('type', 'base64');
-      if (filename) formData.append('name', filename);
-
-      // Client ID público genérico
-      const imgurRes = await fetch('https://api.imgur.com/3/image', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Authorization': 'Client-ID 546c25a59c58ad7',
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      });
-
-      if (imgurRes.ok) {
-        const imgurData = await imgurRes.json();
-        if (imgurData.success && imgurData.data && imgurData.data.link) {
-          imageUrl = imgurData.data.link;
-        }
-      } else {
-        console.error('Imgur upload error status:', imgurRes.status, await imgurRes.text());
+      const uploadDir = path.join(__dirname, 'public', 'uploads');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
       }
-    } catch (imgurErr) {
-      console.error('Fallo de subida en Imgur, intentando Catbox:', imgurErr);
+      
+      const uniqueName = `${Date.now()}-${(filename || 'upload.jpg').replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const filePath = path.join(uploadDir, uniqueName);
+      const buffer = Buffer.from(base64String, 'base64');
+      fs.writeFileSync(filePath, buffer);
+      
+      const host = req.headers.host || 'localhost:3000';
+      const protocol = req.headers['x-forwarded-proto'] === 'https' || req.secure ? 'https' : 'http';
+      imageUrl = `${protocol}://${host}/uploads/${uniqueName}`;
+      console.log('Imagen subida localmente:', imageUrl);
+    } catch (localErr) {
+      console.error('Fallo al guardar imagen localmente, intentando Imgur:', localErr);
     }
 
-    // INTENTO 2: Catbox.moe (como fallback, puede ser bloqueado por AWS/Vercel)
+    // INTENTO 2: Imgur API (como fallback)
+    if (!imageUrl) {
+      try {
+        const formData = new URLSearchParams();
+        formData.append('image', base64String);
+        formData.append('type', 'base64');
+        if (filename) formData.append('name', filename);
+
+        const imgurRes = await fetch('https://api.imgur.com/3/image', {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Authorization': 'Client-ID 546c25a59c58ad7',
+            'Content-Type': 'application/x-www-form-urlencoded'
+          }
+        });
+
+        if (imgurRes.ok) {
+          const imgurData = await imgurRes.json();
+          if (imgurData.success && imgurData.data && imgurData.data.link) {
+            imageUrl = imgurData.data.link;
+          }
+        } else {
+          console.error('Imgur upload error status:', imgurRes.status, await imgurRes.text());
+        }
+      } catch (imgurErr) {
+        console.error('Fallo de subida en Imgur, intentando Catbox:', imgurErr);
+      }
+    }
+
+    // INTENTO 3: Catbox.moe (como fallback secundario)
     if (!imageUrl) {
       try {
         const buffer = Buffer.from(base64String, 'base64');
@@ -1854,7 +1875,7 @@ app.post('/api/upload-proxy', protectRoute, async (req, res) => {
     }
 
     if (!imageUrl) {
-      throw new Error('Todos los servidores de alojamiento de imágenes (Imgur y Catbox) fallaron.');
+      throw new Error('Todos los servidores de alojamiento de imágenes (Local, Imgur y Catbox) fallaron.');
     }
 
     res.json({ success: true, url: imageUrl });
@@ -2260,20 +2281,44 @@ app.post('/api/campaigns/send-test', protectRoute, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Faltan datos requeridos.' });
     }
 
-    if (!isValidEmail(recipient.trim().toLowerCase())) {
-      return res.status(400).json({ success: false, message: 'El correo de destino no es válido.' });
-    }
+    const cleanRecipient = recipient.trim().toLowerCase();
+    const mockUnsubscribeUrl = `https://${req.headers.host || 'localhost:3000'}/unsubscribe/test-campaign/${encodeURIComponent(cleanRecipient)}`;
+
+    let processedSubject = subject
+      .replace(/\{name\}/g, 'Destinatario de Prueba')
+      .replace(/\{\{name\}\}/g, 'Destinatario de Prueba')
+      .replace(/\{\{\s*name\s*\}\}/g, 'Destinatario de Prueba')
+      .replace(/\{\{email\}\}/g, cleanRecipient)
+      .replace(/\{\{\s*email\s*\}\}/g, cleanRecipient);
+
+    let processedBody = body
+      .replace(/\{\{unsubscribe_url\}\}/g, mockUnsubscribeUrl)
+      .replace(/\{name\}/g, 'Destinatario de Prueba')
+      .replace(/\{\{name\}\}/g, 'Destinatario de Prueba')
+      .replace(/\{\{\s*name\s*\}\}/g, 'Destinatario de Prueba')
+      .replace(/\{\{email\}\}/g, cleanRecipient)
+      .replace(/\{\{\s*email\s*\}\}/g, cleanRecipient);
+
+    // Replace any remaining custom field variable placeholders with generic label
+    processedBody = processedBody.replace(/\{\{\s*([A-Za-z0-9_-]+)\s*\}\}/g, (match, fieldName) => {
+      if (fieldName === 'unsubscribe_url' || fieldName === 'name' || fieldName === 'email') return match;
+      return `[Dato: ${fieldName}]`;
+    });
+
+    processedSubject = processedSubject.replace(/\{\{\s*([A-Za-z0-9_-]+)\s*\}\}/g, (match, fieldName) => {
+      if (fieldName === 'unsubscribe_url' || fieldName === 'name' || fieldName === 'email') return match;
+      return `[Dato: ${fieldName}]`;
+    });
 
     const hasAwsCreds = !!process.env.AWS_ACCESS_KEY_ID || !!process.env.AWS_REGION || !!process.env.SES_SENDER_EMAIL;
     let formattedSender = senderName ? `${senderName} <${senderEmail}>` : senderEmail;
 
-    // Agregar un banner informativo de prueba al cuerpo
     const testBody = `
       <div style="border: 2px dashed #27bea5; padding: 12px; margin-bottom: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #1B2939; background-color: #f0fdfa; border-radius: 12px; text-align: center; line-height: 1.5;">
         <strong>📧 Este es un correo de prueba de Kônsul Mailing</strong><br/>
         <span style="color: #6E7A8A; font-size: 11px;">Enviado para verificar el diseño y formato de tu campaña.</span>
       </div>
-      ${body}
+      ${processedBody}
       <hr style="border: 0; border-top: 1px solid #EAE6DF; margin: 30px 0;" />
       <div style="font-size: 11px; color: #6E7A8A; text-align: center; font-family: sans-serif;">
         <p>Recibido como prueba desde el editor de campañas de Kônsul Suite.</p>
@@ -2284,9 +2329,9 @@ app.post('/api/campaigns/send-test', protectRoute, async (req, res) => {
       const sesClient = new SESClient({ region: process.env.AWS_REGION || 'us-east-1' });
       const command = new SendEmailCommand({
         Source: formattedSender,
-        Destination: { ToAddresses: [recipient.trim().toLowerCase()] },
+        Destination: { ToAddresses: [cleanRecipient] },
         Message: {
-          Subject: { Data: `[PRUEBA] ${subject}`, Charset: 'UTF-8' },
+          Subject: { Data: `[PRUEBA] ${processedSubject}`, Charset: 'UTF-8' },
           Body: { Html: { Data: testBody, Charset: 'UTF-8' } }
         }
       });
