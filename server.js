@@ -987,7 +987,7 @@ app.post('/api/contacts/bulk', protectRoute, async (req, res) => {
     
     // Group unique domains to validate
     const domainsToCheck = new Set();
-    const preparedList = [];
+    const preparedMap = new Map();
 
     for (const item of list) {
       let email = typeof item === 'string' ? item : item.email;
@@ -1002,17 +1002,26 @@ app.post('/api/contacts/bulk', protectRoute, async (req, res) => {
           const domain = email.split('@')[1];
           domainsToCheck.add(domain);
           
-          preparedList.push({
-            kinde_id: userId,
-            name: name.substring(0, 255),
-            email: email,
-            tags: tags,
-            custom_fields: custom_fields,
-            status: 'active'
-          });
+          if (preparedMap.has(email)) {
+            const existing = preparedMap.get(email);
+            existing.name = name.substring(0, 255);
+            existing.tags = [...new Set([...existing.tags, ...tags])];
+            existing.custom_fields = { ...existing.custom_fields, ...custom_fields };
+          } else {
+            preparedMap.set(email, {
+              kinde_id: userId,
+              name: name.substring(0, 255),
+              email: email,
+              tags: tags,
+              custom_fields: custom_fields,
+              status: 'active'
+            });
+          }
         }
       }
     }
+    
+    const preparedList = Array.from(preparedMap.values());
 
     if (preparedList.length === 0) {
       return res.json({ success: true, added: 0 });
