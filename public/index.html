@@ -2877,6 +2877,8 @@
         activeDetailCampaignId = null;
       }
     }
+    window.openModal = openModal;
+    window.closeModal = closeModal;
     function openAddContactModal() {
       const select = document.getElementById('ac-tag');
       if (select) {
@@ -7578,7 +7580,7 @@
     };
 
     async function resumeCampaign(id) {
-      const campaign = campaigns.find(c => c.id === id);
+      const campaign = campaigns.find(c => c.id.toString() === id.toString());
       const isLegacy = campaign && (!campaign.successCount || campaign.successCount === 0);
       let skipCount = 0;
       
@@ -7668,7 +7670,7 @@
         modal.children[0].classList.remove('scale-95');
       });
 
-      const campaign = campaigns.find(c => c.id === id);
+      const campaign = campaigns.find(c => c.id.toString() === id.toString());
       if (!campaign) return;
 
       document.getElementById('detail-camp-subject').textContent = campaign.subject;
