@@ -4467,7 +4467,7 @@
     window.deleteCustomFieldPrompt = async function(field, event) {
       if (event) event.stopPropagation();
       
-      const confirmAction = await showConfirm(`¿Estás seguro de que deseas eliminar la columna "${field}" de todos tus contactos? Esta acción eliminará los valores almacenados para este campo.`);
+      const confirmAction = await window.showConfirm(`¿Estás seguro de que deseas eliminar la columna "${field}" de todos tus contactos? Esta acción eliminará los valores almacenados para este campo.`);
       if (!confirmAction) return;
       
       try {
@@ -4478,14 +4478,14 @@
         });
         const data = await res.json();
         if (data.success) {
-          showToast(`Columna "${field}" eliminada correctamente.`, 'success');
+          window.showToast(`Columna "${field}" eliminada correctamente.`, 'success');
           visibleColumns = visibleColumns.filter(col => col !== 'custom_' + field);
           await fetchContacts();
         } else {
-          showToast(data.message || 'Error al eliminar el campo.', 'error');
+          window.showToast(data.message || 'Error al eliminar el campo.', 'error');
         }
       } catch (err) {
-        showToast('Error de red al eliminar el campo.', 'error');
+        window.showToast('Error de red al eliminar el campo.', 'error');
       }
     };
 
@@ -7803,8 +7803,9 @@
 
         btnCancel.addEventListener('click', onCancel);
         btnOk.addEventListener('click', onOk);
-      });
     }
+    window.showConfirm = showConfirm;
+    window.showToast = showToast;
 
     function showPrompt(message, defaultValue = '') {
       return new Promise((resolve) => {
