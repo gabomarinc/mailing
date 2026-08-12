@@ -778,6 +778,7 @@
             <div id="bulk-actions-bar" class="hidden flex items-center justify-between bg-slate-50 border border-slate-100 px-4 py-2.5 rounded-2xl">
               <span class="text-xs font-bold text-[#1c2938]">
                 <span id="selected-contacts-count">0</span> contactos seleccionados
+                <span id="select-all-filtered-action"></span>
               </span>
               <button onclick="deleteSelectedContacts()" class="bg-rose-50 border border-rose-100 text-rose-600 font-bold px-4 py-2 rounded-xl hover:bg-rose-100 transition-all text-xs flex items-center gap-1.5">
                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Eliminar seleccionados
@@ -4288,15 +4289,66 @@
     function updateBulkActionUI() {
       const bar = document.getElementById('bulk-actions-bar');
       const countSpan = document.getElementById('selected-contacts-count');
+      const extraSpan = document.getElementById('select-all-filtered-action');
       if (bar && countSpan) {
         if (selectedContacts.length > 0) {
           bar.classList.remove('hidden');
           countSpan.textContent = selectedContacts.length;
+          
+          if (extraSpan) {
+             const query = document.getElementById('search-contacts').value.toLowerCase();
+             const customKey = document.getElementById('filter-custom-key').value;
+             const customVal = document.getElementById('filter-custom-value').value.toLowerCase();
+             
+             let filtered = contacts.filter(c => {
+               if (selectedTag !== 'all' && (!c.tags || !c.tags.includes(selectedTag))) return false;
+               if (query && !c.name.toLowerCase().includes(query) && !c.email.toLowerCase().includes(query)) return false;
+               if (customKey && customVal) {
+                 if (!c.custom_fields || !c.custom_fields[customKey] || !c.custom_fields[customKey].toLowerCase().includes(customVal)) {
+                   return false;
+                 }
+               }
+               return true;
+             });
+             
+             if (filtered.length > selectedContacts.length && selectedContacts.length >= document.querySelectorAll('.contact-row-checkbox:checked').length) {
+                extraSpan.innerHTML = `<button onclick="selectAllFilteredContacts()" class="ml-3 underline text-[#27bea5] hover:text-emerald-600 transition-colors">Seleccionar los ${filtered.length} contactos de la lista</button>`;
+             } else {
+                extraSpan.innerHTML = '';
+             }
+          }
         } else {
           bar.classList.add('hidden');
         }
       }
     }
+
+    window.selectAllFilteredContacts = function() {
+       const query = document.getElementById('search-contacts').value.toLowerCase();
+       const customKey = document.getElementById('filter-custom-key').value;
+       const customVal = document.getElementById('filter-custom-value').value.toLowerCase();
+       
+       let filtered = contacts.filter(c => {
+         if (selectedTag !== 'all' && (!c.tags || !c.tags.includes(selectedTag))) return false;
+         if (query && !c.name.toLowerCase().includes(query) && !c.email.toLowerCase().includes(query)) return false;
+         if (customKey && customVal) {
+           if (!c.custom_fields || !c.custom_fields[customKey] || !c.custom_fields[customKey].toLowerCase().includes(customVal)) {
+             return false;
+           }
+         }
+         return true;
+       });
+       
+       selectedContacts = filtered.map(c => c.id.toString());
+       
+       const tbody = document.getElementById('contacts-table-body');
+       const checkboxes = tbody.querySelectorAll('.contact-row-checkbox');
+       checkboxes.forEach(cb => { cb.checked = true; });
+       const masterCheckbox = document.getElementById('selectAllContacts');
+       if (masterCheckbox) masterCheckbox.checked = true;
+       
+       updateBulkActionUI();
+    };
 
     function renderPagination(totalItems) {
       const container = document.getElementById('contacts-pagination');
