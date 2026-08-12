@@ -4201,7 +4201,7 @@
       const thead = document.getElementById('contacts-table-head');
       tbody.innerHTML = '';
       
-      let theadHtml = '<tr class="border-b border-slate-100 text-slate-400 font-bold uppercase text-[10px] tracking-widest sticky top-0 bg-white z-10">';
+      let theadHtml = '<tr class="border-b border-slate-100 text-slate-400 font-bold uppercase text-[10px] tracking-widest sticky top-0 bg-white z-20">';
       if (visibleColumns.includes('checkbox')) {
         theadHtml += '<th class="py-3 px-4 w-10"><input type="checkbox" id="selectAllContacts" onchange="toggleSelectAllContacts(this)" class="rounded text-[#27bea5] focus:ring-[#27bea5] w-4 h-4 border-slate-200"></th>';
       }
@@ -4223,7 +4223,7 @@
         }
       });
       if (visibleColumns.includes('actions')) {
-        theadHtml += '<th class="py-3 px-4 text-right sticky right-0 top-0 bg-white z-30 shadow-[-4px_0_10px_rgba(0,0,0,0.03)] border-b border-slate-100">Acciones</th>';
+        theadHtml += '<th class="py-3 px-4 text-right sticky right-0 top-0 bg-white z-40 shadow-[-4px_0_10px_rgba(0,0,0,0.03)] border-b border-slate-100">Acciones</th>';
       }
       theadHtml += '</tr>';
       thead.innerHTML = theadHtml;
@@ -7803,6 +7803,7 @@
 
         btnCancel.addEventListener('click', onCancel);
         btnOk.addEventListener('click', onOk);
+      });
     }
     window.showConfirm = showConfirm;
     window.showToast = showToast;
