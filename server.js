@@ -2282,7 +2282,9 @@ app.post('/api/campaigns/send-test', protectRoute, async (req, res) => {
     }
 
     const cleanRecipient = recipient.trim().toLowerCase();
-    const mockUnsubscribeUrl = `https://${req.headers.host || 'localhost:3000'}/unsubscribe/test-campaign/${encodeURIComponent(cleanRecipient)}`;
+    const host = req.headers.host || 'localhost:3000';
+    const protocol = (host.includes('localhost') || host.includes('127.0.0.1')) ? 'http' : 'https';
+    const mockUnsubscribeUrl = `${protocol}://${host}/unsubscribe/test-campaign/${encodeURIComponent(cleanRecipient)}`;
 
     let processedSubject = subject
       .replace(/\{name\}/g, 'Destinatario de Prueba')
@@ -2809,6 +2811,14 @@ app.get('/unsubscribe/:campaignId/:email', async (req, res) => {
     const { campaignId, email } = req.params;
     const cleanEmail = decodeURIComponent(email).toLowerCase();
     
+    // Query recipient name for personalization
+    const contactResult = await sql`
+      SELECT name FROM contacts 
+      WHERE email = ${cleanEmail} 
+      LIMIT 1
+    `;
+    const recipientName = contactResult.length > 0 ? contactResult[0].name : 'Suscriptor';
+    
     // Mostrar página de confirmación para evitar falsas bajas por bots/antivirus
     res.send(`
       <!DOCTYPE html>
@@ -2824,8 +2834,8 @@ app.get('/unsubscribe/:campaignId/:email', async (req, res) => {
       <body class="min-h-screen flex items-center justify-center p-6 text-[#1B2939]">
         <div class="max-w-md w-full bg-white border border-[#EAE6DF] rounded-3xl p-8 text-center shadow-sm" id="confirm-box">
           <div class="text-4xl mb-4">👋</div>
-          <h2 class="text-2xl font-semibold mb-2">¿Quieres cancelar tu suscripción?</h2>
-          <p class="text-[#6E7A8A] text-sm mb-6">El correo <b>${cleanEmail}</b> dejará de recibir nuestras actualizaciones.</p>
+          <h2 class="text-2xl font-semibold mb-2">Hola, ${recipientName}</h2>
+          <p class="text-[#6E7A8A] text-sm mb-6">¿Quieres cancelar tu suscripción? El correo <b>${cleanEmail}</b> dejará de recibir nuestras actualizaciones.</p>
           <button onclick="confirmUnsubscribe()" class="w-full bg-[#1B2939] hover:bg-[#2A3F54] text-white font-semibold py-3 px-6 rounded-xl transition-colors">
             Sí, darme de baja
           </button>
@@ -2876,6 +2886,9 @@ app.post('/api/unsubscribe', async (req, res) => {
     if (campaignData.length > 0) {
       const userId = campaignData[0].kinde_id;
       await sql`UPDATE contacts SET status = 'unsubscribe' WHERE kinde_id = ${userId} AND email = ${cleanEmail}`;
+    } else {
+      // Fallback para campañas de prueba
+      await sql`UPDATE contacts SET status = 'unsubscribe' WHERE email = ${cleanEmail}`;
     }
     res.json({ success: true });
   } catch(err) {
@@ -3049,7 +3062,8 @@ async function sendCampaignIncremental(campaignId, host) {
           return;
         }
 
-        const unsubscribeUrl = `https://${host}/unsubscribe/${campaignId}/${encodeURIComponent(recipient)}`;
+        const protocol = (host.includes('localhost') || host.includes('127.0.0.1')) ? 'http' : 'https';
+        const unsubscribeUrl = `${protocol}://${host}/unsubscribe/${campaignId}/${encodeURIComponent(recipient)}`;
         const openTrackingUrl = `https://${host}/api/campaigns/${campaignId}/track-open?email=${encodeURIComponent(recipient)}`;
         
         const recipientName = nameMap[cleanRecipient] || 'Usuario';
