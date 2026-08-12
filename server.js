@@ -1435,6 +1435,28 @@ app.post('/api/contacts/update-tags', protectRoute, async (req, res) => {
   }
 });
 
+app.post('/api/contacts/update-status', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id, status } = req.body;
+    
+    const validStates = ['active', 'unsubscribe', 'bounced', 'complained', 'invalid'];
+    if (!id || !validStates.includes(status)) {
+      return res.status(400).json({ success: false, message: 'Parámetros inválidos.' });
+    }
+
+    await sql`
+      UPDATE contacts 
+      SET status = ${status} 
+      WHERE kinde_id = ${userId} AND id = ${id}
+    `;
+    res.json({ success: true, message: 'Estado del contacto actualizado correctamente.' });
+  } catch (err) {
+    console.error('Error update contact status:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
 app.post('/api/contacts/delete-by-tag', protectRoute, async (req, res) => {
   try {
     const userId = req.user.id;

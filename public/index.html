@@ -4265,6 +4265,7 @@
           trHtml += `
             <td class="py-3.5 px-4 text-right">
               <div class="flex items-center justify-end gap-3.5">
+                <button onclick="editContactStatus('${c.id}')" class="text-slate-500 hover:text-slate-800 font-bold">Estado</button>
                 <button onclick="editContactTags('${c.id}')" class="text-[#27bea5] hover:text-emerald-700 font-bold">Segmentos</button>
                 <button onclick="deleteContact('${c.id}')" class="text-rose-500 hover:text-rose-700 font-bold">Eliminar</button>
               </div>
@@ -4478,6 +4479,52 @@
         }
       } catch (err) {
         showToast('Error de red al actualizar segmentos.', 'error');
+      }
+    };
+
+    window.editContactStatus = async function(contactId) {
+      const contact = contacts.find(c => c.id.toString() === contactId.toString());
+      if (!contact) return;
+      
+      const states = [
+        { id: 'active', label: 'Activo' },
+        { id: 'unsubscribe', label: 'Baja (Unsubscribed)' },
+        { id: 'bounced', label: 'Rebotado (Bounced)' },
+        { id: 'complained', label: 'Queja Spam (Complained)' },
+        { id: 'invalid', label: 'Inválido (Invalid)' }
+      ];
+      
+      let promptText = `Cambiar estado de ${contact.email}.\nEstado actual: ${contact.status}\n\nIngresa el número del nuevo estado:\n`;
+      states.forEach((s, idx) => {
+        promptText += `${idx + 1}. ${s.label}\n`;
+      });
+      
+      const selection = prompt(promptText, "1");
+      if (selection === null) return;
+      
+      const num = parseInt(selection.trim(), 10);
+      if (isNaN(num) || num < 1 || num > states.length) {
+        showToast('Selección inválida.', 'error');
+        return;
+      }
+      
+      const newState = states[num - 1].id;
+      
+      try {
+        const res = await fetch('/api/contacts/update-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: contactId, status: newState })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Estado de ${contact.email} actualizado a ${states[num - 1].label}.`, 'success');
+          await fetchContacts();
+        } else {
+          showToast(data.message || 'Error al actualizar el estado.', 'error');
+        }
+      } catch (err) {
+        showToast('Error de red al actualizar el estado.', 'error');
       }
     };
 
