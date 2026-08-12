@@ -1443,11 +1443,20 @@ app.post('/api/contacts/delete-by-tag', protectRoute, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Se requiere una etiqueta.' });
     }
     
+    // 1. Remove the tag from all contacts
     await sql`
-      DELETE FROM contacts 
+      UPDATE contacts 
+      SET tags = array_remove(tags, ${tag}) 
       WHERE kinde_id = ${userId} AND ${tag} = ANY(tags)
     `;
-    res.json({ success: true, message: `Contactos de la lista '${tag}' eliminados correctamente.` });
+
+    // 2. Delete the list entry from the lists table
+    await sql`
+      DELETE FROM lists 
+      WHERE kinde_id = ${userId} AND name = ${tag}
+    `;
+
+    res.json({ success: true, message: `Lista '${tag}' eliminada correctamente.` });
   } catch (err) {
     console.error('Error delete by tag:', err);
     res.status(500).json({ success: false, error: 'DB Error' });

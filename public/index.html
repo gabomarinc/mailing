@@ -5044,7 +5044,7 @@
     window.deleteActiveList = async function() {
       if (selectedTag === 'all') return;
 
-      const confirmAction = await showConfirm(`¿Estás seguro de que deseas eliminar permanentemente todos los contactos asociados a la lista/etiqueta '${selectedTag}'?`);
+      const confirmAction = await showConfirm(`¿Estás seguro de que deseas eliminar la lista/etiqueta '${selectedTag}'? Los contactos asociados no se borrarán de la base de datos, solo se removerán de esta lista.`);
       if (!confirmAction) return;
 
       try {
@@ -5055,7 +5055,7 @@
         });
         const data = await res.json();
         if (data.success) {
-          showToast(`Todos los contactos de la lista '${selectedTag}' fueron eliminados.`, 'success');
+          showToast(`La lista '${selectedTag}' fue eliminada correctamente.`, 'success');
           selectedTag = 'all';
           await fetchContacts();
         } else {
