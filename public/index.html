@@ -2305,6 +2305,7 @@
     let contactsPerPage = 10;
     let currentPage = 1;
     let selectedContacts = [];
+    let filteredContacts = [];
     let lists = [];
     let availableCustomFields = new Set();
     let visibleColumns = ['checkbox', 'name', 'email', 'tags', 'status', 'actions'];
@@ -4023,6 +4024,8 @@
         return true;
       });
 
+      filteredContacts = filtered;
+
       if (filtered.length === 0) {
         const colCount = visibleColumns.length;
         tbody.innerHTML = `<tr><td colspan="${colCount}" class="py-8 text-center text-brand-gray text-xs font-semibold">No se encontraron contactos con los filtros aplicados.</td></tr>`;
@@ -4145,15 +4148,22 @@
            const id = 'custom_' + field;
            const isChecked = visibleColumns.includes(id);
            html += `
-             <label class="flex items-center gap-2 text-xs font-medium text-[#1c2938] hover:bg-slate-50 p-1 rounded cursor-pointer">
-               <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleColumn('${id}')" class="rounded text-[#27bea5] focus:ring-[#27bea5] w-3.5 h-3.5 border-slate-200">
-               ${field}
-             </label>
+             <div class="flex items-center justify-between hover:bg-slate-50 p-1 rounded group gap-2">
+               <label class="flex items-center gap-2 text-xs font-medium text-[#1c2938] cursor-pointer flex-grow min-w-0 truncate">
+                 <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleColumn('${id}')" class="rounded text-[#27bea5] focus:ring-[#27bea5] w-3.5 h-3.5 border-slate-200 flex-shrink-0">
+                 <span class="truncate">${field}</span>
+               </label>
+               <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                 <button onclick="renameCustomFieldPrompt('${field}', event)" class="p-0.5 hover:text-[#27bea5] text-slate-400" title="Renombrar"><i data-lucide="edit-2" class="w-3.5 h-3.5"></i></button>
+                 <button onclick="deleteCustomFieldPrompt('${field}', event)" class="p-0.5 hover:text-rose-500 text-slate-400" title="Eliminar"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+               </div>
+             </div>
            `;
         });
       }
       
       menu.innerHTML = html;
+      lucide.createIcons();
     }
     
     function toggleColumnsMenu() {
@@ -4169,6 +4179,60 @@
       }
       renderContacts();
     }
+
+    window.renameCustomFieldPrompt = async function(field, event) {
+      if (event) event.stopPropagation();
+      
+      const newName = prompt(`Escribe el nuevo nombre para el campo "${field}":`, field);
+      if (!newName || newName.trim() === '' || newName.trim() === field) return;
+      
+      const cleanNewName = newName.trim();
+      
+      try {
+        const res = await fetch('/api/contacts/custom-fields/rename', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ oldKey: field, newKey: cleanNewName })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Campo renombrado de "${field}" a "${cleanNewName}" correctamente.`, 'success');
+          if (visibleColumns.includes('custom_' + field)) {
+            visibleColumns = visibleColumns.map(col => col === 'custom_' + field ? 'custom_' + cleanNewName : col);
+          }
+          await fetchContacts();
+        } else {
+          showToast(data.message || 'Error al renombrar el campo.', 'error');
+        }
+      } catch (err) {
+        showToast('Error de red al renombrar el campo.', 'error');
+      }
+    };
+
+    window.deleteCustomFieldPrompt = async function(field, event) {
+      if (event) event.stopPropagation();
+      
+      const confirmAction = await showConfirm(`¿Estás seguro de que deseas eliminar la columna "${field}" de todos tus contactos? Esta acción eliminará los valores almacenados para este campo.`);
+      if (!confirmAction) return;
+      
+      try {
+        const res = await fetch('/api/contacts/custom-fields/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: field })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Columna "${field}" eliminada correctamente.`, 'success');
+          visibleColumns = visibleColumns.filter(col => col !== 'custom_' + field);
+          await fetchContacts();
+        } else {
+          showToast(data.message || 'Error al eliminar el campo.', 'error');
+        }
+      } catch (err) {
+        showToast('Error de red al eliminar el campo.', 'error');
+      }
+    };
 
     function renderTagsFilter() {
       const container = document.getElementById('contacts-tags-filter');
@@ -4296,23 +4360,8 @@
           countSpan.textContent = selectedContacts.length;
           
           if (extraSpan) {
-             const query = document.getElementById('search-contacts').value.toLowerCase();
-             const customKey = document.getElementById('filter-custom-key').value;
-             const customVal = document.getElementById('filter-custom-value').value.toLowerCase();
-             
-             let filtered = contacts.filter(c => {
-               if (selectedTag !== 'all' && (!c.tags || !c.tags.includes(selectedTag))) return false;
-               if (query && !c.name.toLowerCase().includes(query) && !c.email.toLowerCase().includes(query)) return false;
-               if (customKey && customVal) {
-                 if (!c.custom_fields || !c.custom_fields[customKey] || !c.custom_fields[customKey].toLowerCase().includes(customVal)) {
-                   return false;
-                 }
-               }
-               return true;
-             });
-             
-             if (filtered.length > selectedContacts.length && selectedContacts.length >= document.querySelectorAll('.contact-row-checkbox:checked').length) {
-                extraSpan.innerHTML = `<button onclick="selectAllFilteredContacts()" class="ml-3 underline text-[#27bea5] hover:text-emerald-600 transition-colors">Seleccionar los ${filtered.length} contactos de la lista</button>`;
+             if (filteredContacts.length > selectedContacts.length && selectedContacts.length >= document.querySelectorAll('.contact-row-checkbox:checked').length) {
+                extraSpan.innerHTML = `<button onclick="selectAllFilteredContacts()" class="ml-3 underline text-[#27bea5] hover:text-emerald-600 transition-colors">Seleccionar los ${filteredContacts.length} contactos de la lista</button>`;
              } else {
                 extraSpan.innerHTML = '';
              }
@@ -4324,22 +4373,7 @@
     }
 
     window.selectAllFilteredContacts = function() {
-       const query = document.getElementById('search-contacts').value.toLowerCase();
-       const customKey = document.getElementById('filter-custom-key').value;
-       const customVal = document.getElementById('filter-custom-value').value.toLowerCase();
-       
-       let filtered = contacts.filter(c => {
-         if (selectedTag !== 'all' && (!c.tags || !c.tags.includes(selectedTag))) return false;
-         if (query && !c.name.toLowerCase().includes(query) && !c.email.toLowerCase().includes(query)) return false;
-         if (customKey && customVal) {
-           if (!c.custom_fields || !c.custom_fields[customKey] || !c.custom_fields[customKey].toLowerCase().includes(customVal)) {
-             return false;
-           }
-         }
-         return true;
-       });
-       
-       selectedContacts = filtered.map(c => c.id.toString());
+       selectedContacts = filteredContacts.map(c => c.id.toString());
        
        const tbody = document.getElementById('contacts-table-body');
        const checkboxes = tbody.querySelectorAll('.contact-row-checkbox');

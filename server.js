@@ -878,6 +878,44 @@ app.get('/api/contacts/custom-fields', protectRoute, async (req, res) => {
   }
 });
 
+app.post('/api/contacts/custom-fields/delete', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { key } = req.body;
+    if (!key) return res.status(400).json({ success: false, message: 'Falta la clave.' });
+
+    await sql`
+      UPDATE contacts 
+      SET custom_fields = custom_fields - ${key} 
+      WHERE kinde_id = ${userId}
+    `;
+
+    res.json({ success: true, message: 'Columna personalizada eliminada.' });
+  } catch (err) {
+    console.error('Error deleting custom field key:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+app.post('/api/contacts/custom-fields/rename', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { oldKey, newKey } = req.body;
+    if (!oldKey || !newKey) return res.status(400).json({ success: false, message: 'Faltan parámetros.' });
+
+    await sql`
+      UPDATE contacts 
+      SET custom_fields = (custom_fields - ${oldKey}) || jsonb_build_object(${newKey}, custom_fields->${oldKey})
+      WHERE kinde_id = ${userId} AND jsonb_exists(custom_fields, ${oldKey})
+    `;
+
+    res.json({ success: true, message: 'Columna renombrada con éxito.' });
+  } catch (err) {
+    console.error('Error renaming custom field key:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
 // Endpoint para obtener todas las listas (creadas manualmente y desde contactos importados)
 app.get('/api/lists', protectRoute, async (req, res) => {
   try {
