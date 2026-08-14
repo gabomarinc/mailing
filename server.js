@@ -3021,19 +3021,35 @@ app.get('/unsubscribe/:campaignId/:email', async (req, res) => {
 
         <script>
           async function confirmUnsubscribe() {
+            const btn = document.querySelector('button');
+            if (btn) {
+              btn.disabled = true;
+              btn.textContent = 'Procesando...';
+            }
             try {
-              const res = await fetch('/api/unsubscribe', {
+              const res = await fetch(window.location.origin + '/api/unsubscribe', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ campaignId: '${campaignId}', email: '${cleanEmail}' })
+                body: JSON.stringify({ 
+                  campaignId: decodeURIComponent('${encodeURIComponent(campaignId)}'), 
+                  email: decodeURIComponent('${encodeURIComponent(cleanEmail)}') 
+                })
               });
               if (res.ok) {
                 document.getElementById('confirm-box').classList.add('hidden');
                 document.getElementById('success-box').classList.remove('hidden');
               } else {
-                alert('Ocurrió un error. Intenta nuevamente.');
+                if (btn) {
+                  btn.disabled = false;
+                  btn.textContent = 'Sí, darme de baja';
+                }
+                alert('Ocurrió un error al procesar tu solicitud. Intenta nuevamente.');
               }
             } catch(e) {
+              if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Sí, darme de baja';
+              }
               alert('Ocurrió un error de conexión.');
             }
           }
