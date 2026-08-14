@@ -3362,6 +3362,37 @@ app.post('/api/campaigns/:id/resume', protectRoute, express.json(), async (req, 
 
   // 4. CAMBIO DE ESTADO Y ACTIVACIÓN
   try {
+    // Si la campaña está en fase de Prueba A/B (testing) pero ya se enviaron todos los correos de prueba (A y B)
+    // resolvemos la prueba inmediatamente para que al reanudar se empiece a enviar al resto de la lista.
+    if (campaign.is_ab_test && campaign.ab_status === 'testing') {
+      const testRecipientsA = campaign.ab_recipients_a || [];
+      const testRecipientsB = campaign.ab_recipients_b || [];
+      const totalTestCount = testRecipientsA.length + testRecipientsB.length;
+      
+      const processedCount = (campaign.success_count || 0) + (campaign.failed_count || 0);
+      
+      // Si ya enviamos una cantidad igual o mayor que los destinatarios de prueba
+      if (processedCount >= totalTestCount) {
+        let winner = 'a';
+        if (campaign.ab_winner_metric === 'clicks') {
+          if ((campaign.ab_clicks_b || 0) > (campaign.ab_clicks_a || 0)) winner = 'b';
+        } else {
+          if ((campaign.ab_opens_b || 0) > (campaign.ab_opens_a || 0)) winner = 'b';
+        }
+        
+        console.log(`[AB TEST FORCED RESUME] Resolviendo ganador para la campaña ${campaignId} por botón de Completar/Reanudar. Ganador: ${winner.toUpperCase()}`);
+        
+        await sql`
+          UPDATE campaigns 
+          SET ab_status = 'completed',
+              ab_winner_selected = ${winner}
+          WHERE id = ${campaignId}
+        `;
+        campaign.ab_status = 'completed';
+        campaign.ab_winner_selected = winner;
+      }
+    }
+
     const processedCount = (campaign.success_count || 0) + (campaign.failed_count || 0);
     if (processedCount >= (campaign.total_sent || 0)) {
       return res.status(400).json({ success: false, message: 'Esta campaña ya ha sido enviada en su totalidad o no tiene más destinatarios pendientes.' });
@@ -3370,7 +3401,8 @@ app.post('/api/campaigns/:id/resume', protectRoute, express.json(), async (req, 
     await sql`
       UPDATE campaigns 
       SET status = 'sending',
-          sent_at = CURRENT_TIMESTAMP
+          sent_at = CURRENT_TIMESTAMP,
+          locked_at = NULL
       WHERE id = ${campaignId}
     `;
 
