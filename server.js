@@ -2240,9 +2240,13 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
       return res.status(400).json({ success: false, message: 'No hay destinatarios válidos activos.' });
     }
 
-    const allowedLimit = parseInt(limit, 10) || 10000;
+    // Obtener el límite real del usuario desde la base de datos
+    const userVolResult = await sql`SELECT monthly_volume FROM users WHERE kinde_id = ${userId}`;
+    const userVolLimit = userVolResult.length > 0 ? (userVolResult[0].monthly_volume || 20000) : 20000;
+
+    const allowedLimit = Math.max(parseInt(limit, 10) || 20000, userVolLimit);
     if (activeEmails.length > allowedLimit) {
-      return res.status(400).json({ success: false, message: `Supera límite de ${allowedLimit}.` });
+      return res.status(400).json({ success: false, message: `Supera límite de contactos de tu plan (${allowedLimit.toLocaleString()}).` });
     }
 
     // SI LA CAMPAÑA ESTÁ PROGRAMADA PARA EL FUTURO

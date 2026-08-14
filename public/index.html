@@ -6952,7 +6952,7 @@
       const checkedBoxes = document.querySelectorAll('.campaign-list-checkbox:checked');
       const selectedTags = Array.from(checkedBoxes).map(cb => cb.value);
 
-      const limit = 10000;
+      const limit = (onboardingData && onboardingData.contactLimit) ? parseInt(onboardingData.contactLimit, 10) : 20000;
 
       const scheduleCheck = document.getElementById('campaign-schedule-check').checked;
       let scheduledFor = null;
