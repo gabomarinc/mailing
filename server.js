@@ -2524,6 +2524,144 @@ app.get('/api/campaigns/:id/track-click', async (req, res) => {
   }
 });
 
+// ==================== AWS SES WEBHOOK FOR BOUNCES & COMPLAINTS ====================
+// Recibe notificaciones asíncronas de Amazon SNS cuando un correo rebota o genera una queja.
+app.post('/api/webhooks/aws-ses', express.json(), async (req, res) => {
+  try {
+    // 1. Confirmar suscripción de AWS SNS (Handshake inicial)
+    const snsType = req.headers['x-amz-sns-message-type'];
+    if (snsType === 'SubscriptionConfirmation') {
+      const { SubscribeURL } = req.body;
+      if (SubscribeURL) {
+        console.log('[AWS SNS] Confirmando suscripción de Webhook en URL:', SubscribeURL);
+        const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+        await fetch(SubscribeURL);
+      }
+      return res.status(200).send('Subscription Confirmed');
+    }
+
+    // 2. Procesar notificación de correo
+    if (snsType === 'Notification') {
+      let message = req.body.Message;
+      if (typeof message === 'string') {
+        message = JSON.parse(message);
+      }
+
+      const notificationType = message.notificationType; // "Bounce", "Complaint", "Delivery"
+      const mail = message.mail;
+
+      if (!mail) {
+        return res.status(200).send('No mail body');
+      }
+
+      // Extraer el ID de campaña de los tags de SES
+      let campaignId = null;
+      if (mail.tags && mail.tags.campaign_id) {
+        campaignId = mail.tags.campaign_id[0];
+      } else if (mail.headers) {
+        // Fallback: buscar en headers customizados de SES
+        const tagHeader = mail.headers.find(h => h.name.toLowerCase() === 'x-ses-message-tags');
+        if (tagHeader) {
+          const match = tagHeader.value.match(/campaign_id=([^,;]+)/);
+          if (match) campaignId = match[1];
+        }
+      }
+
+      // Procesar Rebotes (Bounces)
+      if (notificationType === 'Bounce') {
+        const bounce = message.bounce;
+        const bouncedRecipients = bounce.bouncedRecipients || [];
+
+        for (const recipientObj of bouncedRecipients) {
+          const email = recipientObj.emailAddress.toLowerCase().trim();
+          const diagnosticCode = recipientObj.diagnosticCode || 'Dirección de correo rechazada por el servidor receptor.';
+
+          console.log(`[AWS SES BOUNCE] Rebote detectado para ${email} (Campaña: ${campaignId}). Motivo: ${diagnosticCode}`);
+
+          // 1. Cambiar estado del contacto a 'bounced' en la base de datos para no volver a enviarle
+          try {
+            await sql`
+              UPDATE contacts 
+              SET status = 'bounced' 
+              WHERE LOWER(email) = ${email}
+            `;
+          } catch(err) {
+            console.error('Error actualizando contacto rebotado en BD:', err);
+          }
+
+          // 2. Si identificamos la campaña, descontar del éxito y sumar al fallo
+          if (campaignId) {
+            try {
+              // Validar UUID antes de actualizar
+              const validUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(campaignId);
+              if (validUuid) {
+                // Registrar detalle del error
+                const failureDetail = { email: email, error: `Rebote (Bounce): ${diagnosticCode}` };
+                
+                await sql`
+                  UPDATE campaigns 
+                  SET success_count = GREATEST(0, success_count - 1),
+                      failed_count = failed_count + 1,
+                      error_details = error_details || ${JSON.stringify([failureDetail])}::jsonb
+                  WHERE id = ${campaignId}
+                `;
+              }
+            } catch(err) {
+              console.error('Error actualizando métricas de campaña para rebote:', err);
+            }
+          }
+        }
+      }
+
+      // Procesar Quejas (Complaints / Marcar como Spam)
+      if (notificationType === 'Complaint') {
+        const complaint = message.complaint;
+        const complainedRecipients = complaint.complainedRecipients || [];
+
+        for (const recipientObj of complainedRecipients) {
+          const email = recipientObj.emailAddress.toLowerCase().trim();
+          console.log(`[AWS SES COMPLAINT] El destinatario ${email} marcó el correo como SPAM (Campaña: ${campaignId}).`);
+
+          // 1. Dar de baja al contacto automáticamente
+          try {
+            await sql`
+              UPDATE contacts 
+              SET status = 'unsubscribe' 
+              WHERE LOWER(email) = ${email}
+            `;
+          } catch(err) {
+            console.error('Error dando de baja contacto por spam en BD:', err);
+          }
+
+          if (campaignId) {
+            try {
+              const validUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(campaignId);
+              if (validUuid) {
+                const failureDetail = { email: email, error: 'El usuario marcó el correo como spam.' };
+                await sql`
+                  UPDATE campaigns 
+                  SET complaint_count = complaint_count + 1,
+                      success_count = GREATEST(0, success_count - 1),
+                      failed_count = failed_count + 1,
+                      error_details = error_details || ${JSON.stringify([failureDetail])}::jsonb
+                  WHERE id = ${campaignId}
+                `;
+              }
+            } catch(err) {
+              console.error('Error actualizando quejas de campaña en BD:', err);
+            }
+          }
+        }
+      }
+    }
+
+    res.status(200).send('OK');
+  } catch(err) {
+    console.error('Error en webhook de AWS SES:', err);
+    res.status(500).send('Error');
+  }
+});
+
 // Endpoint del Reporte de Campaña (con simulación determinista para históricos)
 app.get('/api/campaigns/:id/report', protectRoute, async (req, res) => {
   try {
@@ -3189,7 +3327,10 @@ async function sendCampaignIncremental(campaignId, host) {
             Message: {
               Subject: { Data: customizedSubject, Charset: 'UTF-8' },
               Body: { Html: { Data: richBody, Charset: 'UTF-8' } }
-            }
+            },
+            Tags: [
+              { Name: 'campaign_id', Value: campaignId }
+            ]
           });
           await sesClient.send(command);
 
