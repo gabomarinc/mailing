@@ -1744,16 +1744,27 @@ app.post('/api/domains', protectRoute, async (req, res) => {
     
     if (!domain_name) return res.status(400).json({ success: false, message: 'Falta nombre de dominio' });
     
-    const vCmd = new VerifyDomainIdentityCommand({ Domain: domain_name });
+    const cleanDomain = domain_name.trim().toLowerCase();
+    
+    // Check if user already has this domain registered
+    const existing = await sql`
+      SELECT id FROM domains 
+      WHERE kinde_id = ${userId} AND LOWER(domain_name) = ${cleanDomain}
+    `;
+    if (existing.length > 0) {
+      return res.status(400).json({ success: false, message: 'Ya has registrado este dominio en tu cuenta.' });
+    }
+    
+    const vCmd = new VerifyDomainIdentityCommand({ Domain: cleanDomain });
     await sesClient.send(vCmd);
     
-    const dCmd = new VerifyDomainDkimCommand({ Domain: domain_name });
+    const dCmd = new VerifyDomainDkimCommand({ Domain: cleanDomain });
     const dRes = await sesClient.send(dCmd);
     const tokens = dRes.DkimTokens || [];
     
     const inserted = await sql`
       INSERT INTO domains (kinde_id, domain_name, dkim_tokens)
-      VALUES (${userId}, ${domain_name}, ${tokens})
+      VALUES (${userId}, ${cleanDomain}, ${tokens})
       RETURNING *
     `;
     res.json({ success: true, domain: inserted[0] });

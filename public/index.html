@@ -2514,6 +2514,7 @@
     let contacts = [];
     let campaigns = [];
     let senders = [];
+    let domains = [];
     let selectedTag = 'all';
     let onboardingData = null;
     let contactsPerPage = 100;
@@ -2581,6 +2582,7 @@
       await fetchContacts();
       await fetchCampaigns();
       await fetchSenders();
+      await fetchDomains();
       setupEventListeners();
 
       // Check if validation is already running
@@ -8406,6 +8408,9 @@
         if (actionBtn) actionBtn.classList.add('hidden');
       }
 
+      if (subTabId === 'domains') {
+        fetchDomains();
+      }
       if (subTabId === 'footers') {
         loadGlobalFootersList();
       }
