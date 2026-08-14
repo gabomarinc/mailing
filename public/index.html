@@ -5746,18 +5746,23 @@
     };
 
     function checkCampaignLimitSafety() {
-      const limitVal = 10000;
+      // Usar el límite de contactos real del plan del usuario desde onboardingData, con fallback a 20000 para plan Pro
+      const limitVal = (onboardingData && onboardingData.contactLimit) ? parseInt(onboardingData.contactLimit, 10) : 20000;
       const estAudience = parseInt(document.getElementById('campaign-recipients-count').textContent, 10);
       const alertDiv = document.getElementById('camp-alert-limit');
       const sendBtn = document.getElementById('camp-send-btn');
       const nextBtn = document.getElementById('btn-camp-step1-next');
 
       if (estAudience > limitVal) {
-        alertDiv.classList.remove('hidden');
+        if (alertDiv) {
+          alertDiv.innerHTML = `<i data-lucide="alert-triangle" class="w-4 h-4"></i> Los destinatarios (${estAudience.toLocaleString()}) exceden el límite de contactos de tu plan actual (${limitVal.toLocaleString()}).`;
+          alertDiv.classList.remove('hidden');
+          lucide.createIcons();
+        }
         if (sendBtn) sendBtn.disabled = true;
         if (nextBtn) nextBtn.disabled = true;
       } else {
-        alertDiv.classList.add('hidden');
+        if (alertDiv) alertDiv.classList.add('hidden');
         if (sendBtn) sendBtn.disabled = false;
         if (nextBtn) nextBtn.disabled = false;
       }
