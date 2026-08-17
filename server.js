@@ -7,6 +7,7 @@ const { SESClient, SendEmailCommand, VerifyDomainIdentityCommand, VerifyDomainDk
 const { neon } = require('@neondatabase/serverless');
 require('dotenv').config();
 const dns = require('dns').promises;
+const net = require('net');
 
 const hasAwsCreds = !!process.env.AWS_ACCESS_KEY_ID || !!process.env.AWS_REGION || !!process.env.SES_SENDER_EMAIL;
 const sesClient = new SESClient({ region: process.env.AWS_REGION || 'us-east-1' });
@@ -58,6 +59,93 @@ async function checkMX(domain) {
   } catch (err) {
     mxCache.set(domain, false);
     return false;
+  }
+}
+
+// SMTP Handshake Verification: Conecta al servidor de correo de destino para preguntar si el buzón existe
+async function verifyEmailBox(email) {
+  const domain = email.split('@')[1];
+  if (!domain) return false;
+
+  try {
+    // 1. Obtener registros MX para el dominio
+    const mxRecords = await dns.resolveMx(domain).catch(() => []);
+    if (mxRecords.length === 0) return false;
+
+    // Ordenar por prioridad (menor valor es mayor prioridad)
+    mxRecords.sort((a, b) => a.priority - b.priority);
+    const exchange = mxRecords[0].exchange;
+
+    // 2. Realizar SMTP Handshake usando sockets net
+    return new Promise((resolve) => {
+      const socket = net.createConnection(25, exchange);
+      let step = 0;
+      let resolved = false;
+
+      socket.setTimeout(2500); // 2.5 segundos de timeout
+
+      const cleanup = () => {
+        if (!socket.destroyed) {
+          socket.write('QUIT\r\n');
+          socket.end();
+        }
+      };
+
+      socket.on('connect', () => {
+        // Conexión establecida, esperamos el saludo 220
+      });
+
+      socket.on('data', (data) => {
+        const response = data.toString();
+        const code = parseInt(response.substring(0, 3), 10);
+
+        if (step === 0 && code === 220) {
+          socket.write(`HELO ${domain}\r\n`);
+          step = 1;
+        } else if (step === 1 && code === 250) {
+          socket.write(`MAIL FROM:<validation-robot@konsul.digital>\r\n`);
+          step = 2;
+        } else if (step === 2 && code === 250) {
+          socket.write(`RCPT TO:<${email}>\r\n`);
+          step = 3;
+        } else if (step === 3) {
+          // 250 = Aceptado (Usuario existe)
+          // 251 = Será redirigido (Aceptado)
+          if (code === 250 || code === 251) {
+            resolved = true;
+            resolve(true);
+          } else {
+            // Códigos 550, 551, 553, 554, etc. significan que el buzón no existe o está bloqueado
+            resolved = true;
+            resolve(false);
+          }
+          cleanup();
+        }
+      });
+
+      socket.on('error', () => {
+        if (!resolved) {
+          resolved = true;
+          resolve(true); // Fallback: Si da error de socket/puerto, asumimos válido para evitar falsos negativos en servidores hiper-restrictivos
+        }
+      });
+
+      socket.on('timeout', () => {
+        if (!resolved) {
+          resolved = true;
+          resolve(true); // Fallback: Timeout, asumimos válido
+        }
+        cleanup();
+      });
+
+      socket.on('end', () => {
+        if (!resolved) {
+          resolve(true);
+        }
+      });
+    });
+  } catch (err) {
+    return true; // Fallback
   }
 }
 
@@ -259,6 +347,17 @@ async function initDB() {
     try {
       await sql`ALTER TABLE users ADD COLUMN warmup_mode BOOLEAN DEFAULT false`;
     } catch(e) { /* Column might exist */ }
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS warmup_seeds (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            kinde_id VARCHAR(255) NOT NULL REFERENCES users(kinde_id) ON DELETE CASCADE,
+            email VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(kinde_id, email)
+        );
+      `;
+    } catch(e) { console.error('Error creating warmup_seeds table:', e); }
     try {
       await sql`ALTER TABLE templates ADD COLUMN IF NOT EXISTS footer_settings JSONB DEFAULT '{}'::jsonb`;
     } catch(e) { /* Column might exist */ }
@@ -1242,6 +1341,14 @@ async function runBackgroundValidation(userId, userEmail, userName, contactsList
           return;
         }
 
+        // 4. SMTP Active Handshake Check (Verificación de buzón real)
+        const isBoxActive = await verifyEmailBox(emailToValidate);
+        if (!isBoxActive) {
+          invalidIds.push(c.id);
+          invalidCount++;
+          return;
+        }
+
         validCount++;
       });
 
@@ -1936,6 +2043,58 @@ app.post('/api/settings/cadence', protectRoute, async (req, res) => {
     await sql`UPDATE users SET hourly_limit = ${hourly_limit}, warmup_mode = ${warmup_mode} WHERE kinde_id = ${userId}`;
     res.json({ success: true });
   } catch (err) {
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+// ======================== WARMUP SEEDS API ========================
+app.get('/api/settings/warmup/seeds', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const seeds = await sql`SELECT * FROM warmup_seeds WHERE kinde_id = ${userId} ORDER BY created_at DESC`;
+    res.json({ success: true, seeds });
+  } catch (err) {
+    console.error('Error fetching warmup seeds:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+app.post('/api/settings/warmup/seeds', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { email } = req.body;
+    if (!email || !isValidEmail(email)) {
+      return res.status(400).json({ success: false, message: 'Dirección de correo inválida.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    
+    // Evitar duplicados
+    const existing = await sql`SELECT id FROM warmup_seeds WHERE kinde_id = ${userId} AND email = ${cleanEmail}`;
+    if (existing.length > 0) {
+      return res.status(400).json({ success: false, message: 'Este correo ya está registrado como semilla.' });
+    }
+
+    const inserted = await sql`
+      INSERT INTO warmup_seeds (kinde_id, email)
+      VALUES (${userId}, ${cleanEmail})
+      RETURNING *
+    `;
+    res.json({ success: true, seed: inserted[0] });
+  } catch (err) {
+    console.error('Error adding warmup seed:', err);
+    res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+app.delete('/api/settings/warmup/seeds/:id', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    await sql`DELETE FROM warmup_seeds WHERE id = ${id} AND kinde_id = ${userId}`;
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting warmup seed:', err);
     res.status(500).json({ success: false, error: 'DB Error' });
   }
 });
@@ -3112,11 +3271,16 @@ async function sendCampaignIncremental(campaignId, host) {
 
     const userId = campaign.kinde_id;
     let userAws = null;
+    let userConfig = { hourly_limit: 1000, warmup_mode: false };
     try {
       const awsResult = await sql`SELECT * FROM aws_settings WHERE kinde_id = ${userId}`;
       userAws = awsResult[0] || null;
+      const userResult = await sql`SELECT hourly_limit, warmup_mode FROM users WHERE kinde_id = ${userId}`;
+      if (userResult.length > 0) {
+        userConfig = userResult[0];
+      }
     } catch(e) {
-      console.warn('Tabla aws_settings no encontrada en sendCampaignIncremental, usando credenciales por defecto');
+      console.warn('Tabla aws_settings o users no encontrada en sendCampaignIncremental, usando credenciales por defecto');
     }
 
     const hasAwsCreds = userAws && userAws.access_key && userAws.secret_key && userAws.region;
@@ -3212,9 +3376,33 @@ async function sendCampaignIncremental(campaignId, host) {
       return;
     }
 
+    // Calcular el límite por ejecución de cron (cada 5 minutos)
+    // Si el límite por hora es H, por ejecución de 5 minutos enviamos max (H / 12)
+    const hourlyLimit = parseInt(userConfig.hourly_limit, 10) || 1000;
+    const calculatedCronLimit = Math.max(5, Math.floor(hourlyLimit / 12));
+
+    // Si está en modo Warm-up, forzar un límite aún menor para cuidar reputación (máximo 50 por lote de cron de 5 minutos)
+    const cronBatchLimit = userConfig.warmup_mode ? Math.min(50, calculatedCronLimit) : calculatedCronLimit;
+
     const isVercel = !!process.env.VERCEL;
-    const maxBatchSize = isVercel ? 400 : pendingRecipients.length;
-    const batchToProcess = pendingRecipients.slice(0, maxBatchSize);
+    const maxBatchSize = isVercel ? Math.min(400, cronBatchLimit) : cronBatchLimit;
+    
+    let batchToProcess = pendingRecipients.slice(0, maxBatchSize);
+
+    // Si está activo el Modo Warmup, intercalar correos de la tabla warmup_seeds para generar interacciones positivas
+    if (userConfig.warmup_mode && batchToProcess.length > 0) {
+      try {
+        const seeds = await sql`SELECT email FROM warmup_seeds WHERE kinde_id = ${userId}`;
+        if (seeds.length > 0) {
+          const seedEmails = seeds.map(s => s.email.toLowerCase().trim());
+          // Intercalamos hasta 2 correos semilla aleatorios en el lote para que se envíen
+          const selectedSeeds = seedEmails.sort(() => 0.5 - Math.random()).slice(0, 2);
+          batchToProcess = [...selectedSeeds, ...batchToProcess];
+        }
+      } catch (err) {
+        console.warn('No se pudieron recuperar los correos semilla para el warmup:', err);
+      }
+    }
 
     const activeContacts = await sql`
       SELECT email, name, custom_fields FROM contacts 
@@ -3241,7 +3429,8 @@ async function sendCampaignIncremental(campaignId, host) {
       
       await Promise.allSettled(chunk.map(async (recipient) => {
         const cleanRecipient = recipient.toLowerCase().trim();
-        if (!(cleanRecipient in nameMap)) {
+        const isSeedEmail = userConfig.warmup_mode && !(cleanRecipient in nameMap);
+        if (!(cleanRecipient in nameMap) && !isSeedEmail) {
           console.log(`[AWS SES] Omitiendo destinatario ${recipient} ya que no está activo (baja, rebotado o inactivo).`);
           const skipDetail = { email: recipient, error: 'Omitido: Contacto inactivo (baja, rebotado o inactivo)' };
           await sql`
