@@ -348,6 +348,18 @@ async function initDB() {
       await sql`ALTER TABLE users ADD COLUMN warmup_mode BOOLEAN DEFAULT false`;
     } catch(e) { /* Column might exist */ }
     try {
+      await sql`ALTER TABLE users ADD COLUMN warmup_subject TEXT DEFAULT 'Correo de Calentamiento'`;
+    } catch(e) { /* Column might exist */ }
+    try {
+      await sql`ALTER TABLE users ADD COLUMN warmup_body TEXT DEFAULT 'Hola,\n\nEste es un correo de calentamiento de dominio. Por favor ábrelo, márcalo como importante o "no es spam" y responde si puedes.\n\nSaludos.'`;
+    } catch(e) { /* Column might exist */ }
+    try {
+      await sql`ALTER TABLE users ADD COLUMN warmup_sender_name VARCHAR(255) DEFAULT ''`;
+    } catch(e) { /* Column might exist */ }
+    try {
+      await sql`ALTER TABLE users ADD COLUMN warmup_sender_email VARCHAR(255) DEFAULT ''`;
+    } catch(e) { /* Column might exist */ }
+    try {
       await sql`
         CREATE TABLE IF NOT EXISTS warmup_seeds (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1985,21 +1997,28 @@ app.post('/api/upload-proxy', protectRoute, async (req, res) => {
       }
     }
 
-    // INTENTO 3: Catbox.moe (como fallback secundario)
+    // INTENTO 3: Catbox.moe (como fallback secundario usando multipart/form-data nativo con buffers)
     if (!imageUrl) {
       try {
         const buffer = Buffer.from(base64String, 'base64');
-        const formData = new FormData();
-        formData.append('reqtype', 'fileupload');
-        const file = typeof File !== 'undefined'
-          ? new File([buffer], filename || 'upload.jpg', { type: mimeType })
-          : new Blob([buffer], { type: mimeType });
-          
-        formData.append('fileToUpload', file, filename || 'upload.jpg');
+        const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
+        const payloadHeader = Buffer.concat([
+          Buffer.from(`--${boundary}\r\n`),
+          Buffer.from('Content-Disposition: form-data; name="reqtype"\r\n\r\nfileupload\r\n'),
+          Buffer.from(`--${boundary}\r\n`),
+          Buffer.from(`Content-Disposition: form-data; name="fileToUpload"; filename="${filename || 'upload.jpg'}"\r\n`),
+          Buffer.from(`Content-Type: ${mimeType}\r\n\r\n`)
+        ]);
+        const payloadFooter = Buffer.from(`\r\n--${boundary}--\r\n`);
+        const bodyBuffer = Buffer.concat([payloadHeader, buffer, payloadFooter]);
 
         const catboxRes = await fetch('https://catbox.moe/user/api.php', {
           method: 'POST',
-          body: formData
+          headers: {
+            'Content-Type': `multipart/form-data; boundary=${boundary}`,
+            'Content-Length': bodyBuffer.length.toString()
+          },
+          body: bodyBuffer
         });
 
         if (catboxRes.ok) {
@@ -2029,8 +2048,15 @@ app.post('/api/upload-proxy', protectRoute, async (req, res) => {
 app.get('/api/settings/cadence', protectRoute, async (req, res) => {
   try {
     const userId = req.user.id;
-    const result = await sql`SELECT hourly_limit, warmup_mode FROM users WHERE kinde_id = ${userId}`;
-    res.json(result[0] || { hourly_limit: 1000, warmup_mode: false });
+    const result = await sql`SELECT hourly_limit, warmup_mode, warmup_subject, warmup_body, warmup_sender_name, warmup_sender_email FROM users WHERE kinde_id = ${userId}`;
+    res.json(result[0] || { 
+      hourly_limit: 1000, 
+      warmup_mode: false,
+      warmup_subject: 'Correo de Calentamiento',
+      warmup_body: 'Hola,\n\nEste es un correo de calentamiento de dominio. Por favor ábrelo, márcalo como importante o "no es spam" y responde si puedes.\n\nSaludos.',
+      warmup_sender_name: '',
+      warmup_sender_email: ''
+    });
   } catch (err) {
     res.status(500).json({ error: 'DB Error' });
   }
@@ -2039,8 +2065,15 @@ app.get('/api/settings/cadence', protectRoute, async (req, res) => {
 app.post('/api/settings/cadence', protectRoute, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { hourly_limit, warmup_mode } = req.body;
-    await sql`UPDATE users SET hourly_limit = ${hourly_limit}, warmup_mode = ${warmup_mode} WHERE kinde_id = ${userId}`;
+    const { hourly_limit, warmup_mode, warmup_subject, warmup_body, warmup_sender_name, warmup_sender_email } = req.body;
+    await sql`UPDATE users SET 
+      hourly_limit = ${hourly_limit}, 
+      warmup_mode = ${warmup_mode},
+      warmup_subject = ${warmup_subject},
+      warmup_body = ${warmup_body},
+      warmup_sender_name = ${warmup_sender_name},
+      warmup_sender_email = ${warmup_sender_email}
+      WHERE kinde_id = ${userId}`;
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: 'DB Error' });
@@ -2096,6 +2129,98 @@ app.delete('/api/settings/warmup/seeds/:id', protectRoute, async (req, res) => {
   } catch (err) {
     console.error('Error deleting warmup seed:', err);
     res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+// Enviar correos de calentamiento manualmente a todas las semillas
+app.post('/api/settings/warmup/send-manual', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // 1. Obtener datos del usuario
+    const userResult = await sql`SELECT company_name, warmup_subject, warmup_body, warmup_sender_name, warmup_sender_email FROM users WHERE kinde_id = ${userId}`;
+    const user = userResult[0];
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado.' });
+    }
+
+    const subject = user.warmup_subject || 'Correo de Calentamiento';
+    const body = user.warmup_body || 'Hola...';
+    const senderName = user.warmup_sender_name || user.company_name || 'Calentamiento';
+    const senderEmail = user.warmup_sender_email;
+
+    if (!senderEmail) {
+      return res.status(400).json({ success: false, message: 'Por favor configura el correo del remitente para el calentamiento en la sección superior y guarda la configuración.' });
+    }
+
+    // 2. Obtener semillas
+    const seeds = await sql`SELECT email FROM warmup_seeds WHERE kinde_id = ${userId}`;
+    if (seeds.length === 0) {
+      return res.status(400).json({ success: false, message: 'No tienes correos semilla agregados aún.' });
+    }
+
+    // 3. Obtener credenciales de AWS
+    let userAws = null;
+    try {
+      const awsResult = await sql`SELECT * FROM aws_settings WHERE kinde_id = ${userId}`;
+      userAws = awsResult[0] || null;
+    } catch(e) {
+      console.warn('Tabla aws_settings no encontrada, usando credenciales por defecto');
+    }
+
+    const hasAwsCreds = userAws && userAws.access_key && userAws.secret_key && userAws.region;
+    const hasGlobalAws = !!process.env.AWS_ACCESS_KEY_ID && !!process.env.AWS_SECRET_ACCESS_KEY;
+    
+    if (!hasAwsCreds && !hasGlobalAws) {
+      return res.status(400).json({ success: false, message: 'AWS no está configurado.' });
+    }
+
+    const region = userAws?.region || process.env.AWS_REGION || 'us-east-1';
+    const credentials = userAws?.access_key ? {
+      accessKeyId: userAws.access_key,
+      secretAccessKey: userAws.secret_key
+    } : undefined;
+
+    const sesClient = new SESClient({ region, credentials });
+    const formattedSender = senderName ? `${senderName} <${senderEmail}>` : senderEmail;
+
+    // 4. Enviar a cada semilla
+    let sentCount = 0;
+    let errors = [];
+
+    for (const seed of seeds) {
+      try {
+        const command = new SendEmailCommand({
+          Source: formattedSender,
+          Destination: { ToAddresses: [seed.email] },
+          Message: {
+            Subject: { Data: subject, Charset: 'UTF-8' },
+            Body: { 
+              Html: { Data: body.replace(/\n/g, '<br>'), Charset: 'UTF-8' }
+            }
+          }
+        });
+        await sesClient.send(command);
+        sentCount++;
+      } catch (err) {
+        console.error(`Error enviando correo de calentamiento a ${seed.email}:`, err);
+        errors.push(`${seed.email}: ${err.message}`);
+      }
+    }
+
+    if (errors.length > 0) {
+      return res.json({ 
+        success: true, 
+        message: `Se enviaron ${sentCount} correos de calentamiento. Hubo errores en algunos envíos.`,
+        errors 
+      });
+    }
+
+    return res.json({ success: true, message: `¡Se enviaron con éxito ${sentCount} correos de calentamiento!` });
+
+  } catch (err) {
+    console.error('Error en /api/settings/warmup/send-manual:', err);
+    res.status(500).json({ success: false, message: 'Error interno del servidor.', error: err.message });
   }
 });
 
