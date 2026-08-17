@@ -2002,7 +2002,9 @@
                     </div>
                     <div class="flex flex-col gap-1.5">
                       <label class="text-[11px] font-bold text-brand-dark">Email Remitente (Debe estar verificado en SES)</label>
-                      <input type="email" id="warmup-sender-email" placeholder="Ej. contacto@tudominio.com" class="text-xs px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-brand-accent">
+                      <select id="warmup-sender-email" onchange="handleWarmupSenderSelect(this)" class="text-xs px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-brand-accent cursor-pointer">
+                        <option value="">Cargando remitentes...</option>
+                      </select>
                     </div>
                   </div>
 
@@ -8541,28 +8543,36 @@
 
     function populateSenderSelects() {
       const select = document.getElementById('campaign-sender-email');
-      if (!select) return;
+      const warmupSelect = document.getElementById('warmup-sender-email');
       
-      const prevVal = select.value;
-      select.innerHTML = '<option value="">Selecciona un remitente...</option>';
+      const selectsToPopulate = [];
+      if (select) selectsToPopulate.push(select);
+      if (warmupSelect) selectsToPopulate.push(warmupSelect);
+
+      if (selectsToPopulate.length === 0) return;
       
-      senders.forEach(s => {
-        if(s.is_verified) {
-          const opt = document.createElement('option');
-          opt.value = s.email;
-          opt.textContent = `${s.name} <${s.email}>`;
-          opt.dataset.name = s.name;
-          select.appendChild(opt);
-        }
+      selectsToPopulate.forEach(sel => {
+        const prevVal = sel.value;
+        sel.innerHTML = '<option value="">Selecciona un remitente...</option>';
+        
+        senders.forEach(s => {
+          if(s.is_verified) {
+            const opt = document.createElement('option');
+            opt.value = s.email;
+            opt.textContent = `${s.name} <${s.email}>`;
+            opt.dataset.name = s.name;
+            sel.appendChild(opt);
+          }
+        });
+        
+        const addOpt = document.createElement('option');
+        addOpt.value = "add_new";
+        addOpt.textContent = "+ Agregar nuevo remitente";
+        addOpt.className = "font-bold text-[#27bea5]";
+        sel.appendChild(addOpt);
+        
+        if (prevVal) sel.value = prevVal;
       });
-      
-      const addOpt = document.createElement('option');
-      addOpt.value = "add_new";
-      addOpt.textContent = "+ Agregar nuevo remitente";
-      addOpt.className = "font-bold text-[#27bea5]";
-      select.appendChild(addOpt);
-      
-      if (prevVal) select.value = prevVal;
     }
 
     function handleSenderSelect(selectElem) {
@@ -8574,6 +8584,19 @@
         const option = selectElem.options[selectElem.selectedIndex];
         if (option && option.dataset.name) {
           document.getElementById('campaign-sender-name').value = option.dataset.name;
+        }
+      }
+    }
+
+    function handleWarmupSenderSelect(selectElem) {
+      if (selectElem.value === "add_new") {
+        selectElem.value = ""; // reset
+        openModal('modal-add-sender');
+      } else {
+        // Auto fill sender name if selected
+        const option = selectElem.options[selectElem.selectedIndex];
+        if (option && option.dataset.name) {
+          document.getElementById('warmup-sender-name').value = option.dataset.name;
         }
       }
     }
