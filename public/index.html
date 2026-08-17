@@ -405,7 +405,7 @@
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div class="flex flex-col gap-1">
               <div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                <span>Inicio</span>
+                <span>Principal</span>
                 <i data-lucide="chevron-right" class="w-3 h-3 text-slate-300"></i>
                 <span class="text-brand-accent">Dashboard</span>
               </div>
@@ -654,7 +654,7 @@
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                <span>Inicio</span>
+                <span>Audiencia</span>
                 <i data-lucide="chevron-right" class="w-3 h-3 text-slate-300"></i>
                 <span class="text-brand-accent">Base de Suscriptores</span>
               </div>
@@ -861,7 +861,7 @@
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
               <div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                <span>Inicio</span>
+                <span>Principal</span>
                 <i data-lucide="chevron-right" class="w-3 h-3 text-slate-300"></i>
                 <span class="text-brand-accent">Plantillas</span>
               </div>
@@ -892,7 +892,7 @@
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
               <div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                <span>Inicio</span>
+                <span>Principal</span>
                 <i data-lucide="chevron-right" class="w-3 h-3 text-slate-300"></i>
                 <span class="text-brand-accent">Campañas</span>
               </div>
@@ -1540,7 +1540,7 @@
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                  <span>Inicio</span>
+                  <span>Audiencia</span>
                   <i data-lucide="chevron-right" class="w-3 h-3 text-slate-300"></i>
                   <span class="text-brand-accent">Formularios de Captación</span>
                 </div>
@@ -1837,11 +1837,11 @@
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                <span>Inicio</span>
+                <span>Configuración</span>
                 <i data-lucide="chevron-right" class="w-3 h-3 text-slate-300"></i>
-                <span class="text-brand-accent">Remitentes & Dominios</span>
+                <span class="text-brand-accent" id="settings-breadcrumb">Remitentes</span>
               </div>
-              <h1 class="text-3xl font-black text-[#1c2938]">Remitentes y Dominios</h1>
+              <h1 class="text-3xl font-black text-[#1c2938]" id="settings-title">Remitentes</h1>
             </div>
             <div class="flex gap-3">
               <button id="main-action-btn" onclick="openModal('modal-add-sender')" class="bg-[#1c2938] text-white font-bold px-6 py-3 rounded-2xl hover:bg-[#27bea5] transition-all text-xs flex items-center gap-2 shadow-lg shadow-slate-200">
@@ -7974,6 +7974,16 @@
     // ==========================================
 
     function switchSubTab(tab) {
+      const breadcrumb = document.getElementById('settings-breadcrumb');
+      const title = document.getElementById('settings-title');
+      if (breadcrumb && title) {
+        if (tab === 'senders') { breadcrumb.textContent = 'Remitentes'; title.textContent = 'Remitentes'; }
+        if (tab === 'domains') { breadcrumb.textContent = 'Dominios'; title.textContent = 'Dominios'; }
+        if (tab === 'cadence') { breadcrumb.textContent = 'Cadencia'; title.textContent = 'Configuración de Cadencia'; }
+        if (tab === 'profile') { breadcrumb.textContent = 'Perfil'; title.textContent = 'Perfil de Cuenta'; }
+        if (tab === 'ips') { breadcrumb.textContent = 'IPs Dedicadas'; title.textContent = 'IPs Dedicadas'; }
+      }
+
       // Hide all sub-tabs
       document.getElementById('sub-senders').classList.add('hidden');
       document.getElementById('sub-domains').classList.add('hidden');
@@ -10023,7 +10033,7 @@
       <div class="flex justify-between items-start border-b border-slate-100 pb-4">
         <div>
           <div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-            <span>Inicio</span>
+            <span>Principal</span>
             <i data-lucide="chevron-right" class="w-3 h-3 text-slate-300"></i>
             <span>Campañas</span>
             <i data-lucide="chevron-right" class="w-3 h-3 text-slate-300"></i>
@@ -10334,7 +10344,7 @@
       <div class="flex justify-between items-center border-b border-slate-100 pb-4">
         <div>
           <div class="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
-            <span>Inicio</span>
+            <span>Principal</span>
             <i data-lucide="chevron-right" class="w-3 h-3 text-slate-300"></i>
             <span>Plantillas</span>
             <i data-lucide="chevron-right" class="w-3 h-3 text-slate-300"></i>
