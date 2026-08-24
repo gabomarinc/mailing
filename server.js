@@ -2965,54 +2965,78 @@ app.get('/api/campaigns/:id/report', protectRoute, async (req, res) => {
     }
     const campaign = campaignResult[0];
 
-    // Obtener aperturas por ubicación
+    // Obtener aperturas por ubicación (excluyendo semillas de warmup)
     const locations = await sql`
       SELECT location_country as country, COUNT(DISTINCT email)::int as count 
-      FROM campaign_opens 
-      WHERE campaign_id = ${campaignId}
+      FROM campaign_opens o
+      WHERE o.campaign_id = ${campaignId}
+        AND NOT EXISTS (
+          SELECT 1 FROM warmup_seeds s 
+          WHERE s.kinde_id = ${userId} AND s.email = o.email
+        )
       GROUP BY location_country
       ORDER BY count DESC
     `;
 
-    // Obtener aperturas por dispositivo
+    // Obtener aperturas por dispositivo (excluyendo semillas de warmup)
     const devices = await sql`
       SELECT device_type as device, COUNT(DISTINCT email)::int as count 
-      FROM campaign_opens 
-      WHERE campaign_id = ${campaignId}
+      FROM campaign_opens o
+      WHERE o.campaign_id = ${campaignId}
+        AND NOT EXISTS (
+          SELECT 1 FROM warmup_seeds s 
+          WHERE s.kinde_id = ${userId} AND s.email = o.email
+        )
       GROUP BY device_type
       ORDER BY count DESC
     `;
 
-    // Obtener clics en enlaces
+    // Obtener clics en enlaces (excluyendo semillas de warmup)
     const clicks = await sql`
       SELECT url, COUNT(*)::int as count 
-      FROM campaign_clicks 
-      WHERE campaign_id = ${campaignId}
+      FROM campaign_clicks c
+      WHERE c.campaign_id = ${campaignId}
+        AND NOT EXISTS (
+          SELECT 1 FROM warmup_seeds s 
+          WHERE s.kinde_id = ${userId} AND s.email = c.email
+        )
       GROUP BY url
       ORDER BY count DESC
     `;
 
-    // Obtener cantidad única de aperturas
+    // Obtener cantidad única de aperturas (excluyendo semillas de warmup)
     const opensCountResult = await sql`
       SELECT COUNT(DISTINCT email)::int as count 
-      FROM campaign_opens 
-      WHERE campaign_id = ${campaignId}
+      FROM campaign_opens o
+      WHERE o.campaign_id = ${campaignId}
+        AND NOT EXISTS (
+          SELECT 1 FROM warmup_seeds s 
+          WHERE s.kinde_id = ${userId} AND s.email = o.email
+        )
     `;
     const opensCount = opensCountResult[0]?.count || 0;
 
-    // Obtener cantidad de clicks
+    // Obtener cantidad de clicks (excluyendo semillas de warmup)
     const clicksCountResult = await sql`
       SELECT COUNT(*)::int as count 
-      FROM campaign_clicks 
-      WHERE campaign_id = ${campaignId}
+      FROM campaign_clicks c
+      WHERE c.campaign_id = ${campaignId}
+        AND NOT EXISTS (
+          SELECT 1 FROM warmup_seeds s 
+          WHERE s.kinde_id = ${userId} AND s.email = c.email
+        )
     `;
     const clicksCount = clicksCountResult[0]?.count || 0;
 
-    // Obtener lista detallada de aperturas reales
+    // Obtener lista detallada de aperturas reales (excluyendo semillas de warmup)
     const opensList = await sql`
       SELECT email, device_type as device, location_country as country, user_agent as "userAgent", opened_at 
-      FROM campaign_opens 
-      WHERE campaign_id = ${campaignId} 
+      FROM campaign_opens o
+      WHERE o.campaign_id = ${campaignId} 
+        AND NOT EXISTS (
+          SELECT 1 FROM warmup_seeds s 
+          WHERE s.kinde_id = ${userId} AND s.email = o.email
+        )
       ORDER BY opened_at DESC
     `;
 
@@ -3068,8 +3092,9 @@ app.get('/api/campaigns/:id/report', protectRoute, async (req, res) => {
 
     const totalSentVal = campaign.total_sent || 0;
 
-    // Simulación determinista de fallback para correos antiguos o si no se han registrado eventos reales
-    if (campaign.status === 'sent' && finalOpensCount === 0 && totalSentVal > 0) {
+    // Simulación determinista de fallback solo para correos antiguos (legacy) que no tienen registro de envíos exitosos
+    const isLegacy = campaign.status === 'sent' && (campaign.success_count === 0 || campaign.success_count === null) && (!campaign.sent_recipients || campaign.sent_recipients.length === 0);
+    if (isLegacy && finalOpensCount === 0 && totalSentVal > 0) {
       let seed = 0;
       for (let i = 0; i < campaign.id.length; i++) {
         seed += campaign.id.charCodeAt(i);
@@ -3514,15 +3539,19 @@ async function sendCampaignIncremental(campaignId, host) {
     
     let batchToProcess = pendingRecipients.slice(0, maxBatchSize);
 
-    // Si está activo el Modo Warmup, intercalar correos de la tabla warmup_seeds para generar interacciones positivas
+    // Si está activo el Modo Warmup, intercalar correos de la tabla warmup_seeds para generar interacciones positivas (solo una vez por correo semilla en la campaña)
     if (userConfig.warmup_mode && batchToProcess.length > 0) {
       try {
         const seeds = await sql`SELECT email FROM warmup_seeds WHERE kinde_id = ${userId}`;
         if (seeds.length > 0) {
           const seedEmails = seeds.map(s => s.email.toLowerCase().trim());
-          // Intercalamos hasta 2 correos semilla aleatorios en el lote para que se envíen
-          const selectedSeeds = seedEmails.sort(() => 0.5 - Math.random()).slice(0, 2);
-          batchToProcess = [...selectedSeeds, ...batchToProcess];
+          // Filtrar semillas que ya hayan recibido o fallado en esta campaña
+          const unsentSeeds = seedEmails.filter(email => !successRecipients.has(email) && !failedRecipients.has(email));
+          if (unsentSeeds.length > 0) {
+            // Intercalamos hasta 2 correos semilla aleatorios que aún no se hayan enviado
+            const selectedSeeds = unsentSeeds.sort(() => 0.5 - Math.random()).slice(0, 2);
+            batchToProcess = [...selectedSeeds, ...batchToProcess];
+          }
         }
       } catch (err) {
         console.warn('No se pudieron recuperar los correos semilla para el warmup:', err);
@@ -3668,22 +3697,38 @@ async function sendCampaignIncremental(campaignId, host) {
           });
           await sesClient.send(command);
 
-          await sql`
-            UPDATE campaigns 
-            SET success_count = success_count + 1,
-                sent_recipients = array_append(sent_recipients, ${recipient})
-            WHERE id = ${campaignId}
-          `;
+          if (isSeedEmail) {
+            await sql`
+              UPDATE campaigns 
+              SET sent_recipients = array_append(sent_recipients, ${recipient})
+              WHERE id = ${campaignId}
+            `;
+          } else {
+            await sql`
+              UPDATE campaigns 
+              SET success_count = success_count + 1,
+                  sent_recipients = array_append(sent_recipients, ${recipient})
+              WHERE id = ${campaignId}
+            `;
+          }
         } catch (err) {
           console.error('AWS SES Send Error para', recipient, ':', err);
           const failureDetail = { email: recipient, error: err.message };
           
-          await sql`
-            UPDATE campaigns 
-            SET failed_count = failed_count + 1,
-                error_details = error_details || ${JSON.stringify([failureDetail])}::jsonb
-            WHERE id = ${campaignId}
-          `;
+          if (isSeedEmail) {
+            await sql`
+              UPDATE campaigns 
+              SET error_details = error_details || ${JSON.stringify([failureDetail])}::jsonb
+              WHERE id = ${campaignId}
+            `;
+          } else {
+            await sql`
+              UPDATE campaigns 
+              SET failed_count = failed_count + 1,
+                  error_details = error_details || ${JSON.stringify([failureDetail])}::jsonb
+              WHERE id = ${campaignId}
+            `;
+          }
         }
       }));
 
