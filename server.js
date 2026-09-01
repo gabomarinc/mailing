@@ -2461,7 +2461,7 @@ app.get('/api/campaigns', protectRoute, async (req, res) => {
         (SELECT COUNT(*)::int FROM campaign_clicks WHERE campaign_id = c.id) as clicks_count
       FROM campaigns c 
       WHERE c.kinde_id = ${userId} 
-      ORDER BY COALESCE(c.sent_at, c.scheduled_for, c.created_at) DESC
+      ORDER BY COALESCE(c.sent_at, c.scheduled_for) DESC NULLS LAST
     `;
     res.json(campaigns.map(c => {
       const isLegacySent = c.status === 'sent' && (c.success_count === 0 || c.success_count === null);
