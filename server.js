@@ -2461,7 +2461,7 @@ app.get('/api/campaigns', protectRoute, async (req, res) => {
         (SELECT COUNT(*)::int FROM campaign_clicks WHERE campaign_id = c.id) as clicks_count
       FROM campaigns c 
       WHERE c.kinde_id = ${userId} 
-      ORDER BY c.sent_at DESC
+      ORDER BY COALESCE(c.sent_at, c.scheduled_for, c.created_at) DESC
     `;
     res.json(campaigns.map(c => {
       const isLegacySent = c.status === 'sent' && (c.success_count === 0 || c.success_count === null);
@@ -3936,6 +3936,39 @@ app.post('/api/campaigns/:id/resume', protectRoute, express.json(), async (req, 
   } catch (err) {
     console.error('Error cambiando estado:', err);
     return res.status(500).json({ success: false, message: 'Error final al cambiar el estado de la campaña para reanudar.', error: err.message });
+  }
+});
+
+app.post('/api/campaigns/:id/cancel', protectRoute, async (req, res) => {
+  try {
+    const campaignId = req.params.id;
+    const userId = req.user.id;
+
+    const campaignResult = await sql`
+      SELECT * FROM campaigns WHERE id = ${campaignId} AND kinde_id = ${userId}
+    `;
+    if (campaignResult.length === 0) {
+      return res.status(404).json({ success: false, message: 'Campaña no encontrada.' });
+    }
+
+    const campaign = campaignResult[0];
+    if (campaign.status !== 'scheduled') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Solo se pueden cancelar campañas en estado programado.' 
+      });
+    }
+
+    await sql`
+      UPDATE campaigns 
+      SET status = 'cancelled' 
+      WHERE id = ${campaignId} AND kinde_id = ${userId}
+    `;
+
+    res.json({ success: true, message: 'Envío programado de campaña cancelado con éxito.' });
+  } catch (err) {
+    console.error('Error cancelando campaña programada:', err);
+    res.status(500).json({ success: false, message: 'Error en el servidor al cancelar la campaña.' });
   }
 });
 

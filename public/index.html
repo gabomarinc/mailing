@@ -5497,6 +5497,8 @@
             let badge = `<span class="bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-100 text-[10px]">Enviado</span>`;
             if (c.status === 'scheduled') {
               badge = `<span class="bg-amber-50 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-100 text-[10px]">Programado</span>`;
+            } else if (c.status === 'cancelled' || c.status === 'canceled') {
+              badge = `<span class="bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-full border border-slate-200 text-[10px]">Cancelado</span>`;
             } else if (c.status === 'sending') {
               badge = `<span class="bg-blue-50 text-blue-800 font-bold px-2 py-0.5 rounded-full border border-blue-100 text-[10px] animate-pulse">Enviando...</span>`;
             } else if (c.status === 'failed') {
@@ -5545,6 +5547,8 @@
             let badge = `<span class="bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-100 text-[10px]">Enviado</span>`;
             if (c.status === 'scheduled') {
               badge = `<span class="bg-amber-50 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-100 text-[10px]">Programado</span>`;
+            } else if (c.status === 'cancelled' || c.status === 'canceled') {
+              badge = `<span class="bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-full border border-slate-200 text-[10px]">Cancelado</span>`;
             } else if (c.status === 'sending') {
               const pct = c.totalSent > 0 ? Math.round((successCount / c.totalSent) * 100) : 0;
               badge = `
@@ -5580,10 +5584,19 @@
             const sender = c.senderEmail ? `${c.senderName || ''} <${c.senderEmail}>` : 'Por defecto (SES)';
 
             let resumeBtn = '';
-            if (!isCompleted && c.status !== 'scheduled') {
+            if (!isCompleted && c.status !== 'scheduled' && c.status !== 'cancelled' && c.status !== 'canceled') {
               resumeBtn = `
                 <button onclick="resumeCampaign('${c.id}')" class="text-white font-bold bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg transition-all inline-block text-[10px] uppercase tracking-wide ml-1.5 shadow-sm border border-blue-700">
                   Completar Envío
+                </button>
+              `;
+            }
+
+            let cancelBtn = '';
+            if (c.status === 'scheduled') {
+              cancelBtn = `
+                <button onclick="cancelCampaign('${c.id}')" class="text-rose-600 hover:text-rose-800 font-bold bg-rose-50 hover:bg-rose-100 border border-rose-200 px-3 py-1.5 rounded-lg transition-colors inline-block text-[10px] uppercase tracking-wide ml-1.5">
+                  Cancelar Envío
                 </button>
               `;
             }
@@ -5599,6 +5612,7 @@
                   Métricas
                 </button>
                 ${resumeBtn}
+                ${cancelBtn}
               </td>
             `;
             tbodyHist.appendChild(tr);
@@ -7731,6 +7745,34 @@
     }
     window.resumeCampaign = resumeCampaign;
 
+    async function cancelCampaign(id) {
+      const confirmed = await showConfirm('¿Estás seguro de que deseas cancelar este envío programado? La campaña ya no se enviará a los destinatarios.');
+      if (!confirmed) return;
+
+      showToast('Cancelando envío programado...', 'info');
+      try {
+        const token = sessionStorage.getItem('kns_token');
+        const res = await fetch(`/api/campaigns/${id}/cancel`, {
+          method: 'POST',
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json'
+          }
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(data.message || 'Envío programado cancelado exitosamente.', 'success');
+          await fetchCampaigns();
+        } else {
+          showToast('Error al cancelar: ' + (data.message || 'Error desconocido'), 'error');
+        }
+      } catch (err) {
+        console.error('Error al cancelar campaña:', err);
+        showToast('Error de red al cancelar campaña programada.', 'error');
+      }
+    }
+    window.cancelCampaign = cancelCampaign;
+
     async function refreshActiveCampaignReport(id) {
       try {
         const res = await fetch(`/api/campaigns/${id}/report`);
@@ -7745,6 +7787,9 @@
             if (currentStatus === 'scheduled') {
               statusBadge.className = 'bg-amber-50 text-amber-800 font-bold px-2.5 py-0.5 rounded-full border border-amber-100 text-[10px]';
               statusBadge.textContent = 'Programado';
+            } else if (currentStatus === 'cancelled' || currentStatus === 'canceled') {
+              statusBadge.className = 'bg-slate-100 text-slate-700 font-bold px-2.5 py-0.5 rounded-full border border-slate-200 text-[10px]';
+              statusBadge.textContent = 'Cancelado';
             } else if (currentStatus === 'sending') {
               statusBadge.className = 'bg-blue-50 text-blue-800 font-bold px-2.5 py-0.5 rounded-full border border-blue-100 text-[10px] animate-pulse';
               statusBadge.textContent = 'Enviando...';
@@ -7794,6 +7839,9 @@
           if (campaign.status === 'scheduled') {
             statusBadge.className = 'bg-amber-50 text-amber-800 font-bold px-2.5 py-0.5 rounded-full border border-amber-100 text-[10px]';
             statusBadge.textContent = 'Programado';
+          } else if (campaign.status === 'cancelled' || campaign.status === 'canceled') {
+            statusBadge.className = 'bg-slate-100 text-slate-700 font-bold px-2.5 py-0.5 rounded-full border border-slate-200 text-[10px]';
+            statusBadge.textContent = 'Cancelado';
           } else if (campaign.status === 'sending') {
             statusBadge.className = 'bg-blue-50 text-blue-800 font-bold px-2.5 py-0.5 rounded-full border border-blue-100 text-[10px] animate-pulse';
             statusBadge.textContent = 'Enviando...';
