@@ -43,6 +43,24 @@ async function loadDisposableDomains() {
 loadDisposableDomains();
 
 const mxCache = new Map();
+
+function getPublicBaseUrl(reqHost) {
+  if (process.env.APP_URL) {
+    return process.env.APP_URL.replace(/\/+$/, '');
+  }
+  if (process.env.PUBLIC_URL) {
+    return process.env.PUBLIC_URL.replace(/\/+$/, '');
+  }
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  }
+  if (reqHost) {
+    const protocol = (reqHost.includes('localhost') || reqHost.includes('127.0.0.1')) ? 'http' : 'https';
+    return `${protocol}://${reqHost}`;
+  }
+  return 'https://mailing.konsul.digital';
+}
+
 const popularDomains = new Set(['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'live.com', 'aol.com', 'zoho.com', 'protonmail.com', 'proton.me', 'mail.com']);
 
 async function checkMX(domain) {
@@ -2603,9 +2621,8 @@ app.post('/api/campaigns/send-test', protectRoute, async (req, res) => {
     }
 
     const cleanRecipient = recipient.trim().toLowerCase();
-    const host = req.headers.host || 'localhost:3000';
-    const protocol = (host.includes('localhost') || host.includes('127.0.0.1')) ? 'http' : 'https';
-    const mockUnsubscribeUrl = `${protocol}://${host}/unsubscribe/test-campaign/${encodeURIComponent(cleanRecipient)}`;
+    const baseUrl = getPublicBaseUrl(req.headers.host);
+    const mockUnsubscribeUrl = `${baseUrl}/unsubscribe/test-campaign/${encodeURIComponent(cleanRecipient)}`;
 
     let processedSubject = subject
       .replace(/\{name\}/g, 'Destinatario de Prueba')
@@ -3596,9 +3613,9 @@ async function sendCampaignIncremental(campaignId, host) {
           return;
         }
 
-        const protocol = (host.includes('localhost') || host.includes('127.0.0.1')) ? 'http' : 'https';
-        const unsubscribeUrl = `${protocol}://${host}/unsubscribe/${campaignId}/${encodeURIComponent(recipient)}`;
-        const openTrackingUrl = `https://${host}/api/campaigns/${campaignId}/track-open?email=${encodeURIComponent(recipient)}`;
+        const baseUrl = getPublicBaseUrl(host);
+        const unsubscribeUrl = `${baseUrl}/unsubscribe/${campaignId}/${encodeURIComponent(recipient)}`;
+        const openTrackingUrl = `${baseUrl}/api/campaigns/${campaignId}/track-open?email=${encodeURIComponent(recipient)}`;
         
         const recipientName = nameMap[cleanRecipient] || 'Usuario';
         const recipientCustomFields = customFieldsMap[cleanRecipient] || {};
@@ -3656,7 +3673,7 @@ async function sendCampaignIncremental(campaignId, host) {
           if (url.startsWith('#') || url.includes('/unsubscribe/') || url.includes('/track-click')) {
             return match;
           }
-          const trackingUrl = `https://${host}/api/campaigns/${campaignId}/track-click?url=${encodeURIComponent(url)}&email=${encodeURIComponent(recipient)}`;
+          const trackingUrl = `${baseUrl}/api/campaigns/${campaignId}/track-click?url=${encodeURIComponent(url)}&email=${encodeURIComponent(recipient)}`;
           return `<a${prefix}href="${trackingUrl}"${suffix}>`;
         });
         
