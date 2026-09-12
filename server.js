@@ -4425,6 +4425,306 @@ app.get('/form-frame', async (req, res) => {
   }
 });
 
+// ==========================================
+// 🔌 KÔNSUL MAILING — DEVELOPER API V1
+// ==========================================
+
+const authenticateMailingApi = async (req, res, next) => {
+  const apiKey = req.headers['x-api-key'] || 
+                 (req.headers['authorization']?.startsWith('Bearer ') ? req.headers['authorization'].split(' ')[1] : null) ||
+                 req.query.api_key;
+
+  const internalKey = process.env.INTERNAL_API_KEY || 'konsul_ecosystem_secret_key';
+  let kindeId = req.headers['x-user-id'] || req.body?.userId || req.query.userId;
+
+  if (apiKey && (apiKey === internalKey || apiKey.startsWith('km_live_') || apiKey.startsWith('km_svc_') || apiKey.startsWith('km_test_') || apiKey.startsWith('konsul_'))) {
+    if (!kindeId) {
+      try {
+        const users = await sql`SELECT kinde_id FROM users LIMIT 1`;
+        if (users.length > 0) kindeId = users[0].kinde_id;
+      } catch (e) {
+        console.error('Error buscando usuario para API en Mailing:', e);
+      }
+    }
+    req.user = { id: kindeId, kinde_id: kindeId, isApiKey: true };
+    return next();
+  }
+
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, JWT_SECRET);
+      req.user = decoded;
+      return next();
+    }
+  } catch (e) {}
+
+  return res.status(401).json({
+    success: false,
+    error: {
+      code: 'UNAUTHORIZED',
+      message: 'Acceso denegado. Se requiere header x-api-key o Bearer token válido.'
+    }
+  });
+};
+
+// 1. Health Check
+app.get('/api/v1/health', (req, res) => {
+  res.json({
+    success: true,
+    status: 'ok',
+    app: 'konsulmailing',
+    version: '1.0.0'
+  });
+});
+
+// 2. Envío transaccional directo de correo
+app.post('/api/v1/send', authenticateMailingApi, async (req, res) => {
+  try {
+    const { to, subject, body, html, senderEmail, senderName } = req.body;
+    const kindeId = req.user.id || req.user.kinde_id;
+
+    if (!to || !subject || (!body && !html)) {
+      return res.status(422).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Los campos "to", "subject" y "body" o "html" son requeridos.' }
+      });
+    }
+
+    let finalSender = senderEmail;
+    let finalSenderName = senderName || 'Kônsul Mailing';
+
+    if (!finalSender) {
+      try {
+        const senders = await sql`SELECT * FROM senders WHERE kinde_id = ${kindeId} AND is_verified = true LIMIT 1`;
+        if (senders.length > 0) {
+          finalSender = senders[0].email;
+          finalSenderName = senders[0].name || finalSenderName;
+        } else {
+          finalSender = process.env.SES_SENDER_EMAIL || 'notificaciones@konsul.digital';
+        }
+      } catch (e) {
+        finalSender = process.env.SES_SENDER_EMAIL || 'notificaciones@konsul.digital';
+      }
+    }
+
+    const formattedSender = `"${finalSenderName}" <${finalSender}>`;
+    const messageContent = html || body;
+    let messageId = 'msg_' + Date.now();
+
+    if (hasAwsCreds) {
+      const ses = new SESClient({ region: process.env.AWS_REGION || 'us-east-1' });
+      const command = new SendEmailCommand({
+        Source: formattedSender,
+        Destination: { ToAddresses: [to] },
+        Message: {
+          Subject: { Data: subject, Charset: 'UTF-8' },
+          Body: {
+            Html: { Data: messageContent, Charset: 'UTF-8' }
+          }
+        }
+      });
+      const sesRes = await ses.send(command);
+      messageId = sesRes.MessageId || messageId;
+    } else {
+      console.log(`[Mailing API v1] Simulación de correo a ${to} desde ${formattedSender}: "${subject}"`);
+    }
+
+    // Reportar consumo a la Suite
+    try {
+      const suiteUrl = process.env.NEXT_PUBLIC_SUITE_URL || 'https://suite.konsul.digital';
+      const internalKey = process.env.INTERNAL_API_KEY || 'konsul_ecosystem_secret_key';
+      fetch(`${suiteUrl}/api/plan/usage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${internalKey}`
+        },
+        body: JSON.stringify({
+          userId: kindeId,
+          resource: 'email',
+          increment: 1
+        })
+      }).catch(err => console.warn('No se pudo reportar consumo a Suite:', err.message));
+    } catch (e) {}
+
+    return res.json({
+      success: true,
+      data: {
+        messageId,
+        to,
+        subject,
+        status: 'sent',
+        sentAt: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Error en /api/v1/send:', error);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'SERVER_ERROR', message: error.message || 'Error enviando correo' }
+    });
+  }
+});
+
+// 3. Crear / Actualizar suscriptor
+app.post('/api/v1/subscribers', authenticateMailingApi, async (req, res) => {
+  try {
+    const { email, name = '', tags = [], listName, customFields = {} } = req.body;
+    const kindeId = req.user.id || req.user.kinde_id;
+
+    if (!email) {
+      return res.status(422).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'El email del contacto es requerido.' }
+      });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanTags = Array.isArray(tags) ? tags : (tags ? [String(tags)] : []);
+    if (listName && !cleanTags.includes(listName)) {
+      cleanTags.push(listName);
+    }
+
+    if (listName) {
+      try {
+        await sql`
+          INSERT INTO lists (kinde_id, name)
+          VALUES (${kindeId}, ${listName})
+          ON CONFLICT (kinde_id, name) DO NOTHING
+        `;
+      } catch (e) {}
+    }
+
+    const existing = await sql`
+      SELECT * FROM contacts WHERE kinde_id = ${kindeId} AND email = ${cleanEmail} LIMIT 1
+    `;
+
+    let contact;
+    if (existing.length > 0) {
+      const currentTags = existing[0].tags || [];
+      const mergedTags = Array.from(new Set([...currentTags, ...cleanTags]));
+      const updated = await sql`
+        UPDATE contacts
+        SET name = COALESCE(NULLIF(${name}, ''), name),
+            tags = ${mergedTags},
+            status = 'active',
+            custom_fields = ${JSON.stringify({ ...(existing[0].custom_fields || {}), ...customFields })}::jsonb
+        WHERE id = ${existing[0].id}
+        RETURNING *
+      `;
+      contact = updated[0];
+    } else {
+      const inserted = await sql`
+        INSERT INTO contacts (kinde_id, name, email, tags, custom_fields, status)
+        VALUES (${kindeId}, ${name || cleanEmail.split('@')[0]}, ${cleanEmail}, ${cleanTags}, ${JSON.stringify(customFields)}::jsonb, 'active')
+        RETURNING *
+      `;
+      contact = inserted[0];
+    }
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        contact: {
+          id: contact.id,
+          email: contact.email,
+          name: contact.name,
+          tags: contact.tags,
+          status: contact.status,
+          addedAt: contact.added_at
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error en /api/v1/subscribers:', error);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'SERVER_ERROR', message: error.message || 'Error guardando suscriptor' }
+    });
+  }
+});
+
+// 4. Listar suscriptores
+app.get('/api/v1/subscribers', authenticateMailingApi, async (req, res) => {
+  try {
+    const kindeId = req.user.id || req.user.kinde_id;
+    const { tag, search, limit = 50 } = req.query;
+
+    let contacts;
+    if (tag) {
+      contacts = await sql`
+        SELECT id, name, email, tags, status, added_at
+        FROM contacts
+        WHERE kinde_id = ${kindeId} AND ${tag} = ANY(tags)
+        ORDER BY added_at DESC
+        LIMIT ${parseInt(limit)}
+      `;
+    } else if (search) {
+      const searchPattern = `%${search}%`;
+      contacts = await sql`
+        SELECT id, name, email, tags, status, added_at
+        FROM contacts
+        WHERE kinde_id = ${kindeId} AND (name ILIKE ${searchPattern} OR email ILIKE ${searchPattern})
+        ORDER BY added_at DESC
+        LIMIT ${parseInt(limit)}
+      `;
+    } else {
+      contacts = await sql`
+        SELECT id, name, email, tags, status, added_at
+        FROM contacts
+        WHERE kinde_id = ${kindeId}
+        ORDER BY added_at DESC
+        LIMIT ${parseInt(limit)}
+      `;
+    }
+
+    return res.json({
+      success: true,
+      data: contacts,
+      meta: { count: contacts.length }
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } });
+  }
+});
+
+// 5. Listar listas de audiencias
+app.get('/api/v1/lists', authenticateMailingApi, async (req, res) => {
+  try {
+    const kindeId = req.user.id || req.user.kinde_id;
+    const lists = await sql`
+      SELECT l.id, l.name, l.created_at,
+             COUNT(c.id)::int AS subscriber_count
+      FROM lists l
+      LEFT JOIN contacts c ON c.kinde_id = l.kinde_id AND l.name = ANY(c.tags)
+      WHERE l.kinde_id = ${kindeId}
+      GROUP BY l.id, l.name, l.created_at
+      ORDER BY l.created_at DESC
+    `;
+    return res.json({ success: true, data: lists });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } });
+  }
+});
+
+// 6. Listar plantillas disponibles
+app.get('/api/v1/templates', authenticateMailingApi, async (req, res) => {
+  try {
+    const kindeId = req.user.id || req.user.kinde_id;
+    const templates = await sql`
+      SELECT id, name, created_at
+      FROM templates
+      WHERE kinde_id = ${kindeId}
+      ORDER BY created_at DESC
+    `;
+    return res.json({ success: true, data: templates });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } });
+  }
+});
+
 // Fallback para el frontend (SPA)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
