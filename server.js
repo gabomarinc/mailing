@@ -4438,7 +4438,18 @@ const authenticateMailingApi = async (req, res, next) => {
   let kindeId = req.headers['x-user-id'] || req.body?.userId || req.query.userId;
 
   if (apiKey && (apiKey === internalKey || apiKey.startsWith('km_live_') || apiKey.startsWith('km_svc_') || apiKey.startsWith('km_test_') || apiKey.startsWith('konsul_'))) {
-    if (!kindeId) {
+    if (kindeId) {
+      try {
+        const userName = req.headers['x-user-name'] || req.headers['x-user-email'] || 'Usuario Kônsul';
+        await sql`
+          INSERT INTO users (kinde_id, company_name, monthly_volume, is_setup_complete) 
+          VALUES (${kindeId}, ${userName}, 10000, true)
+          ON CONFLICT (kinde_id) DO NOTHING
+        `;
+      } catch (jitErr) {
+        console.error('Error JIT provisioning user en Mailing:', jitErr);
+      }
+    } else {
       try {
         const users = await sql`SELECT kinde_id FROM users LIMIT 1`;
         if (users.length > 0) kindeId = users[0].kinde_id;
