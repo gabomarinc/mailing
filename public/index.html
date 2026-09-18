@@ -5611,6 +5611,9 @@
                 <button onclick="openCampaignDetail('${c.id}')" class="text-[#27bea5] hover:text-[#1c2938] font-bold bg-[#27bea5]/10 hover:bg-[#27bea5]/20 px-3 py-1.5 rounded-lg transition-colors inline-block text-[10px] uppercase tracking-wide">
                   Métricas
                 </button>
+                <button onclick="duplicateCampaign('${c.id}')" class="text-indigo-600 hover:text-indigo-800 font-bold bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-lg transition-colors inline-block text-[10px] uppercase tracking-wide ml-1.5" title="Duplicar y editar esta campaña">
+                  Duplicar
+                </button>
                 ${resumeBtn}
                 ${cancelBtn}
               </td>
@@ -5951,6 +5954,8 @@
       }
       lucide.createIcons();
     }
+    window.goToStep = goToStep;
+    window.goToCampaignStep = goToStep;
 
     // A/B Testing Helper Functions
     window.toggleAbTestingSection = function(isChecked) {
@@ -7181,7 +7186,9 @@
             abVarBSenderEmail,
             abSplitPct,
             abWinnerMetric,
-            abDurationHours
+            abDurationHours,
+            designJson: campaignBlocks,
+            footerSettings: footerSettings
           })
         });
 
@@ -7785,6 +7792,137 @@
       }
     }
     window.cancelCampaign = cancelCampaign;
+
+    window.duplicateCampaign = async function(id) {
+      if (!id) return;
+      try {
+        let campaign = campaigns.find(c => c.id.toString() === id.toString());
+        
+        if (!campaign || !campaign.body || campaign.designJson === undefined) {
+          const token = sessionStorage.getItem('kns_token');
+          const res = await fetch(`/api/campaigns/${id}`, {
+            headers: { 'Authorization': token ? `Bearer ${token}` : '' }
+          });
+          const data = await res.json();
+          if (data.success && data.campaign) {
+            campaign = data.campaign;
+          }
+        }
+
+        if (!campaign) {
+          showToast('No se pudo encontrar la información de la campaña a duplicar.', 'error');
+          return;
+        }
+
+        // Cerrar modal de detalle si está abierto
+        closeModal('modal-campaign-detail');
+
+        // 1. Cambiar a la pestaña de Redacción de Campaña
+        switchTab('campaigns');
+        switchCampaignSubTab('compose');
+
+        // 2. Cargar datos del Paso 1: Destinatarios / Listas
+        const allCheckbox = document.getElementById('list-checkbox-all');
+        const targetTags = Array.isArray(campaign.targetTags) ? campaign.targetTags : [];
+        
+        if (targetTags.length === 0) {
+          if (allCheckbox) allCheckbox.checked = true;
+          document.querySelectorAll('.campaign-list-checkbox').forEach(cb => {
+            cb.checked = false;
+            cb.disabled = true;
+          });
+        } else {
+          if (allCheckbox) allCheckbox.checked = false;
+          document.querySelectorAll('.campaign-list-checkbox').forEach(cb => {
+            cb.disabled = false;
+            cb.checked = targetTags.includes(cb.value);
+          });
+        }
+        updateCampaignAudienceCount();
+
+        // 3. Cargar datos del Paso 2: Remitente y Asunto
+        const nameInput = document.getElementById('campaign-name');
+        if (nameInput) nameInput.value = (campaign.subject ? `${campaign.subject} (Copia)` : 'Campaña Duplicada');
+
+        const senderNameInput = document.getElementById('campaign-sender-name');
+        if (senderNameInput) senderNameInput.value = campaign.senderName || '';
+
+        const senderEmailSelect = document.getElementById('campaign-sender-email');
+        if (senderEmailSelect && campaign.senderEmail) {
+          senderEmailSelect.value = campaign.senderEmail;
+        }
+
+        const subjectInput = document.getElementById('campaign-subject');
+        if (subjectInput) subjectInput.value = campaign.subject ? `${campaign.subject} (Copia)` : '';
+
+        // Configuración de Prueba A/B
+        const abToggle = document.getElementById('campaign-ab-toggle');
+        if (abToggle) {
+          abToggle.checked = !!campaign.isAbTest;
+          toggleAbTestingSection(!!campaign.isAbTest);
+
+          if (campaign.isAbTest) {
+            const abTypeRadio = document.querySelector(`input[name="ab-test-variable"][value="${campaign.abTestType || 'subject'}"]`);
+            if (abTypeRadio) {
+              abTypeRadio.checked = true;
+              handleAbVariableChange(campaign.abTestType || 'subject');
+            }
+            
+            const subjB = document.getElementById('campaign-ab-subject-b');
+            if (subjB) subjB.value = campaign.abVarBSubject || '';
+
+            const sNameB = document.getElementById('campaign-ab-sender-name-b');
+            if (sNameB) sNameB.value = campaign.abVarBSenderName || '';
+
+            const sEmailB = document.getElementById('campaign-ab-sender-email-b');
+            if (sEmailB && campaign.abVarBSenderEmail) sEmailB.value = campaign.abVarBSenderEmail;
+
+            const splitInput = document.getElementById('campaign-ab-split');
+            if (splitInput) {
+              splitInput.value = campaign.abSplitPct || 20;
+              updateAbSplitText(campaign.abSplitPct || 20);
+            }
+
+            const metricSelect = document.getElementById('campaign-ab-metric');
+            if (metricSelect) metricSelect.value = campaign.abWinnerMetric || 'opens';
+
+            const hoursInput = document.getElementById('campaign-ab-hours');
+            if (hoursInput) hoursInput.value = campaign.abDurationHours || 4;
+          }
+        }
+
+        // 4. Cargar datos del Paso 3: Diseño y Footer
+        if (campaign.designJson && Array.isArray(campaign.designJson) && campaign.designJson.length > 0) {
+          campaignBlocks = JSON.parse(JSON.stringify(campaign.designJson));
+        } else if (campaign.body) {
+          // Si es una campaña previa sin JSON de bloques, crear un bloque con su contenido
+          const cleanText = campaign.body.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+          campaignBlocks = [
+            { 
+              id: Date.now().toString(), 
+              type: 'text', 
+              content: cleanText || campaign.subject || 'Contenido de campaña' 
+            }
+          ];
+        }
+
+        if (campaign.footerSettings && typeof campaign.footerSettings === 'object' && Object.keys(campaign.footerSettings).length > 0) {
+          Object.assign(footerSettings, campaign.footerSettings);
+          initializeFooterInputs();
+        }
+
+        renderBuilderCanvas();
+        updateLivePreview();
+
+        // Volver al Paso 1 con todo el flujo listo para editar y avanzar
+        goToStep(1);
+
+        showToast('✓ Campaña duplicada con éxito. Ya puedes revisar y editar sus datos.', 'success');
+      } catch (err) {
+        console.error('Error al duplicar campaña:', err);
+        showToast('Error al duplicar la campaña: ' + err.message, 'error');
+      }
+    };
 
     async function refreshActiveCampaignReport(id) {
       try {
@@ -10126,9 +10264,14 @@
           <h2 class="text-xl font-extrabold text-[#1B2939] mt-2" id="detail-camp-subject">Asunto de la Campaña</h2>
           <p class="text-xs text-brand-gray mt-0.5" id="detail-camp-meta">Enviado por: remitente | Fecha: 23/07/2026</p>
         </div>
-        <button onclick="closeModal('modal-campaign-detail')" class="text-slate-400 hover:text-slate-600 transition-colors p-1 bg-slate-50 border border-slate-100 rounded-xl">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="duplicateCampaign(activeDetailCampaignId)" class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition-all shadow-sm">
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i> Duplicar Campaña
+          </button>
+          <button onclick="closeModal('modal-campaign-detail')" class="text-slate-400 hover:text-slate-600 transition-colors p-1 bg-slate-50 border border-slate-100 rounded-xl">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
       </div>
 
       <!-- Tabs Selector -->

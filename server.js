@@ -426,6 +426,8 @@ async function initDB() {
     await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_opens_b INTEGER DEFAULT 0`);
     await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_clicks_a INTEGER DEFAULT 0`);
     await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_clicks_b INTEGER DEFAULT 0`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS design_json JSONB DEFAULT '[]'::jsonb`);
+    await addCol(sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS footer_settings JSONB DEFAULT '{}'::jsonb`);
     try {
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reputation_status VARCHAR(50) DEFAULT 'good'`;
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS reputation_message TEXT`;
@@ -2497,7 +2499,18 @@ app.get('/api/campaigns', protectRoute, async (req, res) => {
         senderName: c.sender_name,
         senderEmail: c.sender_email,
         opens: parseInt(c.opens_count || 0, 10),
-        clicks: parseInt(c.clicks_count || 0, 10)
+        clicks: parseInt(c.clicks_count || 0, 10),
+        designJson: c.design_json || null,
+        footerSettings: c.footer_settings || null,
+        isAbTest: c.is_ab_test || false,
+        abTestType: c.ab_test_type || null,
+        abVarBSubject: c.ab_var_b_subject || null,
+        abVarBBody: c.ab_var_b_body || null,
+        abVarBSenderName: c.ab_var_b_sender_name || null,
+        abVarBSenderEmail: c.ab_var_b_sender_email || null,
+        abSplitPct: c.ab_split_pct || 20,
+        abWinnerMetric: c.ab_winner_metric || 'opens',
+        abDurationHours: c.ab_duration_hours || 4
       };
     }));
   } catch (err) {
@@ -2506,12 +2519,56 @@ app.get('/api/campaigns', protectRoute, async (req, res) => {
   }
 });
 
+app.get('/api/campaigns/:id', protectRoute, async (req, res) => {
+  try {
+    const campaignId = req.params.id;
+    const userId = req.user.id;
+    const result = await sql`
+      SELECT * FROM campaigns WHERE id = ${campaignId} AND kinde_id = ${userId}
+    `;
+    if (result.length === 0) {
+      return res.status(404).json({ success: false, message: 'Campaña no encontrada.' });
+    }
+    const c = result[0];
+    res.json({
+      success: true,
+      campaign: {
+        id: c.id,
+        subject: c.subject,
+        body: c.body,
+        targetTags: c.target_tags,
+        totalSent: c.total_sent,
+        status: c.status,
+        sentDate: c.sent_at,
+        scheduledFor: c.scheduled_for,
+        senderName: c.sender_name,
+        senderEmail: c.sender_email,
+        designJson: c.design_json || null,
+        footerSettings: c.footer_settings || null,
+        isAbTest: c.is_ab_test || false,
+        abTestType: c.ab_test_type || null,
+        abVarBSubject: c.ab_var_b_subject || null,
+        abVarBBody: c.ab_var_b_body || null,
+        abVarBSenderName: c.ab_var_b_sender_name || null,
+        abVarBSenderEmail: c.ab_var_b_sender_email || null,
+        abSplitPct: c.ab_split_pct || 20,
+        abWinnerMetric: c.ab_winner_metric || 'opens',
+        abDurationHours: c.ab_duration_hours || 4
+      }
+    });
+  } catch (err) {
+    console.error('Error en GET /api/campaigns/:id:', err);
+    res.status(500).json({ success: false, message: 'Error en BD.', error: err.message });
+  }
+});
+
 app.post('/api/send-bulk', protectRoute, async (req, res) => {
   try {
     const { 
       subject, body, senderName, senderEmail, recipients, limit, targetTags, scheduledFor,
       isAbTest, abTestType, abVarBSubject, abVarBBody, abVarBSenderName, abVarBSenderEmail,
-      abSplitPct, abWinnerMetric, abDurationHours
+      abSplitPct, abWinnerMetric, abDurationHours,
+      designJson, footerSettings
     } = req.body;
     const userId = req.user.id;
 
@@ -2557,12 +2614,14 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
         INSERT INTO campaigns (
           kinde_id, subject, body, target_tags, total_sent, status, scheduled_for, sender_name, sender_email, recipient_emails, sent_recipients,
           is_ab_test, ab_test_type, ab_var_b_subject, ab_var_b_body, ab_var_b_sender_name, ab_var_b_sender_email,
-          ab_split_pct, ab_winner_metric, ab_duration_hours
+          ab_split_pct, ab_winner_metric, ab_duration_hours,
+          design_json, footer_settings
         )
         VALUES (
           ${userId}, ${subject}, ${body}, ${targetTags || []}, ${activeEmails.length}, 'scheduled', ${scheduledFor}, ${senderName}, ${senderEmail}, ${activeEmails}, '{}'::text[],
           ${!!isAbTest}, ${abTestType || null}, ${abVarBSubject || null}, ${abVarBBody || null}, ${abVarBSenderName || null}, ${abVarBSenderEmail || null},
-          ${parseInt(abSplitPct) || 20}, ${abWinnerMetric || 'opens'}, ${parseInt(abDurationHours) || 4}
+          ${parseInt(abSplitPct) || 20}, ${abWinnerMetric || 'opens'}, ${parseInt(abDurationHours) || 4},
+          ${JSON.stringify(designJson || [])}::jsonb, ${JSON.stringify(footerSettings || {})}::jsonb
         )
         RETURNING id
       `;
@@ -2582,12 +2641,14 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
       INSERT INTO campaigns (
         kinde_id, subject, body, target_tags, total_sent, status, sender_name, sender_email, recipient_emails, sent_recipients, error_details,
         is_ab_test, ab_test_type, ab_var_b_subject, ab_var_b_body, ab_var_b_sender_name, ab_var_b_sender_email,
-        ab_split_pct, ab_winner_metric, ab_duration_hours
+        ab_split_pct, ab_winner_metric, ab_duration_hours,
+        design_json, footer_settings
       )
       VALUES (
         ${userId}, ${subject}, ${body}, ${targetTags || []}, ${activeEmails.length}, 'sending', ${senderName}, ${senderEmail}, ${activeEmails}, '{}'::text[], '[]'::jsonb,
         ${!!isAbTest}, ${abTestType || null}, ${abVarBSubject || null}, ${abVarBBody || null}, ${abVarBSenderName || null}, ${abVarBSenderEmail || null},
-        ${parseInt(abSplitPct) || 20}, ${abWinnerMetric || 'opens'}, ${parseInt(abDurationHours) || 4}
+        ${parseInt(abSplitPct) || 20}, ${abWinnerMetric || 'opens'}, ${parseInt(abDurationHours) || 4},
+        ${JSON.stringify(designJson || [])}::jsonb, ${JSON.stringify(footerSettings || {})}::jsonb
       )
       RETURNING id
     `;
