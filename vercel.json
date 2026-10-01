@@ -20,6 +20,18 @@
       "dest": "/server.js"
     },
     {
+      "src": "/form-frame(.*)",
+      "dest": "/server.js"
+    },
+    {
+      "src": "/embed.js",
+      "dest": "/server.js"
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "/public/favicon.ico"
+    },
+    {
       "src": "/(.*)",
       "dest": "/public/$1"
     }

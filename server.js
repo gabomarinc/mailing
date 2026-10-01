@@ -999,7 +999,54 @@ app.post('/api/forms', protectRoute, async (req, res) => {
       res.json({ success: true, form: result[0] });
     }
   } catch (err) {
-    console.error('Error saving form:', err);
+    console.error('Error saving form, verifying columns:', err);
+    if (err.message && (err.message.includes('display_mode') || err.message.includes('autoresponder') || err.message.includes('column') || err.message.includes('does not exist'))) {
+      try {
+        await sql`ALTER TABLE forms ADD COLUMN IF NOT EXISTS display_mode VARCHAR(50) DEFAULT 'classic';`;
+        await sql`ALTER TABLE forms ADD COLUMN IF NOT EXISTS autoresponder_enabled BOOLEAN DEFAULT false;`;
+        await sql`ALTER TABLE forms ADD COLUMN IF NOT EXISTS autoresponder_subject VARCHAR(255) DEFAULT '¡Gracias por suscribirte!';`;
+        await sql`ALTER TABLE forms ADD COLUMN IF NOT EXISTS autoresponder_body TEXT DEFAULT 'Hola {{name}},\n\n¡Gracias por suscribirte! Hemos recibido tus datos correctamente.\n\nSaludos cordiales.';`;
+        await sql`ALTER TABLE forms ADD COLUMN IF NOT EXISTS autoresponder_from_name VARCHAR(255);`;
+
+        if (id) {
+          const retryRes = await sql`
+            UPDATE forms 
+            SET name = ${name}, title = ${title}, description = ${description},
+                target_tag = ${target_tag}, button_text = ${button_text},
+                fields = ${fieldsJson}::jsonb, layout = ${layout || 'vertical'},
+                primary_color = ${primary_color || '#1c2938'}, bg_color = ${bg_color || '#ffffff'},
+                text_color = ${text_color || '#1c2938'}, border_radius = ${border_radius || 16},
+                redirect_url = ${cleanRedirectUrl},
+                display_mode = ${cleanDisplayMode},
+                autoresponder_enabled = ${isAutoresponder},
+                autoresponder_subject = ${autoSubject},
+                autoresponder_body = ${autoBody},
+                autoresponder_from_name = ${autoFromName}
+            WHERE id = ${id} AND kinde_id = ${userId}
+            RETURNING *
+          `;
+          return res.json({ success: true, form: retryRes[0] });
+        } else {
+          const retryRes = await sql`
+            INSERT INTO forms (
+              kinde_id, name, title, description, target_tag, button_text,
+              fields, layout, primary_color, bg_color, text_color,
+              border_radius, redirect_url, display_mode, autoresponder_enabled,
+              autoresponder_subject, autoresponder_body, autoresponder_from_name
+            ) VALUES (
+              ${userId}, ${name}, ${title}, ${description}, ${target_tag}, ${button_text},
+              ${fieldsJson}::jsonb, ${layout || 'vertical'}, ${primary_color || '#1c2938'}, ${bg_color || '#ffffff'}, ${text_color || '#1c2938'},
+              ${border_radius || 16}, ${cleanRedirectUrl}, ${cleanDisplayMode}, ${isAutoresponder},
+              ${autoSubject}, ${autoBody}, ${autoFromName}
+            ) RETURNING *
+          `;
+          return res.json({ success: true, form: retryRes[0] });
+        }
+      } catch (retryErr) {
+        console.error('Retry after column migration failed:', retryErr);
+        return res.status(500).json({ success: false, error: 'DB Error: ' + retryErr.message });
+      }
+    }
     res.status(500).json({ success: false, error: 'DB Error: ' + err.message });
   }
 });
