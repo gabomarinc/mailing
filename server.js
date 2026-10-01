@@ -546,10 +546,35 @@ async function initDB() {
             redirect_url VARCHAR(255),
             views INTEGER DEFAULT 0,
             submissions INTEGER DEFAULT 0,
+            display_mode VARCHAR(50) DEFAULT 'classic',
+            autoresponder_enabled BOOLEAN DEFAULT false,
+            autoresponder_subject VARCHAR(255) DEFAULT '¡Gracias por suscribirte!',
+            autoresponder_body TEXT DEFAULT 'Hola {{name}},\n\n¡Gracias por suscribirte! Hemos recibido tus datos correctamente.\n\nSaludos cordiales.',
+            autoresponder_from_name VARCHAR(255),
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
       `;
-      console.log('Tabla de formularios (forms) verificada/aplicada en Neon');
+      // Migraciones de columnas adicionales si la tabla forms ya existía
+      await sql`ALTER TABLE forms ADD COLUMN IF NOT EXISTS display_mode VARCHAR(50) DEFAULT 'classic';`;
+      await sql`ALTER TABLE forms ADD COLUMN IF NOT EXISTS autoresponder_enabled BOOLEAN DEFAULT false;`;
+      await sql`ALTER TABLE forms ADD COLUMN IF NOT EXISTS autoresponder_subject VARCHAR(255) DEFAULT '¡Gracias por suscribirte!';`;
+      await sql`ALTER TABLE forms ADD COLUMN IF NOT EXISTS autoresponder_body TEXT DEFAULT 'Hola {{name}},\n\n¡Gracias por suscribirte! Hemos recibido tus datos correctamente.\n\nSaludos cordiales.';`;
+      await sql`ALTER TABLE forms ADD COLUMN IF NOT EXISTS autoresponder_from_name VARCHAR(255);`;
+
+      // Tabla de envíos / leads de formularios
+      await sql`
+        CREATE TABLE IF NOT EXISTS form_submissions (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            form_id UUID REFERENCES forms(id) ON DELETE CASCADE,
+            kinde_id VARCHAR(255) NOT NULL,
+            contact_id UUID,
+            email VARCHAR(255) NOT NULL,
+            name VARCHAR(255),
+            data JSONB DEFAULT '{}'::jsonb,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+      `;
+      console.log('Tabla de formularios (forms) y envíos (form_submissions) verificada/aplicada en Neon');
     } catch(err) {
       console.error('Error al verificar/crear tabla de formularios (forms):', err);
     }
@@ -916,7 +941,12 @@ app.post('/api/forms', protectRoute, async (req, res) => {
       bg_color,
       text_color,
       border_radius,
-      redirect_url
+      redirect_url,
+      display_mode,
+      autoresponder_enabled,
+      autoresponder_subject,
+      autoresponder_body,
+      autoresponder_from_name
     } = req.body;
 
     if (!name || !title || !target_tag) {
@@ -924,16 +954,27 @@ app.post('/api/forms', protectRoute, async (req, res) => {
     }
 
     const fieldsJson = JSON.stringify(fields || []);
+    const cleanDisplayMode = display_mode === 'step_by_step' ? 'step_by_step' : 'classic';
+    const isAutoresponder = !!autoresponder_enabled;
+    const autoSubject = autoresponder_subject || '¡Gracias por suscribirte!';
+    const autoBody = autoresponder_body || 'Hola {{name}},\n\n¡Gracias por suscribirte! Hemos recibido tus datos correctamente.\n\nSaludos cordiales.';
+    const autoFromName = autoresponder_from_name || null;
+    const cleanRedirectUrl = redirect_url ? redirect_url.trim() : null;
 
     if (id) {
       const result = await sql`
         UPDATE forms 
         SET name = ${name}, title = ${title}, description = ${description},
             target_tag = ${target_tag}, button_text = ${button_text},
-            fields = ${fieldsJson}::jsonb, layout = ${layout},
-            primary_color = ${primary_color}, bg_color = ${bg_color},
-            text_color = ${text_color}, border_radius = ${border_radius},
-            redirect_url = ${redirectUrl}
+            fields = ${fieldsJson}::jsonb, layout = ${layout || 'vertical'},
+            primary_color = ${primary_color || '#1c2938'}, bg_color = ${bg_color || '#ffffff'},
+            text_color = ${text_color || '#1c2938'}, border_radius = ${border_radius || 16},
+            redirect_url = ${cleanRedirectUrl},
+            display_mode = ${cleanDisplayMode},
+            autoresponder_enabled = ${isAutoresponder},
+            autoresponder_subject = ${autoSubject},
+            autoresponder_body = ${autoBody},
+            autoresponder_from_name = ${autoFromName}
         WHERE id = ${id} AND kinde_id = ${userId}
         RETURNING *
       `;
@@ -946,17 +987,45 @@ app.post('/api/forms', protectRoute, async (req, res) => {
         INSERT INTO forms (
           kinde_id, name, title, description, target_tag, button_text,
           fields, layout, primary_color, bg_color, text_color,
-          border_radius, redirect_url
+          border_radius, redirect_url, display_mode, autoresponder_enabled,
+          autoresponder_subject, autoresponder_body, autoresponder_from_name
         ) VALUES (
           ${userId}, ${name}, ${title}, ${description}, ${target_tag}, ${button_text},
-          ${fieldsJson}::jsonb, ${layout}, ${primary_color}, ${bg_color}, ${text_color},
-          ${border_radius}, ${redirectUrl}
+          ${fieldsJson}::jsonb, ${layout || 'vertical'}, ${primary_color || '#1c2938'}, ${bg_color || '#ffffff'}, ${text_color || '#1c2938'},
+          ${border_radius || 16}, ${cleanRedirectUrl}, ${cleanDisplayMode}, ${isAutoresponder},
+          ${autoSubject}, ${autoBody}, ${autoFromName}
         ) RETURNING *
       `;
       res.json({ success: true, form: result[0] });
     }
   } catch (err) {
     console.error('Error saving form:', err);
+    res.status(500).json({ success: false, error: 'DB Error: ' + err.message });
+  }
+});
+
+// Endpoint para consultar respuestas / leads recopilados por un formulario
+app.get('/api/forms/:id/submissions', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    const form = await sql`SELECT id, name FROM forms WHERE id = ${id} AND kinde_id = ${userId}`;
+    if (form.length === 0) {
+      return res.status(404).json({ success: false, error: 'Formulario no encontrado.' });
+    }
+
+    const submissions = await sql`
+      SELECT id, form_id, contact_id, email, name, data, created_at
+      FROM form_submissions
+      WHERE form_id = ${id} AND kinde_id = ${userId}
+      ORDER BY created_at DESC
+      LIMIT 250
+    `;
+
+    res.json({ success: true, form: form[0], submissions });
+  } catch (err) {
+    console.error('Error fetching form submissions:', err);
     res.status(500).json({ success: false, error: 'DB Error' });
   }
 });
@@ -4202,6 +4271,101 @@ app.post('/api/webhooks/sns', async (req, res) => {
   }
 });
 
+// Función auxiliar para enviar correo de auto-respuesta automático
+async function triggerFormAutoresponder({ email, name, formConfig, kindeId }) {
+  if (!formConfig || !formConfig.autoresponder_enabled) return;
+  try {
+    const rawSubject = formConfig.autoresponder_subject || '¡Gracias por suscribirte!';
+    const rawBody = formConfig.autoresponder_body || 'Hola {{name}},\n\n¡Gracias por suscribirte! Hemos recibido tus datos correctamente.\n\nSaludos cordiales.';
+    const contactDisplayName = name && name.trim() ? name.trim() : 'amigo/a';
+
+    const subject = rawSubject.replace(/\{\{\s*name\s*\}\}/gi, contactDisplayName).replace(/\{\{\s*email\s*\}\}/gi, email);
+    let bodyText = rawBody.replace(/\{\{\s*name\s*\}\}/gi, contactDisplayName).replace(/\{\{\s*email\s*\}\}/gi, email);
+
+    // Formatear párrafos si es texto plano
+    let bodyHtml = '';
+    if (bodyText.includes('<p>') || bodyText.includes('<div>') || bodyText.includes('<br')) {
+      bodyHtml = bodyText;
+    } else {
+      bodyHtml = bodyText.split('\n\n').map(p => `<p style="margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #334155;">${p.replace(/\n/g, '<br/>')}</p>`).join('');
+    }
+
+    // Remitente: buscar remitente verificado del usuario o fallback al sistema
+    let senderEmail = process.env.SES_SENDER_EMAIL || 'notificaciones@konsul.digital';
+    let senderName = formConfig.autoresponder_from_name || 'Kônsul Mailing';
+
+    try {
+      const senders = await sql`SELECT * FROM senders WHERE kinde_id = ${kindeId} AND is_verified = true LIMIT 1`;
+      if (senders.length > 0) {
+        senderEmail = senders[0].email;
+        if (!formConfig.autoresponder_from_name) {
+          senderName = senders[0].name || senderName;
+        }
+      }
+    } catch (e) {}
+
+    const formattedSender = `"${senderName}" <${senderEmail}>`;
+
+    const fullEmailHtml = `
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${subject}</title>
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #FAF8F5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="padding: 40px 16px;">
+          <tr>
+            <td align="center">
+              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 580px; background-color: #ffffff; border-radius: 24px; border: 1px solid #EAE6DF; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.04);">
+                <tr>
+                  <td style="padding: 32px 32px 20px; border-bottom: 1px solid #F1EFE9; background-color: #FAFAF9;">
+                    <div style="font-size: 11px; font-weight: 800; color: #64748B; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;">${senderName}</div>
+                    <h1 style="margin: 0; font-size: 22px; font-weight: 800; color: #0F172A; line-height: 1.3;">${subject}</h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 32px; font-size: 15px; line-height: 1.65; color: #334155;">
+                    ${bodyHtml}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 20px 32px; background-color: #F8FAFC; border-top: 1px solid #F1EFE9; text-align: center; font-size: 11px; color: #94A3B8; line-height: 1.4;">
+                    Mensaje automático enviado tras completar el registro con <strong>${email}</strong>.<br/>
+                    Powered by Kônsul Mailing.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+
+    if (hasAwsCreds) {
+      const ses = new SESClient({ region: process.env.AWS_REGION || 'us-east-1' });
+      const command = new SendEmailCommand({
+        Source: formattedSender,
+        Destination: { ToAddresses: [email] },
+        Message: {
+          Subject: { Data: subject, Charset: 'UTF-8' },
+          Body: {
+            Html: { Data: fullEmailHtml, Charset: 'UTF-8' }
+          }
+        }
+      });
+      await ses.send(command);
+      console.log(`[Autoresponder] Correo enviado a ${email} para form: ${formConfig.id}`);
+    } else {
+      console.log(`[Autoresponder SIMULADO] Correo a ${email} desde ${formattedSender}: "${subject}"`);
+    }
+  } catch (err) {
+    console.error('Error enviando autoresponder de formulario:', err);
+  }
+}
+
 // Public endpoint for embedded subscription forms
 app.post('/api/contacts/subscribe', async (req, res) => {
   try {
@@ -4210,14 +4374,16 @@ app.post('/api/contacts/subscribe', async (req, res) => {
     let targetKindeId = kinde_id;
     let contactTags = ['Suscripción Directa'];
     let finalRedirectUrl = req.body.redirect_url;
+    let formConfigRow = null;
 
     if (form_id) {
       try {
-        const formConfig = await sql`SELECT kinde_id, target_tag, redirect_url FROM forms WHERE id = ${form_id}`;
+        const formConfig = await sql`SELECT * FROM forms WHERE id = ${form_id}`;
         if (formConfig.length > 0) {
-          if (!targetKindeId) targetKindeId = formConfig[0].kinde_id;
-          contactTags = [formConfig[0].target_tag];
-          if (!finalRedirectUrl) finalRedirectUrl = formConfig[0].redirect_url;
+          formConfigRow = formConfig[0];
+          if (!targetKindeId) targetKindeId = formConfigRow.kinde_id;
+          contactTags = [formConfigRow.target_tag];
+          if (!finalRedirectUrl) finalRedirectUrl = formConfigRow.redirect_url;
         }
         // Increment submissions
         await sql`UPDATE forms SET submissions = submissions + 1 WHERE id = ${form_id}`;
@@ -4256,8 +4422,10 @@ app.post('/api/contacts/subscribe', async (req, res) => {
 
     // Check if contact already exists
     const existing = await sql`SELECT id, tags, custom_fields FROM contacts WHERE kinde_id = ${targetKindeId} AND email = ${cleanEmail}`;
-    
+    let savedContactId = null;
+
     if (existing.length > 0) {
+      savedContactId = existing[0].id;
       const mergedTags = [...new Set([...(existing[0].tags || []), ...contactTags])];
       const mergedCustom = { ...(existing[0].custom_fields || {}), ...custom_fields };
       
@@ -4268,14 +4436,41 @@ app.post('/api/contacts/subscribe', async (req, res) => {
         WHERE id = ${existing[0].id}
       `;
     } else {
-      await sql`
+      const insertRes = await sql`
         INSERT INTO contacts (kinde_id, name, email, tags, custom_fields, status)
         VALUES (${targetKindeId}, ${contactName}, ${cleanEmail}, ${contactTags}, ${JSON.stringify(custom_fields)}::jsonb, ${status})
+        RETURNING id
       `;
+      savedContactId = insertRes[0]?.id;
+    }
+
+    // Guardar en historial de envíos del formulario (form_submissions)
+    try {
+      await sql`
+        INSERT INTO form_submissions (form_id, kinde_id, contact_id, email, name, data)
+        VALUES (${form_id || null}, ${targetKindeId}, ${savedContactId}, ${cleanEmail}, ${contactName}, ${JSON.stringify(custom_fields)}::jsonb)
+      `;
+    } catch (subErr) {
+      console.error('Error al registrar submission en form_submissions:', subErr);
+    }
+
+    // Automatización Interna Rápida: Enviar correo de auto-respuesta si está habilitado
+    if (formConfigRow && formConfigRow.autoresponder_enabled) {
+      triggerFormAutoresponder({
+        email: cleanEmail,
+        name: contactName,
+        formConfig: formConfigRow,
+        kindeId: targetKindeId
+      }).catch(err => console.error('Error al disparar autoresponder:', err));
     }
 
     if (finalRedirectUrl) {
       return res.redirect(finalRedirectUrl);
+    }
+
+    const isJsonRequested = req.xhr || req.headers.accept?.includes('application/json') || req.body?.ajax;
+    if (isJsonRequested) {
+      return res.json({ success: true, message: '¡Suscripción completada exitosamente!' });
     }
 
     res.send(`
@@ -4285,16 +4480,42 @@ app.post('/api/contacts/subscribe', async (req, res) => {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Registro Completado | Kônsul</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
-        <style> body { font-family: 'Outfit', sans-serif; background-color: #FAF8F5; } </style>
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+        <style>
+          body {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #FAF8F5;
+            color: #1B2939;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 24px;
+            box-sizing: border-box;
+          }
+          .card {
+            max-width: 440px;
+            width: 100%;
+            background: #ffffff;
+            border: 1px solid #EAE6DF;
+            border-radius: 28px;
+            padding: 40px 32px;
+            text-align: center;
+            box-shadow: 0 10px 30px -5px rgba(0,0,0,0.04);
+          }
+          .icon { font-size: 48px; margin-bottom: 16px; }
+          h2 { font-size: 24px; font-weight: 700; margin: 0 0 10px; color: #1B2939; }
+          p { font-size: 14px; color: #6E7A8A; line-height: 1.5; margin: 0 0 24px; }
+          .footer-note { font-size: 11px; color: #909CAE; margin: 0; }
+        </style>
       </head>
-      <body class="min-h-screen flex items-center justify-center p-6 text-[#1B2939]">
-        <div class="max-w-md w-full bg-white border border-[#EAE6DF] rounded-3xl p-8 text-center shadow-sm">
-          <div class="text-4xl mb-4">🎉</div>
-          <h2 class="text-2xl font-semibold mb-2">¡Suscripción Completada!</h2>
-          <p class="text-[#6E7A8A] text-sm mb-6">Te has registrado exitosamente con el correo <b>${cleanEmail}</b>.</p>
-          <p class="text-xs text-[#909CAE]">Ya puedes cerrar esta ventana.</p>
+      <body>
+        <div class="card">
+          <div class="icon">🎉</div>
+          <h2>¡Suscripción Completada!</h2>
+          <p>Te has registrado exitosamente con el correo <b>${cleanEmail}</b>.</p>
+          <p class="footer-note">Ya puedes cerrar esta ventana.</p>
         </div>
       </body>
       </html>
@@ -4329,6 +4550,50 @@ app.get('/api/forms/:id/track-view', async (req, res) => {
   }
 });
 
+// Script Embebido universal para páginas webs externas
+app.get('/embed.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript');
+  const baseUrl = getPublicBaseUrl(req.get('host'));
+  res.send(`
+(function() {
+  function initKonsulForms() {
+    var scripts = document.querySelectorAll('script[data-form-id]');
+    scripts.forEach(function(script) {
+      var formId = script.getAttribute('data-form-id');
+      if (!formId || script.dataset.konsulInitialized) return;
+      script.dataset.konsulInitialized = 'true';
+
+      var containerId = 'konsul-form-' + formId;
+      var container = document.getElementById(containerId);
+      if (!container) {
+        container = document.createElement('div');
+        container.id = containerId;
+        script.parentNode.insertBefore(container, script);
+      }
+
+      var iframe = document.createElement('iframe');
+      iframe.src = "${baseUrl}/form-frame?id=" + encodeURIComponent(formId);
+      iframe.style.width = "100%";
+      iframe.style.minHeight = "460px";
+      iframe.style.border = "none";
+      iframe.style.overflow = "hidden";
+      iframe.style.display = "block";
+      iframe.setAttribute('allowtransparency', 'true');
+      iframe.setAttribute('scrolling', 'no');
+      
+      container.appendChild(iframe);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initKonsulForms);
+  } else {
+    initKonsulForms();
+  }
+})();
+  `);
+});
+
 app.get('/form-frame', async (req, res) => {
   try {
     const { id } = req.query;
@@ -4340,6 +4605,7 @@ app.get('/form-frame', async (req, res) => {
       desc: req.query.desc || 'Ingresa tus datos para mantenerte informado.',
       btn: req.query.btn || 'Suscribirme',
       layout: req.query.layout || 'vertical',
+      display_mode: req.query.display_mode || 'classic',
       primary: req.query.primary || '#1c2938',
       bg: req.query.bg || '#ffffff',
       text: req.query.text || '#1c2938',
@@ -4360,11 +4626,12 @@ app.get('/form-frame', async (req, res) => {
           title: form.title,
           desc: form.description,
           btn: form.button_text,
-          layout: form.layout,
-          primary: form.primary_color,
-          bg: form.bg_color,
-          text: form.text_color,
-          radius: String(form.border_radius),
+          layout: form.layout || 'vertical',
+          display_mode: form.display_mode || 'classic',
+          primary: form.primary_color || '#1c2938',
+          bg: form.bg_color || '#ffffff',
+          text: form.text_color || '#1c2938',
+          radius: String(form.border_radius || 16),
           fields: fieldsStr,
           redirect: form.redirect_url || '',
           dbFields: form.fields
@@ -4382,55 +4649,101 @@ app.get('/form-frame', async (req, res) => {
     const formTitle = config.title;
     const formDesc = config.desc;
     const btnText = config.btn;
-    
-    let fieldsHtml = '';
-    
-    if (config.dbFields && Array.isArray(config.dbFields)) {
-      config.dbFields.forEach(f => {
-        fieldsHtml += `
-          <div style="display: flex; flex-direction: column; gap: 4px; text-align: left; width: 100%;">
-            <label style="font-size: 11px; font-weight: 700; opacity: 0.85; color: inherit;">${f.label}</label>
-            <input type="${f.type}" name="${f.id}" placeholder="${f.placeholder}" ${f.required ? 'required' : ''} style="padding: 12px 16px; border: 1px solid #E2E8F0; border-radius: ${borderRadius}px; font-size: 13px; outline: none; background-color: #F8FAFC; color: #1E293B; width: 100%; box-sizing: border-box; font-family: inherit; font-weight: 500; transition: border-color 0.2s;" />
-          </div>
-        `;
-      });
+    const isStepByStep = config.display_mode === 'step_by_step';
+
+    // Normalizar lista de campos
+    let fieldList = [];
+    if (config.dbFields && Array.isArray(config.dbFields) && config.dbFields.length > 0) {
+      fieldList = config.dbFields;
     } else {
       const activeFields = config.fields.split(',');
-      activeFields.forEach(f => {
-        let type = 'text';
-        let placeholder = 'Tu dato';
-        
-        if (f === 'email') {
-          type = 'email';
-          placeholder = 'Tu correo electrónico';
-        } else if (f === 'name') {
-          placeholder = 'Tu nombre completo';
-        } else if (f === 'phone') {
-          type = 'tel';
-          placeholder = 'Tu teléfono';
-        } else if (f === 'company') {
-          placeholder = 'Tu empresa';
-        } else if (f === 'city') {
-          placeholder = 'Tu ciudad';
-        }
-
-        fieldsHtml += `
-          <div style="display: flex; flex-direction: column; gap: 4px; text-align: left; width: 100%;">
-            <input type="${type}" name="${f}" placeholder="${placeholder}" ${f === 'email' ? 'required' : ''} style="padding: 12px 16px; border: 1px solid #E2E8F0; border-radius: ${borderRadius}px; font-size: 13px; outline: none; background-color: #F8FAFC; color: #1E293B; width: 100%; box-sizing: border-box; font-family: inherit; font-weight: 500; transition: border-color 0.2s;" />
-          </div>
-        `;
+      fieldList = activeFields.map(f => {
+        if (f === 'email') return { id: 'email', label: 'Correo Electrónico', placeholder: 'tu@correo.com', type: 'email', required: true };
+        if (f === 'name') return { id: 'name', label: 'Nombre Completo', placeholder: 'Tu nombre completo', type: 'text', required: true };
+        if (f === 'phone') return { id: 'phone', label: 'Teléfono', placeholder: 'Tu número de teléfono', type: 'tel', required: false };
+        if (f === 'company') return { id: 'company', label: 'Empresa', placeholder: 'Nombre de tu empresa', type: 'text', required: false };
+        if (f === 'city') return { id: 'city', label: 'Ciudad', placeholder: 'Tu ciudad', type: 'text', required: false };
+        return { id: f, label: f.charAt(0).toUpperCase() + f.slice(1), placeholder: 'Tu respuesta', type: 'text', required: false };
       });
     }
 
+    let fieldsHtml = '';
+    fieldList.forEach(f => {
+      fieldsHtml += `
+        <div style="display: flex; flex-direction: column; gap: 4px; text-align: left; width: 100%;">
+          <label style="font-size: 11px; font-weight: 700; opacity: 0.85; color: inherit;">${f.label}</label>
+          <input type="${f.type}" name="${f.id}" placeholder="${f.placeholder}" ${f.required ? 'required' : ''} style="padding: 12px 16px; border: 1px solid #E2E8F0; border-radius: ${borderRadius}px; font-size: 13px; outline: none; background-color: #F8FAFC; color: #1E293B; width: 100%; box-sizing: border-box; font-family: inherit; font-weight: 500; transition: border-color 0.2s;" />
+        </div>
+      `;
+    });
+
     const borderStyle = config.layout === 'minimal' ? 'border: none; background-color: transparent; border-radius: 0px;' : `border: 1px solid #E2E8F0; border-radius: ${borderRadius}px; background-color: ${colorBg};`;
-    let styleAttributes = `font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 100%; height: 100vh; padding: 24px; text-align: center; color: ${colorText}; ${borderStyle} box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;`;
+    let styleAttributes = `font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 100%; min-height: 100vh; padding: 24px; text-align: center; color: ${colorText}; ${borderStyle} box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;`;
 
     if (config.layout === 'glassmorphic') {
-      styleAttributes = `font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 100%; height: 100vh; padding: 24px; text-align: center; color: #1E293B; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: ${borderRadius}px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;`;
+      styleAttributes = `font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 100%; min-height: 100vh; padding: 24px; text-align: center; color: #1E293B; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: ${borderRadius}px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;`;
     }
 
     let bodyHtml = '';
-    if (config.layout === 'horizontal') {
+
+    if (isStepByStep) {
+      // MODO POR ETAPAS / PASO A PASO (Multi-Step Form)
+      const totalSteps = fieldList.length;
+      let stepsHtml = '';
+
+      fieldList.forEach((f, idx) => {
+        stepsHtml += `
+          <div class="konsul-step-slide" data-step-index="${idx}" style="display: ${idx === 0 ? 'block' : 'none'}; opacity: ${idx === 0 ? '1' : '0'}; text-align: left; width: 100%;">
+            <div style="font-size: 11px; font-weight: 700; color: ${colorPrimary}; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Pregunta ${idx + 1} de ${totalSteps}</div>
+            <label style="font-size: 15px; font-weight: 700; margin-bottom: 8px; display: block; color: inherit; line-height: 1.3;">${f.label}</label>
+            <input type="${f.type}" name="${f.id}" placeholder="${f.placeholder}" ${f.required ? 'data-required="true"' : ''} class="konsul-step-input" style="padding: 14px 16px; border: 1.5px solid #E2E8F0; border-radius: ${borderRadius}px; font-size: 14px; outline: none; background-color: #F8FAFC; color: #1E293B; width: 100%; box-sizing: border-box; font-family: inherit; font-weight: 500; transition: border-color 0.2s;" />
+            <div class="step-error-msg" style="color: #EF4444; font-size: 11px; margin-top: 6px; min-height: 16px; font-weight: 600;"></div>
+          </div>
+        `;
+      });
+
+      bodyHtml = `
+        <div style="max-width: 440px; margin: 0 auto; width: 100%;">
+          <!-- Barra de Progreso y Encabezado de Etapas -->
+          <div style="margin-bottom: 20px; text-align: left;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-size: 11px; font-weight: 700; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.05em;">Progreso</span>
+              <span id="current-step-label" style="font-size: 11px; font-weight: 800; opacity: 0.85;">Paso 1 de ${totalSteps}</span>
+            </div>
+            <div style="height: 6px; width: 100%; background-color: rgba(0,0,0,0.06); border-radius: 9999px; overflow: hidden;">
+              <div id="progress-bar-fill" style="height: 100%; width: ${(1 / totalSteps) * 100}%; background-color: ${colorPrimary}; transition: width 0.3s ease;"></div>
+            </div>
+          </div>
+
+          <h3 style="margin-top: 0; margin-bottom: 4px; font-size: 18px; font-weight: 800; line-height: 1.2;">${formTitle}</h3>
+          <p style="font-size: 12px; margin-top: 0; margin-bottom: 20px; opacity: 0.8; line-height: 1.4;">${formDesc}</p>
+
+          <form id="multi-step-form" action="/api/contacts/subscribe" method="POST">
+            <input type="hidden" name="kinde_id" value="${config.kinde_id}" />
+            <input type="hidden" name="tags" value="${config.tag}" />
+            ${id ? `<input type="hidden" name="form_id" value="${id}" />` : ''}
+            ${config.redirect ? `<input type="hidden" name="redirect_url" value="${config.redirect}" />` : ''}
+
+            <div id="steps-container" style="min-height: 110px;">
+              ${stepsHtml}
+            </div>
+
+            <div style="display: flex; gap: 10px; align-items: center; margin-top: 18px;">
+              <button type="button" id="btn-prev-step" onclick="prevKonsulStep()" style="display: none; padding: 12px 18px; border: 1.5px solid #CBD5E1; background: transparent; border-radius: ${borderRadius}px; font-size: 12px; font-weight: 700; cursor: pointer; color: inherit; font-family: inherit; transition: opacity 0.2s;">
+                Atrás
+              </button>
+              <button type="button" id="btn-next-step" onclick="nextKonsulStep()" style="flex: 1; padding: 13px; background-color: ${colorPrimary}; color: #FFFFFF; border: none; border-radius: ${borderRadius}px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity 0.2s;">
+                Siguiente ➔
+              </button>
+              <button type="submit" id="btn-submit-step" style="display: none; flex: 1; padding: 13px; background-color: ${colorPrimary}; color: #FFFFFF; border: none; border-radius: ${borderRadius}px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity 0.2s;">
+                ${btnText}
+              </button>
+            </div>
+            <div style="text-align: center; margin-top: 12px; font-size: 10px; opacity: 0.55;">Pulsa <strong>Enter ↵</strong> para avanzar</div>
+          </form>
+        </div>
+      `;
+    } else if (config.layout === 'horizontal') {
       bodyHtml = `
         <form action="/api/contacts/subscribe" method="POST" style="display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; width: 100%;">
           <input type="hidden" name="kinde_id" value="${config.kinde_id}" />
@@ -4467,16 +4780,123 @@ app.get('/form-frame', async (req, res) => {
       <html>
       <head>
         <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-          body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+          body { margin: 0; padding: 0; background: transparent; overflow-x: hidden; }
           input:focus { border-color: ${colorPrimary} !important; }
-          button:hover { opacity: 0.9; }
+          button:hover { opacity: 0.92; }
+          .konsul-step-slide { transition: opacity 0.25s ease; }
         </style>
       </head>
       <body>
         <div style="${styleAttributes}">
           ${bodyHtml}
         </div>
+
+        ${isStepByStep ? `
+        <script>
+          (function() {
+            var currentStep = 0;
+            var slides = document.querySelectorAll('.konsul-step-slide');
+            var totalSteps = slides.length;
+            var btnPrev = document.getElementById('btn-prev-step');
+            var btnNext = document.getElementById('btn-next-step');
+            var btnSubmit = document.getElementById('btn-submit-step');
+            var barFill = document.getElementById('progress-bar-fill');
+            var stepLabel = document.getElementById('current-step-label');
+
+            function updateUI() {
+              slides.forEach(function(slide, idx) {
+                if (idx === currentStep) {
+                  slide.style.display = 'block';
+                  setTimeout(function() { slide.style.opacity = '1'; }, 20);
+                  var input = slide.querySelector('input');
+                  if (input) input.focus();
+                } else {
+                  slide.style.display = 'none';
+                  slide.style.opacity = '0';
+                }
+              });
+
+              if (btnPrev) btnPrev.style.display = currentStep > 0 ? 'inline-block' : 'none';
+              
+              if (currentStep === totalSteps - 1) {
+                if (btnNext) btnNext.style.display = 'none';
+                if (btnSubmit) btnSubmit.style.display = 'block';
+              } else {
+                if (btnNext) btnNext.style.display = 'block';
+                if (btnSubmit) btnSubmit.style.display = 'none';
+              }
+
+              if (stepLabel) stepLabel.textContent = 'Paso ' + (currentStep + 1) + ' de ' + totalSteps;
+              if (barFill) barFill.style.width = (((currentStep + 1) / totalSteps) * 100) + '%';
+            }
+
+            function validateCurrent() {
+              var activeSlide = slides[currentStep];
+              if (!activeSlide) return true;
+              var input = activeSlide.querySelector('input');
+              var errEl = activeSlide.querySelector('.step-error-msg');
+              if (!input) return true;
+
+              var val = input.value.trim();
+              var isRequired = input.getAttribute('data-required') === 'true' || input.hasAttribute('required');
+
+              if (isRequired && !val) {
+                input.style.borderColor = '#EF4444';
+                if (errEl) errEl.textContent = 'Por favor completa este campo para continuar.';
+                return false;
+              }
+
+              if (input.type === 'email' && val) {
+                var emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+                if (!emailRegex.test(val)) {
+                  input.style.borderColor = '#EF4444';
+                  if (errEl) errEl.textContent = 'Ingresa un correo electrónico válido.';
+                  return false;
+                }
+              }
+
+              input.style.borderColor = '#E2E8F0';
+              if (errEl) errEl.textContent = '';
+              return true;
+            }
+
+            window.nextKonsulStep = function() {
+              if (!validateCurrent()) return;
+              if (currentStep < totalSteps - 1) {
+                currentStep++;
+                updateUI();
+              }
+            };
+
+            window.prevKonsulStep = function() {
+              if (currentStep > 0) {
+                currentStep--;
+                updateUI();
+              }
+            };
+
+            document.addEventListener('keydown', function(e) {
+              if (e.key === 'Enter') {
+                var activeSlide = slides[currentStep];
+                if (activeSlide && activeSlide.contains(document.activeElement)) {
+                  e.preventDefault();
+                  if (currentStep < totalSteps - 1) {
+                    window.nextKonsulStep();
+                  } else {
+                    if (validateCurrent()) {
+                      document.getElementById('multi-step-form').submit();
+                    }
+                  }
+                }
+              }
+            });
+
+            updateUI();
+          })();
+        </script>
+        ` : ''}
       </body>
       </html>
     `);
@@ -4793,6 +5213,257 @@ app.get('/api/v1/templates', authenticateMailingApi, async (req, res) => {
     `;
     return res.json({ success: true, data: templates });
   } catch (error) {
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } });
+  }
+});
+
+// 7. Listar formularios del usuario
+app.get('/api/v1/forms', authenticateMailingApi, async (req, res) => {
+  try {
+    const kindeId = req.user.id || req.user.kinde_id;
+    const baseUrl = getPublicBaseUrl(req.get('host'));
+
+    const forms = await sql`
+      SELECT id, name, title, description, target_tag, button_text,
+             fields, layout, display_mode, primary_color, bg_color, text_color,
+             border_radius, redirect_url, views, submissions,
+             autoresponder_enabled, autoresponder_subject, autoresponder_from_name,
+             created_at
+      FROM forms
+      WHERE kinde_id = ${kindeId}
+      ORDER BY created_at DESC
+    `;
+
+    const formattedForms = forms.map(f => {
+      const views = f.views || 0;
+      const subs = f.submissions || 0;
+      const convRate = views > 0 ? Number(((subs / views) * 100).toFixed(2)) : 0;
+      return {
+        ...f,
+        conversion_rate_percentage: convRate,
+        embed: {
+          iframe: `<iframe src="${baseUrl}/form-frame?id=${f.id}" width="100%" height="450" frameborder="0" style="border:none; border-radius:${f.border_radius || 16}px;" allowtransparency="true"></iframe>`,
+          script: `<div id="konsul-form-${f.id}"></div>\n<script src="${baseUrl}/embed.js" data-form-id="${f.id}" defer></script>`,
+          direct_url: `${baseUrl}/form-frame?id=${f.id}`
+        }
+      };
+    });
+
+    return res.json({ success: true, data: formattedForms, meta: { count: formattedForms.length } });
+  } catch (error) {
+    console.error('Error en GET /api/v1/forms:', error);
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } });
+  }
+});
+
+// 8. Obtener detalle de un formulario específico
+app.get('/api/v1/forms/:id', authenticateMailingApi, async (req, res) => {
+  try {
+    const kindeId = req.user.id || req.user.kinde_id;
+    const { id } = req.params;
+    const baseUrl = getPublicBaseUrl(req.get('host'));
+
+    const forms = await sql`
+      SELECT id, name, title, description, target_tag, button_text,
+             fields, layout, display_mode, primary_color, bg_color, text_color,
+             border_radius, redirect_url, views, submissions,
+             autoresponder_enabled, autoresponder_subject, autoresponder_body, autoresponder_from_name,
+             created_at
+      FROM forms
+      WHERE id = ${id} AND kinde_id = ${kindeId}
+      LIMIT 1
+    `;
+
+    if (forms.length === 0) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Formulario no encontrado o sin permisos.' } });
+    }
+
+    const form = forms[0];
+    const views = form.views || 0;
+    const subs = form.submissions || 0;
+    const convRate = views > 0 ? Number(((subs / views) * 100).toFixed(2)) : 0;
+
+    return res.json({
+      success: true,
+      data: {
+        ...form,
+        conversion_rate_percentage: convRate,
+        embed: {
+          iframe: `<iframe src="${baseUrl}/form-frame?id=${form.id}" width="100%" height="450" frameborder="0" style="border:none; border-radius:${form.border_radius || 16}px;" allowtransparency="true"></iframe>`,
+          script: `<div id="konsul-form-${form.id}"></div>\n<script src="${baseUrl}/embed.js" data-form-id="${form.id}" defer></script>`,
+          direct_url: `${baseUrl}/form-frame?id=${form.id}`
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error en GET /api/v1/forms/:id:', error);
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } });
+  }
+});
+
+// 9. Consultar todas las respuestas / envíos de un formulario específico
+app.get('/api/v1/forms/:id/submissions', authenticateMailingApi, async (req, res) => {
+  try {
+    const kindeId = req.user.id || req.user.kinde_id;
+    const { id } = req.params;
+    const { limit = 50, offset = 0 } = req.query;
+
+    const formCheck = await sql`SELECT id, name FROM forms WHERE id = ${id} AND kinde_id = ${kindeId} LIMIT 1`;
+    if (formCheck.length === 0) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Formulario no encontrado.' } });
+    }
+
+    const submissions = await sql`
+      SELECT id, form_id, contact_id, email, name, data, created_at
+      FROM form_submissions
+      WHERE form_id = ${id} AND kinde_id = ${kindeId}
+      ORDER BY created_at DESC
+      LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}
+    `;
+
+    const totalCountRes = await sql`
+      SELECT COUNT(*)::int as count FROM form_submissions WHERE form_id = ${id} AND kinde_id = ${kindeId}
+    `;
+
+    return res.json({
+      success: true,
+      data: submissions,
+      meta: {
+        form_id: id,
+        form_name: formCheck[0].name,
+        count: submissions.length,
+        total: totalCountRes[0]?.count || 0,
+        limit: parseInt(limit),
+        offset: parseInt(offset)
+      }
+    });
+  } catch (error) {
+    console.error('Error en GET /api/v1/forms/:id/submissions:', error);
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } });
+  }
+});
+
+// 10. Listar envíos generales de todos los formularios
+app.get('/api/v1/forms-submissions', authenticateMailingApi, async (req, res) => {
+  try {
+    const kindeId = req.user.id || req.user.kinde_id;
+    const { limit = 50, offset = 0 } = req.query;
+
+    const submissions = await sql`
+      SELECT s.id, s.form_id, f.name as form_name, s.contact_id, s.email, s.name, s.data, s.created_at
+      FROM form_submissions s
+      LEFT JOIN forms f ON f.id = s.form_id
+      WHERE s.kinde_id = ${kindeId}
+      ORDER BY s.created_at DESC
+      LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}
+    `;
+
+    const totalCountRes = await sql`
+      SELECT COUNT(*)::int as count FROM form_submissions WHERE kinde_id = ${kindeId}
+    `;
+
+    return res.json({
+      success: true,
+      data: submissions,
+      meta: {
+        count: submissions.length,
+        total: totalCountRes[0]?.count || 0,
+        limit: parseInt(limit),
+        offset: parseInt(offset)
+      }
+    });
+  } catch (error) {
+    console.error('Error en GET /api/v1/forms-submissions:', error);
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } });
+  }
+});
+
+// 11. Envío programático de datos a un formulario (API Submit)
+app.post('/api/v1/forms/:id/submit', authenticateMailingApi, async (req, res) => {
+  try {
+    const kindeId = req.user.id || req.user.kinde_id;
+    const { id } = req.params;
+    const { email, name = '', data = {}, ...rest } = req.body;
+
+    if (!email || !isValidEmail(email)) {
+      return res.status(422).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Se requiere un email válido.' } });
+    }
+
+    const forms = await sql`SELECT * FROM forms WHERE id = ${id} AND kinde_id = ${kindeId} LIMIT 1`;
+    if (forms.length === 0) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Formulario no encontrado.' } });
+    }
+
+    const form = forms[0];
+    const cleanEmail = email.trim().toLowerCase();
+    const contactName = name ? name.trim() : (cleanEmail.split('@')[0]);
+    const mergedData = { ...(data || {}), ...rest };
+
+    // Incrementar submissions
+    await sql`UPDATE forms SET submissions = submissions + 1 WHERE id = ${id}`;
+
+    // Validar email
+    const domain = cleanEmail.split('@')[1];
+    let isDisposable = disposableDomains.has(domain);
+    let hasMX = await checkMX(domain);
+    let status = (isDisposable || !hasMX) ? 'invalid' : 'active';
+
+    // Insertar o actualizar contacto
+    const existing = await sql`SELECT id, tags, custom_fields FROM contacts WHERE kinde_id = ${kindeId} AND email = ${cleanEmail}`;
+    let contactId;
+
+    if (existing.length > 0) {
+      contactId = existing[0].id;
+      const mergedTags = [...new Set([...(existing[0].tags || []), form.target_tag])];
+      const mergedCustom = { ...(existing[0].custom_fields || {}), ...mergedData };
+      await sql`
+        UPDATE contacts
+        SET status = ${status}, name = ${contactName}, tags = ${mergedTags},
+            custom_fields = ${JSON.stringify(mergedCustom)}::jsonb
+        WHERE id = ${contactId}
+      `;
+    } else {
+      const insertRes = await sql`
+        INSERT INTO contacts (kinde_id, name, email, tags, custom_fields, status)
+        VALUES (${kindeId}, ${contactName}, ${cleanEmail}, ${[form.target_tag]}, ${JSON.stringify(mergedData)}::jsonb, ${status})
+        RETURNING id
+      `;
+      contactId = insertRes[0]?.id;
+    }
+
+    // Registrar en form_submissions
+    const submissionRes = await sql`
+      INSERT INTO form_submissions (form_id, kinde_id, contact_id, email, name, data)
+      VALUES (${id}, ${kindeId}, ${contactId}, ${cleanEmail}, ${contactName}, ${JSON.stringify(mergedData)}::jsonb)
+      RETURNING id, created_at
+    `;
+
+    // Disparar autoresponder si está activo
+    let autoresponderSent = false;
+    if (form.autoresponder_enabled) {
+      triggerFormAutoresponder({
+        email: cleanEmail,
+        name: contactName,
+        formConfig: form,
+        kindeId: kindeId
+      }).catch(err => console.error('Error enviando autoresponder vía API:', err));
+      autoresponderSent = true;
+    }
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        submission_id: submissionRes[0]?.id,
+        form_id: id,
+        contact_id: contactId,
+        email: cleanEmail,
+        name: contactName,
+        autoresponder_sent: autoresponderSent,
+        submitted_at: submissionRes[0]?.created_at
+      }
+    });
+  } catch (error) {
+    console.error('Error en POST /api/v1/forms/:id/submit:', error);
     return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } });
   }
 });
