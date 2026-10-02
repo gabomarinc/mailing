@@ -560,6 +560,7 @@ async function initDB() {
       await sql`ALTER TABLE forms ADD COLUMN IF NOT EXISTS autoresponder_subject VARCHAR(255) DEFAULT '¡Gracias por suscribirte!';`;
       await sql`ALTER TABLE forms ADD COLUMN IF NOT EXISTS autoresponder_body TEXT DEFAULT 'Hola {{name}},\n\n¡Gracias por suscribirte! Hemos recibido tus datos correctamente.\n\nSaludos cordiales.';`;
       await sql`ALTER TABLE forms ADD COLUMN IF NOT EXISTS autoresponder_from_name VARCHAR(255);`;
+      await sql`ALTER TABLE forms ADD COLUMN IF NOT EXISTS autoresponder_sent_count INTEGER DEFAULT 0;`;
 
       // Tabla de envíos / leads de formularios
       await sql`
@@ -571,9 +572,15 @@ async function initDB() {
             email VARCHAR(255) NOT NULL,
             name VARCHAR(255),
             data JSONB DEFAULT '{}'::jsonb,
+            autoresponder_status VARCHAR(50) DEFAULT 'none',
+            autoresponder_error TEXT,
+            autoresponder_sent_at TIMESTAMP WITH TIME ZONE,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
       `;
+      await sql`ALTER TABLE form_submissions ADD COLUMN IF NOT EXISTS autoresponder_status VARCHAR(50) DEFAULT 'none';`;
+      await sql`ALTER TABLE form_submissions ADD COLUMN IF NOT EXISTS autoresponder_error TEXT;`;
+      await sql`ALTER TABLE form_submissions ADD COLUMN IF NOT EXISTS autoresponder_sent_at TIMESTAMP WITH TIME ZONE;`;
       console.log('Tabla de formularios (forms) y envíos (form_submissions) verificada/aplicada en Neon');
     } catch(err) {
       console.error('Error al verificar/crear tabla de formularios (forms):', err);
@@ -1007,6 +1014,7 @@ app.post('/api/forms', protectRoute, async (req, res) => {
         await sql`ALTER TABLE forms ADD COLUMN IF NOT EXISTS autoresponder_subject VARCHAR(255) DEFAULT '¡Gracias por suscribirte!';`;
         await sql`ALTER TABLE forms ADD COLUMN IF NOT EXISTS autoresponder_body TEXT DEFAULT 'Hola {{name}},\n\n¡Gracias por suscribirte! Hemos recibido tus datos correctamente.\n\nSaludos cordiales.';`;
         await sql`ALTER TABLE forms ADD COLUMN IF NOT EXISTS autoresponder_from_name VARCHAR(255);`;
+        await sql`ALTER TABLE forms ADD COLUMN IF NOT EXISTS autoresponder_sent_count INTEGER DEFAULT 0;`;
 
         if (id) {
           const retryRes = await sql`
@@ -1057,13 +1065,13 @@ app.get('/api/forms/:id/submissions', protectRoute, async (req, res) => {
     const userId = req.user.id;
     const { id } = req.params;
 
-    const form = await sql`SELECT id, name FROM forms WHERE id = ${id} AND kinde_id = ${userId}`;
+    const form = await sql`SELECT id, name, autoresponder_enabled, autoresponder_sent_count FROM forms WHERE id = ${id} AND kinde_id = ${userId}`;
     if (form.length === 0) {
       return res.status(404).json({ success: false, error: 'Formulario no encontrado.' });
     }
 
     const submissions = await sql`
-      SELECT id, form_id, contact_id, email, name, data, created_at
+      SELECT id, form_id, contact_id, email, name, data, created_at, autoresponder_status, autoresponder_error, autoresponder_sent_at
       FROM form_submissions
       WHERE form_id = ${id} AND kinde_id = ${userId}
       ORDER BY created_at DESC
@@ -1074,6 +1082,84 @@ app.get('/api/forms/:id/submissions', protectRoute, async (req, res) => {
   } catch (err) {
     console.error('Error fetching form submissions:', err);
     res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+// Endpoint para reenviar auto-respuesta a una submission específica
+app.post('/api/forms/:id/submissions/:subId/resend-autoresponder', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id, subId } = req.params;
+
+    const formRes = await sql`SELECT * FROM forms WHERE id = ${id} AND kinde_id = ${userId}`;
+    if (formRes.length === 0) {
+      return res.status(404).json({ success: false, error: 'Formulario no encontrado.' });
+    }
+    const form = formRes[0];
+
+    const subRes = await sql`SELECT * FROM form_submissions WHERE id = ${subId} AND form_id = ${id} AND kinde_id = ${userId}`;
+    if (subRes.length === 0) {
+      return res.status(404).json({ success: false, error: 'Respuesta no encontrada.' });
+    }
+    const sub = subRes[0];
+
+    const result = await triggerFormAutoresponder({
+      email: sub.email,
+      name: sub.name,
+      formConfig: { ...form, autoresponder_enabled: true },
+      kindeId: userId,
+      submissionId: sub.id
+    });
+
+    if (result && result.sent) {
+      res.json({ success: true, message: 'Correo de auto-respuesta enviado exitosamente.' });
+    } else if (result && result.simulated) {
+      res.json({ success: true, message: 'Modo simulación: Correo enviado en logs.' });
+    } else {
+      res.status(500).json({ success: false, error: result?.error || 'No se pudo enviar el correo vía AWS SES.' });
+    }
+  } catch (err) {
+    console.error('Error reenviando autoresponder:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Endpoint para probar el envío de auto-respuesta directamente desde el editor
+app.post('/api/forms/test-autoresponder', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { recipientEmail, fromName, subject, body } = req.body;
+
+    const targetEmail = (recipientEmail || req.user.email || '').trim().toLowerCase();
+    if (!targetEmail || !isValidEmail(targetEmail)) {
+      return res.status(400).json({ success: false, error: 'Correo de destino no válido para la prueba.' });
+    }
+
+    const mockForm = {
+      id: null,
+      autoresponder_enabled: true,
+      autoresponder_subject: subject || '¡Gracias por suscribirte!',
+      autoresponder_body: body || 'Hola {{name}},\n\n¡Gracias por suscribirte! Hemos recibido tus datos correctamente.\n\nSaludos cordiales.',
+      autoresponder_from_name: fromName || ''
+    };
+
+    const result = await triggerFormAutoresponder({
+      email: targetEmail,
+      name: req.user.name || 'Usuario de Prueba',
+      formConfig: mockForm,
+      kindeId: userId
+    });
+
+    if (result && result.sent) {
+      res.json({ success: true, message: `Correo de prueba enviado exitosamente a ${targetEmail}.` });
+    } else if (result && result.simulated) {
+      res.json({ success: true, message: `Modo desarrollo: Simulación completada para ${targetEmail}.` });
+    } else {
+      res.status(500).json({ success: false, error: result?.error || 'Fallo al enviar correo de prueba vía AWS SES.' });
+    }
+  } catch (err) {
+    console.error('Error en test-autoresponder:', err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -4318,9 +4404,21 @@ app.post('/api/webhooks/sns', async (req, res) => {
   }
 });
 
+function formatEmailSender(name, email) {
+  if (!name || !name.trim()) return email;
+  const cleanName = name.trim().replace(/["\r\n]/g, '');
+  if (!cleanName) return email;
+  if (/[^\x00-\x7F]/.test(cleanName)) {
+    return `=?UTF-8?B?${Buffer.from(cleanName, 'utf-8').toString('base64')}?= <${email}>`;
+  }
+  return `"${cleanName}" <${email}>`;
+}
+
 // Función auxiliar para enviar correo de auto-respuesta automático
-async function triggerFormAutoresponder({ email, name, formConfig, kindeId }) {
-  if (!formConfig || !formConfig.autoresponder_enabled) return;
+async function triggerFormAutoresponder({ email, name, formConfig, kindeId, submissionId = null }) {
+  if (!formConfig || !formConfig.autoresponder_enabled) {
+    return { success: false, reason: 'disabled' };
+  }
   try {
     const rawSubject = formConfig.autoresponder_subject || '¡Gracias por suscribirte!';
     const rawBody = formConfig.autoresponder_body || 'Hola {{name}},\n\n¡Gracias por suscribirte! Hemos recibido tus datos correctamente.\n\nSaludos cordiales.';
@@ -4342,16 +4440,22 @@ async function triggerFormAutoresponder({ email, name, formConfig, kindeId }) {
     let senderName = formConfig.autoresponder_from_name || 'Kônsul Mailing';
 
     try {
-      const senders = await sql`SELECT * FROM senders WHERE kinde_id = ${kindeId} AND is_verified = true LIMIT 1`;
+      const senders = await sql`
+        SELECT email, name FROM senders 
+        WHERE kinde_id = ${kindeId} AND is_verified = true 
+        ORDER BY created_at ASC LIMIT 1
+      `;
       if (senders.length > 0) {
         senderEmail = senders[0].email;
         if (!formConfig.autoresponder_from_name) {
           senderName = senders[0].name || senderName;
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('[Autoresponder] No se pudo recuperar remitente de senders:', e);
+    }
 
-    const formattedSender = `"${senderName}" <${senderEmail}>`;
+    const formattedSender = formatEmailSender(senderName, senderEmail);
 
     const fullEmailHtml = `
       <!DOCTYPE html>
@@ -4391,8 +4495,24 @@ async function triggerFormAutoresponder({ email, name, formConfig, kindeId }) {
       </html>
     `;
 
-    if (hasAwsCreds) {
-      const ses = new SESClient({ region: process.env.AWS_REGION || 'us-east-1' });
+    // Obtener credenciales AWS del usuario si existen, o globales de entorno
+    let userAws = null;
+    try {
+      const awsResult = await sql`SELECT * FROM aws_settings WHERE kinde_id = ${kindeId}`;
+      userAws = awsResult[0] || null;
+    } catch(e) {}
+
+    const region = userAws?.region || process.env.AWS_REGION || 'us-east-1';
+    const credentials = userAws?.access_key ? {
+      accessKeyId: userAws.access_key,
+      secretAccessKey: userAws.secret_key
+    } : undefined;
+
+    const hasGlobalAws = !!process.env.AWS_ACCESS_KEY_ID && !!process.env.AWS_SECRET_ACCESS_KEY;
+    const canSendAws = (userAws && userAws.access_key) || hasGlobalAws || !!process.env.AWS_REGION;
+
+    if (canSendAws) {
+      const ses = new SESClient({ region, credentials });
       const command = new SendEmailCommand({
         Source: formattedSender,
         Destination: { ToAddresses: [email] },
@@ -4404,12 +4524,45 @@ async function triggerFormAutoresponder({ email, name, formConfig, kindeId }) {
         }
       });
       await ses.send(command);
-      console.log(`[Autoresponder] Correo enviado a ${email} para form: ${formConfig.id}`);
+      console.log(`[Autoresponder] Correo enviado exitosamente a ${email} para form: ${formConfig.id || 'test'}`);
+
+      // Actualizar contador del formulario si tiene ID
+      if (formConfig.id) {
+        await sql`
+          UPDATE forms 
+          SET autoresponder_sent_count = COALESCE(autoresponder_sent_count, 0) + 1 
+          WHERE id = ${formConfig.id}
+        `.catch(e => console.error('Error incrementing autoresponder_sent_count:', e));
+      }
+
+      // Actualizar estado de submission si existe
+      if (submissionId) {
+        await sql`
+          UPDATE form_submissions 
+          SET autoresponder_status = 'sent', autoresponder_sent_at = CURRENT_TIMESTAMP 
+          WHERE id = ${submissionId}
+        `.catch(e => console.error('Error updating submission to sent:', e));
+      }
+
+      return { success: true, sent: true };
     } else {
       console.log(`[Autoresponder SIMULADO] Correo a ${email} desde ${formattedSender}: "${subject}"`);
+      return { success: true, sent: false, simulated: true };
     }
   } catch (err) {
     console.error('Error enviando autoresponder de formulario:', err);
+    if (submissionId) {
+      try {
+        await sql`
+          UPDATE form_submissions 
+          SET autoresponder_status = 'failed', autoresponder_error = ${err.message || 'Error en envío'} 
+          WHERE id = ${submissionId}
+        `;
+      } catch (dbErr) {
+        console.error('Error guardando fallo de submission:', dbErr);
+      }
+    }
+    return { success: false, sent: false, error: err.message };
   }
 }
 
@@ -4492,23 +4645,31 @@ app.post('/api/contacts/subscribe', async (req, res) => {
     }
 
     // Guardar en historial de envíos del formulario (form_submissions)
+    let savedSubmissionId = null;
     try {
-      await sql`
-        INSERT INTO form_submissions (form_id, kinde_id, contact_id, email, name, data)
-        VALUES (${form_id || null}, ${targetKindeId}, ${savedContactId}, ${cleanEmail}, ${contactName}, ${JSON.stringify(custom_fields)}::jsonb)
+      const subRes = await sql`
+        INSERT INTO form_submissions (form_id, kinde_id, contact_id, email, name, data, autoresponder_status)
+        VALUES (${form_id || null}, ${targetKindeId}, ${savedContactId}, ${cleanEmail}, ${contactName}, ${JSON.stringify(custom_fields)}::jsonb, ${formConfigRow?.autoresponder_enabled ? 'pending' : 'none'})
+        RETURNING id
       `;
+      savedSubmissionId = subRes[0]?.id;
     } catch (subErr) {
       console.error('Error al registrar submission en form_submissions:', subErr);
     }
 
     // Automatización Interna Rápida: Enviar correo de auto-respuesta si está habilitado
     if (formConfigRow && formConfigRow.autoresponder_enabled) {
-      triggerFormAutoresponder({
-        email: cleanEmail,
-        name: contactName,
-        formConfig: formConfigRow,
-        kindeId: targetKindeId
-      }).catch(err => console.error('Error al disparar autoresponder:', err));
+      try {
+        await triggerFormAutoresponder({
+          email: cleanEmail,
+          name: contactName,
+          formConfig: formConfigRow,
+          kindeId: targetKindeId,
+          submissionId: savedSubmissionId
+        });
+      } catch (autoErr) {
+        console.error('Error al disparar autoresponder en subscribe:', autoErr);
+      }
     }
 
     if (finalRedirectUrl) {
@@ -5480,21 +5641,28 @@ app.post('/api/v1/forms/:id/submit', authenticateMailingApi, async (req, res) =>
 
     // Registrar en form_submissions
     const submissionRes = await sql`
-      INSERT INTO form_submissions (form_id, kinde_id, contact_id, email, name, data)
-      VALUES (${id}, ${kindeId}, ${contactId}, ${cleanEmail}, ${contactName}, ${JSON.stringify(mergedData)}::jsonb)
+      INSERT INTO form_submissions (form_id, kinde_id, contact_id, email, name, data, autoresponder_status)
+      VALUES (${id}, ${kindeId}, ${contactId}, ${cleanEmail}, ${contactName}, ${JSON.stringify(mergedData)}::jsonb, ${form.autoresponder_enabled ? 'pending' : 'none'})
       RETURNING id, created_at
     `;
+    const submissionId = submissionRes[0]?.id;
 
     // Disparar autoresponder si está activo
     let autoresponderSent = false;
+    let autoresponderDetails = null;
     if (form.autoresponder_enabled) {
-      triggerFormAutoresponder({
-        email: cleanEmail,
-        name: contactName,
-        formConfig: form,
-        kindeId: kindeId
-      }).catch(err => console.error('Error enviando autoresponder vía API:', err));
-      autoresponderSent = true;
+      try {
+        autoresponderDetails = await triggerFormAutoresponder({
+          email: cleanEmail,
+          name: contactName,
+          formConfig: form,
+          kindeId: kindeId,
+          submissionId: submissionId
+        });
+        autoresponderSent = !!(autoresponderDetails && autoresponderDetails.sent);
+      } catch (err) {
+        console.error('Error enviando autoresponder vía API:', err);
+      }
     }
 
     return res.status(201).json({

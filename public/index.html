@@ -1562,17 +1562,17 @@
             </div>
 
             <!-- Stats Overview Row -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div class="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm flex items-center gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div class="bg-white border border-slate-100 rounded-[2rem] p-5 shadow-sm flex items-center gap-4">
                 <div class="bg-blue-50 text-blue-500 p-3 rounded-2xl">
                   <i data-lucide="eye" class="w-6 h-6"></i>
                 </div>
                 <div>
-                  <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Visualizaciones Totales</p>
+                  <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Visualizaciones</p>
                   <h3 id="forms-total-views" class="text-2xl font-black text-[#1B2939] mt-0.5">0</h3>
                 </div>
               </div>
-              <div class="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm flex items-center gap-4">
+              <div class="bg-white border border-slate-100 rounded-[2rem] p-5 shadow-sm flex items-center gap-4">
                 <div class="bg-emerald-50 text-[#27bea5] p-3 rounded-2xl">
                   <i data-lucide="user-plus" class="w-6 h-6"></i>
                 </div>
@@ -1581,13 +1581,22 @@
                   <h3 id="forms-total-submissions" class="text-2xl font-black text-[#1B2939] mt-0.5">0</h3>
                 </div>
               </div>
-              <div class="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm flex items-center gap-4">
+              <div class="bg-white border border-slate-100 rounded-[2rem] p-5 shadow-sm flex items-center gap-4">
                 <div class="bg-indigo-50 text-indigo-500 p-3 rounded-2xl">
                   <i data-lucide="percent" class="w-6 h-6"></i>
                 </div>
                 <div>
-                  <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tasa de Conversión Promedio</p>
+                  <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Conversión Media</p>
                   <h3 id="forms-average-conversion" class="text-2xl font-black text-[#1B2939] mt-0.5">0%</h3>
+                </div>
+              </div>
+              <div class="bg-white border border-slate-100 rounded-[2rem] p-5 shadow-sm flex items-center gap-4">
+                <div class="bg-amber-50 text-amber-500 p-3 rounded-2xl">
+                  <i data-lucide="zap" class="w-6 h-6"></i>
+                </div>
+                <div>
+                  <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Auto-respuestas</p>
+                  <h3 id="forms-total-autoresponders" class="text-2xl font-black text-[#1B2939] mt-0.5">0</h3>
                 </div>
               </div>
             </div>
@@ -1821,6 +1830,12 @@
                             <span class="text-[9px] text-slate-400">Variables: <code>{{name}}</code>, <code>{{email}}</code></span>
                           </div>
                           <textarea id="form-autoresponder-body" rows="3" oninput="updateFormGenerator()" class="w-full p-3 rounded-xl border border-slate-200 text-xs bg-white text-[#1c2938] outline-none font-medium leading-relaxed" placeholder="Hola {{name}},\n\n¡Gracias por suscribirte! Hemos recibido tus datos correctamente.\n\nSaludos cordiales."></textarea>
+                        </div>
+                        <div class="pt-2 flex items-center justify-between border-t border-slate-100 mt-2">
+                          <span class="text-[10px] text-slate-400">Comprueba la llegada y diseño antes de publicar</span>
+                          <button type="button" onclick="testAutoresponderFromEditor()" id="btn-test-autoresponder" class="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 text-[10px] font-bold text-[#1B2939] hover:text-[#27bea5] transition-all flex items-center gap-1.5 shadow-xs">
+                            <i data-lucide="send" class="w-3 h-3 text-[#27bea5]"></i> Probar Envío
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -2332,6 +2347,7 @@
               <th class="py-3 px-4">Nombre</th>
               <th class="py-3 px-4">Email</th>
               <th class="py-3 px-4">Datos Adicionales</th>
+              <th class="py-3 px-4 text-center">Auto-respuesta</th>
             </tr>
           </thead>
           <tbody id="mfs-table-body" class="divide-y divide-slate-100 font-medium text-[#1c2938]">
@@ -4286,7 +4302,7 @@
         
         if (titleEl) titleEl.textContent = form ? `Respuestas: ${form.name}` : 'Respuestas del Formulario';
         if (subtitleEl) subtitleEl.textContent = 'Cargando registros...';
-        if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-slate-400">Cargando datos...</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-slate-400">Cargando datos...</td></tr>';
         
         openModal('modal-form-submissions');
 
@@ -4294,9 +4310,13 @@
           const res = await fetch(`/api/forms/${formId}/submissions`);
           const data = await res.json();
           if (data.success && Array.isArray(data.submissions)) {
-            if (subtitleEl) subtitleEl.textContent = `Total recibidos: ${data.submissions.length} registros`;
+            const autoCount = form ? (form.autoresponder_sent_count || 0) : 0;
+            if (subtitleEl) {
+              subtitleEl.innerHTML = `Total recibidos: <strong class="text-[#1B2939]">${data.submissions.length}</strong> registros` + 
+                (form && form.autoresponder_enabled ? ` &bull; Auto-respuestas enviadas: <strong class="text-amber-600 font-bold">${autoCount}</strong>` : '');
+            }
             if (data.submissions.length === 0) {
-              tbody.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-slate-400">Aún no hay respuestas registradas para este formulario.</td></tr>';
+              tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-slate-400">Aún no hay respuestas registradas para este formulario.</td></tr>';
               return;
             }
             tbody.innerHTML = '';
@@ -4310,21 +4330,105 @@
                 extraDataStr = Object.entries(sub.data).map(([k, v]) => `<span class="inline-block bg-slate-100 px-2 py-0.5 rounded text-[10px] mr-1"><strong>${k}:</strong> ${v}</span>`).join(' ');
               }
 
+              let autoBadge = '<span class="text-slate-400 text-[10px]">No configurada</span>';
+              if (sub.autoresponder_status === 'sent') {
+                const timeStr = sub.autoresponder_sent_at ? new Date(sub.autoresponder_sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                autoBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200" title="Enviado ${timeStr}"><i data-lucide="check-circle-2" class="w-3 h-3 text-emerald-500"></i> Enviado ${timeStr}</span>`;
+              } else if (sub.autoresponder_status === 'failed') {
+                autoBadge = `<div class="flex items-center justify-center gap-1.5"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200" title="${sub.autoresponder_error || 'Error'}"><i data-lucide="alert-circle" class="w-3 h-3"></i> Falló</span><button onclick="resendSubmissionAutoresponder('${formId}', '${sub.id}')" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 underline">Reintentar</button></div>`;
+              } else if (form && form.autoresponder_enabled) {
+                autoBadge = `<button onclick="resendSubmissionAutoresponder('${formId}', '${sub.id}')" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors shadow-2xs"><i data-lucide="send" class="w-2.5 h-2.5"></i> Enviar Ahora</button>`;
+              }
+
               tr.innerHTML = `
                 <td class="py-3 px-4 text-slate-400 font-mono text-[10px]">${dateStr}</td>
                 <td class="py-3 px-4 font-bold text-[#1B2939]">${sub.name || 'Suscriptor'}</td>
                 <td class="py-3 px-4 text-indigo-600 font-mono text-xs">${sub.email}</td>
                 <td class="py-3 px-4 text-xs">${extraDataStr}</td>
+                <td class="py-3 px-4 text-center">${autoBadge}</td>
               `;
               tbody.appendChild(tr);
             });
+            lucide.createIcons();
           } else {
             if (subtitleEl) subtitleEl.textContent = 'Error al cargar';
-            tbody.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-rose-500">No se pudieron cargar los registros.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-rose-500">No se pudieron cargar los registros.</td></tr>';
           }
         } catch (e) {
           console.error('Error fetching submissions:', e);
-          tbody.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-rose-500">Error de conexión.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-rose-500">Error de conexión.</td></tr>';
+        }
+      };
+
+      window.resendSubmissionAutoresponder = async function(formId, subId) {
+        try {
+          showToast('Enviando correo de auto-respuesta...', 'info');
+          const res = await fetch(`/api/forms/${formId}/submissions/${subId}/resend-autoresponder`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast('¡Correo de auto-respuesta enviado exitosamente!', 'success');
+            openFormSubmissionsModal(formId);
+            fetchForms();
+          } else {
+            showToast('Error al enviar: ' + (data.error || ''), 'error');
+          }
+        } catch (err) {
+          console.error('Error resending autoresponder:', err);
+          showToast('Error de red al enviar.', 'error');
+        }
+      };
+
+      window.testAutoresponderFromEditor = async function() {
+        const fromName = document.getElementById('form-autoresponder-from-name')?.value.trim() || '';
+        const subject = document.getElementById('form-autoresponder-subject')?.value.trim() || '';
+        const body = document.getElementById('form-autoresponder-body')?.value.trim() || '';
+
+        const defaultEmail = (typeof currentUserEmail !== 'undefined' && currentUserEmail) ? currentUserEmail : '';
+        const targetEmail = prompt('Ingresa el correo donde deseas recibir el mensaje de prueba:', defaultEmail);
+        if (!targetEmail || !targetEmail.trim()) return;
+
+        const btn = document.getElementById('btn-test-autoresponder');
+        if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = `<i data-lucide="loader" class="w-3 h-3 animate-spin text-[#27bea5]"></i> Enviando...`;
+          lucide.createIcons();
+        }
+
+        try {
+          const res = await fetch('/api/forms/test-autoresponder', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({
+              recipientEmail: targetEmail.trim(),
+              fromName,
+              subject,
+              body
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast(data.message || 'Correo de prueba enviado correctamente.', 'success');
+          } else {
+            showToast('Error al enviar: ' + (data.error || ''), 'error');
+          }
+        } catch (err) {
+          console.error('Error testing autoresponder:', err);
+          showToast('Error de red al enviar la prueba.', 'error');
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<i data-lucide="send" class="w-3 h-3 text-[#27bea5]"></i> Probar Envío`;
+            lucide.createIcons();
+          }
         }
       };
 
@@ -4421,6 +4525,7 @@
         formsList.forEach(form => {
           const views = form.views || 0;
           const subs = form.submissions || 0;
+          const autoSent = form.autoresponder_sent_count || 0;
           const convRate = views > 0 ? ((subs / views) * 100).toFixed(1) : '0.0';
           const isStep = form.display_mode === 'step_by_step';
 
@@ -4428,13 +4533,13 @@
           tr.className = "hover:bg-slate-50/50 transition-colors border-b border-slate-100";
           tr.innerHTML = `
             <td class="py-4 px-6">
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
                 <span class="font-bold text-[#1B2939] text-sm">${form.name}</span>
                 ${isStep 
                   ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-50 text-indigo-600"><i data-lucide="layers" class="w-2.5 h-2.5"></i> Por Etapas</span>' 
                   : '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-100 text-slate-600">Normal</span>'}
                 ${form.autoresponder_enabled 
-                  ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-600" title="Auto-respuesta activa"><i data-lucide="zap" class="w-2.5 h-2.5"></i> Auto-respuesta</span>' 
+                  ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200/80" title="Auto-respuesta activa: ${autoSent} correos enviados"><i data-lucide="zap" class="w-2.5 h-2.5 text-amber-500 fill-amber-500"></i> Auto-respuesta: <strong class="font-mono text-amber-900">${autoSent}</strong> enviados</span>` 
                   : ''}
               </div>
               <div class="text-[10px] text-slate-400 font-medium mt-0.5">Lista: <span class="font-semibold text-brand-accent">${form.target_tag}</span></div>
@@ -4471,10 +4576,12 @@
       function renderFormsStats() {
         let totalViews = 0;
         let totalSubs = 0;
+        let totalAutoresponders = 0;
         
         formsList.forEach(form => {
           totalViews += form.views || 0;
           totalSubs += form.submissions || 0;
+          totalAutoresponders += form.autoresponder_sent_count || 0;
         });
 
         const avgConv = totalViews > 0 ? ((totalSubs / totalViews) * 100).toFixed(1) : '0.0';
@@ -4482,10 +4589,12 @@
         const viewsEl = document.getElementById('forms-total-views');
         const subsEl = document.getElementById('forms-total-submissions');
         const convEl = document.getElementById('forms-average-conversion');
+        const autoEl = document.getElementById('forms-total-autoresponders');
 
         if (viewsEl) viewsEl.textContent = totalViews.toLocaleString();
         if (subsEl) subsEl.textContent = totalSubs.toLocaleString();
         if (convEl) convEl.textContent = `${avgConv}%`;
+        if (autoEl) autoEl.textContent = totalAutoresponders.toLocaleString();
       }
 
       window.backToFormsDashboard = function() {
