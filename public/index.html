@@ -1341,8 +1341,11 @@
 
                     <!-- Canvas Editor (Lienzo de bloques) -->
                     <div class="space-y-3 pt-4 border-t border-slate-50 text-left">
-                      <label class="text-xs font-bold text-[#1c2938] uppercase tracking-wider block">Lienzo del Correo</label>
-                      <div id="email-builder-canvas" class="space-y-3 max-h-[380px] overflow-y-auto custom-scroll p-1 bg-slate-50/50 rounded-2xl border border-slate-100 min-h-[120px]">
+                      <div class="flex items-center justify-between">
+                        <label class="text-xs font-bold text-[#1c2938] uppercase tracking-wider block">Lienzo del Correo</label>
+                        <span id="camp-blocks-count-badge" class="text-[10px] font-bold text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-full">Bloques modulares</span>
+                      </div>
+                      <div id="email-builder-canvas" class="space-y-3 max-h-[420px] overflow-y-auto custom-scroll p-3 bg-slate-50/60 rounded-2xl border-2 border-dashed border-slate-200 min-h-[220px]">
                         <!-- Dynamic list of blocks -->
                       </div>
                     </div>
@@ -10220,6 +10223,9 @@
       document.getElementById('template-editor-title').textContent = 'NUEVA PLANTILLA DE MAILING';
       document.getElementById('template-editor-subtitle').textContent = 'Construye tu correo modular Lego y guárdalo como plantilla.';
       
+      const tplFooterForm = document.getElementById('template-footer-form');
+      if (tplFooterForm) tplFooterForm.classList.add('hidden');
+
       // Limpiar canvas
       renderTemplateBuilderCanvas();
       updateTemplateLivePreview();
@@ -10248,6 +10254,9 @@
           document.getElementById('template-editor-subtitle').textContent = 'Modifica los bloques y guarda los cambios.';
           
           document.getElementById('gf-template-select').value = 'custom';
+
+          const tplFooterForm = document.getElementById('template-footer-form');
+          if (tplFooterForm) tplFooterForm.classList.add('hidden');
 
           initializeTemplateFooterInputs();
           renderTemplateBuilderCanvas();
@@ -10298,12 +10307,24 @@
       const canvas = document.getElementById('template-builder-canvas');
       if (!canvas) return;
 
+      const badge = document.getElementById('tpl-blocks-count-badge');
+      if (badge) {
+        badge.textContent = `${templateBlocks.length} ${templateBlocks.length === 1 ? 'bloque' : 'bloques'}`;
+      }
+
       if (templateBlocks.length === 0) {
         canvas.innerHTML = `
-          <div class="text-center py-10 text-slate-400 font-bold text-xs bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-            El lienzo está vacío. Añade bloques desde la paleta superior para comenzar a diseñar.
+          <div class="text-center py-16 px-4 text-slate-400 flex flex-col items-center justify-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-white shadow-sm border border-slate-200/60 flex items-center justify-center text-[#27bea5]">
+              <i data-lucide="layout-template" class="w-6 h-6"></i>
+            </div>
+            <span class="font-extrabold text-xs text-[#1c2938]">Tu lienzo de correo está vacío</span>
+            <p class="text-[11px] text-slate-400 max-w-xs leading-relaxed">
+              Haz clic en cualquiera de los bloques de arriba (<b class="text-slate-600">Cabecera, Texto, Imagen, Botón o Divisor</b>) para comenzar a armar tu diseño modular.
+            </p>
           </div>
         `;
+        lucide.createIcons();
         return;
       }
 
@@ -11267,29 +11288,29 @@
       <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-hidden">
         
         <!-- Columna Izquierda: Paleta y Canvas -->
-        <div class="flex flex-col gap-6 overflow-y-auto pr-1">
+        <div class="flex flex-col gap-6 overflow-y-auto pr-2 custom-scroll">
           
           <!-- LEGO Palette -->
-          <div class="bg-slate-50/50 border border-slate-100 rounded-[1.5rem] p-5 space-y-3">
+          <div class="bg-slate-50/50 border border-slate-100 rounded-[1.5rem] p-5 space-y-3 flex-shrink-0">
             <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Añadir Bloques de Construcción</label>
             <div class="grid grid-cols-5 gap-2">
-              <button type="button" onclick="addTemplateBlock('header')" class="flex flex-col items-center justify-center p-2.5 bg-white border border-slate-100 hover:border-[#27bea5] rounded-xl text-center transition-all gap-1 group">
+              <button type="button" onclick="addTemplateBlock('header')" class="flex flex-col items-center justify-center p-2.5 bg-white border border-slate-100 hover:border-[#27bea5] rounded-xl text-center transition-all gap-1 group shadow-sm hover:shadow">
                 <i data-lucide="heading" class="w-4 h-4 text-slate-400 group-hover:text-[#27bea5]"></i>
                 <span class="text-[8px] font-bold text-slate-500 group-hover:text-[#1c2938]">Cabecera</span>
               </button>
-              <button type="button" onclick="addTemplateBlock('text')" class="flex flex-col items-center justify-center p-2.5 bg-white border border-slate-100 hover:border-[#27bea5] rounded-xl text-center transition-all gap-1 group">
+              <button type="button" onclick="addTemplateBlock('text')" class="flex flex-col items-center justify-center p-2.5 bg-white border border-slate-100 hover:border-[#27bea5] rounded-xl text-center transition-all gap-1 group shadow-sm hover:shadow">
                 <i data-lucide="align-left" class="w-4 h-4 text-slate-400 group-hover:text-[#27bea5]"></i>
                 <span class="text-[8px] font-bold text-slate-500 group-hover:text-[#1c2938]">Texto</span>
               </button>
-              <button type="button" onclick="addTemplateBlock('image')" class="flex flex-col items-center justify-center p-2.5 bg-white border border-slate-100 hover:border-[#27bea5] rounded-xl text-center transition-all gap-1 group">
+              <button type="button" onclick="addTemplateBlock('image')" class="flex flex-col items-center justify-center p-2.5 bg-white border border-slate-100 hover:border-[#27bea5] rounded-xl text-center transition-all gap-1 group shadow-sm hover:shadow">
                 <i data-lucide="image" class="w-4 h-4 text-slate-400 group-hover:text-[#27bea5]"></i>
                 <span class="text-[8px] font-bold text-slate-500 group-hover:text-[#1c2938]">Imagen</span>
               </button>
-              <button type="button" onclick="addTemplateBlock('button')" class="flex flex-col items-center justify-center p-2.5 bg-white border border-slate-100 hover:border-[#27bea5] rounded-xl text-center transition-all gap-1 group">
+              <button type="button" onclick="addTemplateBlock('button')" class="flex flex-col items-center justify-center p-2.5 bg-white border border-slate-100 hover:border-[#27bea5] rounded-xl text-center transition-all gap-1 group shadow-sm hover:shadow">
                 <i data-lucide="mouse-pointer" class="w-4 h-4 text-slate-400 group-hover:text-[#27bea5]"></i>
                 <span class="text-[8px] font-bold text-slate-500 group-hover:text-[#1c2938]">Botón</span>
               </button>
-              <button type="button" onclick="addTemplateBlock('divider')" class="flex flex-col items-center justify-center p-2.5 bg-white border border-slate-100 hover:border-[#27bea5] rounded-xl text-center transition-all gap-1 group">
+              <button type="button" onclick="addTemplateBlock('divider')" class="flex flex-col items-center justify-center p-2.5 bg-white border border-slate-100 hover:border-[#27bea5] rounded-xl text-center transition-all gap-1 group shadow-sm hover:shadow">
                 <i data-lucide="minus" class="w-4 h-4 text-slate-400 group-hover:text-[#27bea5]"></i>
                 <span class="text-[8px] font-bold text-slate-500 group-hover:text-[#1c2938]">Divisor</span>
               </button>
@@ -11297,9 +11318,15 @@
           </div>
 
           <!-- Canvas del Editor -->
-          <div class="flex-1 bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm flex flex-col gap-4 overflow-y-auto">
-            <label class="text-xs font-bold text-[#1c2938] uppercase tracking-wider block">Lienzo del Correo</label>
-            <div id="template-builder-canvas" class="space-y-3 min-h-[250px] bg-slate-50/50 p-2 rounded-2xl border border-slate-100">
+          <div class="bg-white border border-slate-200/80 rounded-[2rem] p-6 shadow-sm flex flex-col gap-4 min-h-[440px] flex-shrink-0">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div class="flex items-center gap-2">
+                <i data-lucide="layout" class="w-4 h-4 text-[#27bea5]"></i>
+                <label class="text-xs font-black text-[#1c2938] uppercase tracking-wider block">Lienzo del Correo</label>
+              </div>
+              <span id="tpl-blocks-count-badge" class="text-[10px] font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">0 bloques</span>
+            </div>
+            <div id="template-builder-canvas" class="space-y-3 min-h-[360px] flex-1 bg-slate-50/70 p-4 rounded-2xl border-2 border-dashed border-slate-200 overflow-y-auto custom-scroll">
               <!-- Dynamically built blocks -->
             </div>
           </div>
