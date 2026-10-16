@@ -291,11 +291,13 @@ async function initDB() {
           kinde_id VARCHAR(255) NOT NULL REFERENCES users(kinde_id) ON DELETE CASCADE,
           domain_name VARCHAR(255) NOT NULL,
           dkim_tokens TEXT[],
+          verification_token TEXT,
           verification_status VARCHAR(50) DEFAULT 'Pending',
           dkim_status VARCHAR(50) DEFAULT 'Pending',
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `;
+    await sql`ALTER TABLE domains ADD COLUMN IF NOT EXISTS verification_token TEXT;`.catch(() => {});
     await sql`
       CREATE TABLE IF NOT EXISTS dedicated_ips (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1970,6 +1972,26 @@ app.delete('/api/senders/:id', protectRoute, async (req, res) => {
   }
 });
 
+// Helper para obtener cliente SES con credenciales de usuario o variables globales
+async function getSesClientForUser(userId) {
+  let userAws = null;
+  try {
+    const awsResult = await sql`SELECT * FROM aws_settings WHERE kinde_id = ${userId}`;
+    userAws = awsResult[0] || null;
+  } catch(e) {}
+
+  const region = userAws?.region || process.env.AWS_REGION || 'us-east-1';
+  const credentials = userAws?.access_key ? {
+    accessKeyId: userAws.access_key,
+    secretAccessKey: userAws.secret_key
+  } : (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY ? {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  } : undefined);
+
+  return new SESClient({ region, credentials });
+}
+
 // ======================== DOMAINS ========================
 
 app.get('/api/domains', protectRoute, async (req, res) => {
@@ -1977,21 +1999,35 @@ app.get('/api/domains', protectRoute, async (req, res) => {
     const userId = req.user.id;
     const domains = await sql`SELECT * FROM domains WHERE kinde_id = ${userId} ORDER BY created_at DESC`;
     
-    // Check status in AWS SES for pending domains
+    const targetSesClient = await getSesClientForUser(userId);
+
+    // Check status in AWS SES for pending domains and populate verification_token if missing
     const updatedDomains = [];
     for (let dom of domains) {
-      if (dom.verification_status !== 'Success' || dom.dkim_status !== 'Success') {
+      if (dom.verification_status !== 'Success' || dom.dkim_status !== 'Success' || !dom.verification_token) {
         try {
           const vCmd = new GetIdentityVerificationAttributesCommand({ Identities: [dom.domain_name] });
-          const vRes = await sesClient.send(vCmd);
-          const vStatus = vRes.VerificationAttributes?.[dom.domain_name]?.VerificationStatus || dom.verification_status;
+          const vRes = await targetSesClient.send(vCmd);
+          const vAttr = vRes.VerificationAttributes?.[dom.domain_name];
+          const vStatus = vAttr?.VerificationStatus || dom.verification_status;
+          const vToken = vAttr?.VerificationToken || dom.verification_token;
           
           const dCmd = new GetIdentityDkimAttributesCommand({ Identities: [dom.domain_name] });
-          const dRes = await sesClient.send(dCmd);
-          const dStatus = dRes.DkimAttributes?.[dom.domain_name]?.DkimVerificationStatus || dom.dkim_status;
+          const dRes = await targetSesClient.send(dCmd);
+          const dAttr = dRes.DkimAttributes?.[dom.domain_name];
+          const dStatus = dAttr?.DkimVerificationStatus || dom.dkim_status;
+          const dTokens = (dAttr?.DkimTokens && dAttr.DkimTokens.length > 0) ? dAttr.DkimTokens : dom.dkim_tokens;
           
-          if (vStatus !== dom.verification_status || dStatus !== dom.dkim_status) {
-            const updated = await sql`UPDATE domains SET verification_status = ${vStatus}, dkim_status = ${dStatus} WHERE id = ${dom.id} RETURNING *`;
+          if (vStatus !== dom.verification_status || dStatus !== dom.dkim_status || vToken !== dom.verification_token) {
+            const updated = await sql`
+              UPDATE domains 
+              SET verification_status = ${vStatus}, 
+                  dkim_status = ${dStatus}, 
+                  verification_token = ${vToken}, 
+                  dkim_tokens = ${dTokens} 
+              WHERE id = ${dom.id} 
+              RETURNING *
+            `;
             updatedDomains.push(updated[0]);
             continue;
           }
@@ -2003,6 +2039,7 @@ app.get('/api/domains', protectRoute, async (req, res) => {
     }
     res.json(updatedDomains);
   } catch (err) {
+    console.error('Error en /api/domains:', err);
     res.status(500).json({ error: 'DB Error' });
   }
 });
@@ -2010,6 +2047,7 @@ app.get('/api/domains', protectRoute, async (req, res) => {
 // Endpoint para obtener estadísticas REALES directamente de la API de Amazon SES
 app.get('/api/aws/ses-stats', protectRoute, async (req, res) => {
   try {
+    const userId = req.user.id;
     let userAws = null;
     try {
       const awsResult = await sql`SELECT * FROM aws_settings WHERE kinde_id = ${userId}`;
@@ -2095,23 +2133,185 @@ app.post('/api/domains', protectRoute, async (req, res) => {
     if (existing.length > 0) {
       return res.status(400).json({ success: false, message: 'Ya has registrado este dominio en tu cuenta.' });
     }
+
+    const targetSesClient = await getSesClientForUser(userId);
     
     const vCmd = new VerifyDomainIdentityCommand({ Domain: cleanDomain });
-    await sesClient.send(vCmd);
+    const vRes = await targetSesClient.send(vCmd);
+    const verificationToken = vRes.VerificationToken || null;
     
     const dCmd = new VerifyDomainDkimCommand({ Domain: cleanDomain });
-    const dRes = await sesClient.send(dCmd);
+    const dRes = await targetSesClient.send(dCmd);
     const tokens = dRes.DkimTokens || [];
     
     const inserted = await sql`
-      INSERT INTO domains (kinde_id, domain_name, dkim_tokens)
-      VALUES (${userId}, ${cleanDomain}, ${tokens})
+      INSERT INTO domains (kinde_id, domain_name, dkim_tokens, verification_token)
+      VALUES (${userId}, ${cleanDomain}, ${tokens}, ${verificationToken})
       RETURNING *
     `;
     res.json({ success: true, domain: inserted[0] });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: err.message || 'SES/DB Error' });
+  }
+});
+
+// Endpoint para VALIDAR MANUALMENTE un dominio (Comprobación en vivo de AWS SES + Diagnóstico DNS)
+app.post('/api/domains/:id/verify', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    const domainRes = await sql`SELECT * FROM domains WHERE id = ${id} AND kinde_id = ${userId}`;
+    if (domainRes.length === 0) {
+      return res.status(404).json({ success: false, message: 'Dominio no encontrado.' });
+    }
+    const domain = domainRes[0];
+    const domainName = domain.domain_name;
+
+    const targetSesClient = await getSesClientForUser(userId);
+
+    // 1. Consultar a AWS SES para obtener tokens y estado actual
+    let sesVerificationStatus = domain.verification_status;
+    let sesVerificationToken = domain.verification_token;
+    let sesDkimStatus = domain.dkim_status;
+    let sesDkimTokens = domain.dkim_tokens || [];
+
+    try {
+      const vCmd = new GetIdentityVerificationAttributesCommand({ Identities: [domainName] });
+      const vRes = await targetSesClient.send(vCmd);
+      const vAttr = vRes.VerificationAttributes?.[domainName];
+      if (vAttr) {
+        sesVerificationStatus = vAttr.VerificationStatus || sesVerificationStatus;
+        if (vAttr.VerificationToken) {
+          sesVerificationToken = vAttr.VerificationToken;
+        }
+      }
+    } catch (e) {
+      console.warn(`Error al consultar VerificationAttributes para ${domainName}:`, e.message);
+    }
+
+    try {
+      const dCmd = new GetIdentityDkimAttributesCommand({ Identities: [domainName] });
+      const dRes = await targetSesClient.send(dCmd);
+      const dAttr = dRes.DkimAttributes?.[domainName];
+      if (dAttr) {
+        sesDkimStatus = dAttr.DkimVerificationStatus || sesDkimStatus;
+        if (dAttr.DkimTokens && dAttr.DkimTokens.length > 0) {
+          sesDkimTokens = dAttr.DkimTokens;
+        }
+      }
+    } catch (e) {
+      console.warn(`Error al consultar DkimAttributes para ${domainName}:`, e.message);
+    }
+
+    // 2. Realizar diagnóstico DNS en vivo (consultando los servidores DNS públicos)
+    const dnsDiagnostics = {
+      txt: {
+        host: `_amazonses.${domainName}`,
+        expected: sesVerificationToken,
+        foundRecords: [],
+        matched: false,
+        status: 'pending' // 'ok' | 'mismatch' | 'not_found'
+      },
+      dkim: [],
+      allDnsOk: false
+    };
+
+    // Verificar TXT de Amazon SES en DNS
+    if (sesVerificationToken) {
+      try {
+        const txtRecords = await dns.resolveTxt(`_amazonses.${domainName}`);
+        const flattened = txtRecords.map(r => r.join(''));
+        dnsDiagnostics.txt.foundRecords = flattened;
+        if (flattened.includes(sesVerificationToken)) {
+          dnsDiagnostics.txt.matched = true;
+          dnsDiagnostics.txt.status = 'ok';
+        } else {
+          dnsDiagnostics.txt.status = 'mismatch';
+        }
+      } catch (err) {
+        dnsDiagnostics.txt.status = 'not_found';
+        dnsDiagnostics.txt.error = err.code || err.message;
+      }
+    }
+
+    // Verificar CNAMEs de DKIM en DNS
+    let dkimMatchesCount = 0;
+    if (sesDkimTokens && sesDkimTokens.length > 0) {
+      for (const token of sesDkimTokens) {
+        const dkimHost = `${token}._domainkey.${domainName}`;
+        const expectedTarget = `${token}.dkim.amazonses.com`;
+        const item = {
+          token,
+          host: dkimHost,
+          expected: expectedTarget,
+          found: null,
+          matched: false,
+          status: 'pending'
+        };
+
+        try {
+          const cnames = await dns.resolveCname(dkimHost);
+          item.found = cnames;
+          if (cnames.some(c => c.toLowerCase().replace(/\.$/, '') === expectedTarget.toLowerCase())) {
+            item.matched = true;
+            item.status = 'ok';
+            dkimMatchesCount++;
+          } else {
+            item.status = 'mismatch';
+          }
+        } catch (err) {
+          item.status = 'not_found';
+          item.error = err.code || err.message;
+        }
+        dnsDiagnostics.dkim.push(item);
+      }
+    }
+
+    const isTxtOk = dnsDiagnostics.txt.status === 'ok';
+    const isDkimDnsOk = sesDkimTokens.length > 0 && dkimMatchesCount === sesDkimTokens.length;
+    dnsDiagnostics.allDnsOk = (sesVerificationToken ? isTxtOk : true) && isDkimDnsOk;
+
+    // 3. Actualizar la base de datos con los estados más recientes
+    const updated = await sql`
+      UPDATE domains 
+      SET verification_status = ${sesVerificationStatus}, 
+          dkim_status = ${sesDkimStatus},
+          verification_token = ${sesVerificationToken},
+          dkim_tokens = ${sesDkimTokens}
+      WHERE id = ${domain.id} AND kinde_id = ${userId}
+      RETURNING *
+    `;
+
+    const isFullyVerified = sesVerificationStatus === 'Success' && sesDkimStatus === 'Success';
+
+    let message = '';
+    if (isFullyVerified) {
+      message = `¡El dominio "${domainName}" está 100% verificado y activo en Amazon SES!`;
+    } else if (dnsDiagnostics.allDnsOk) {
+      message = `Los registros DNS de "${domainName}" ya están correctamente configurados en tu proveedor de dominio. Amazon SES está procesando la validación final (suele tardar unos minutos).`;
+    } else {
+      const missingParts = [];
+      if (sesVerificationToken && !isTxtOk) missingParts.push('Registro TXT (_amazonses)');
+      if (!isDkimDnsOk) missingParts.push(`Registros CNAME DKIM (${dkimMatchesCount}/${sesDkimTokens.length} detectados)`);
+      message = `Validación incompleta para "${domainName}". Faltan por configurar o propagar en tu DNS: ${missingParts.join(', ')}.`;
+    }
+
+    return res.json({
+      success: true,
+      domain: updated[0],
+      is_verified: isFullyVerified,
+      verification_status: sesVerificationStatus,
+      dkim_status: sesDkimStatus,
+      verification_token: sesVerificationToken,
+      dns_diagnostics: dnsDiagnostics,
+      message
+    });
+
+  } catch (err) {
+    console.error('Error en /api/domains/:id/verify:', err);
+    res.status(500).json({ success: false, message: 'Error validando dominio.', error: err.message });
   }
 });
 
@@ -2401,10 +2601,44 @@ app.post('/api/settings/warmup/send-manual', protectRoute, async (req, res) => {
     const credentials = userAws?.access_key ? {
       accessKeyId: userAws.access_key,
       secretAccessKey: userAws.secret_key
-    } : undefined;
+    } : (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY ? {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    } : undefined);
 
     const sesClient = new SESClient({ region, credentials });
-    const formattedSender = senderName ? `${senderName} <${senderEmail}>` : senderEmail;
+
+    // Verificar si el dominio del remitente está registrado en la cuenta y en qué estado está en AWS SES
+    const cleanSenderEmail = senderEmail.trim();
+    const senderDomain = cleanSenderEmail.split('@')[1]?.toLowerCase().trim();
+    if (senderDomain) {
+      try {
+        const domResult = await sql`SELECT id, verification_status, dkim_status FROM domains WHERE kinde_id = ${userId} AND LOWER(domain_name) = ${senderDomain}`;
+        if (domResult.length > 0 && domResult[0].verification_status !== 'Success') {
+          // Consultar a SES directamente por si ya propagaron los registros DNS
+          try {
+            const vCmd = new GetIdentityVerificationAttributesCommand({ Identities: [senderDomain] });
+            const vRes = await sesClient.send(vCmd);
+            const currentStatus = vRes.VerificationAttributes?.[senderDomain]?.VerificationStatus;
+            if (currentStatus === 'Success') {
+              await sql`UPDATE domains SET verification_status = 'Success' WHERE id = ${domResult[0].id}`;
+            } else {
+              return res.status(400).json({
+                success: false,
+                message: `El dominio "@${senderDomain}" aún está en estado "${currentStatus || domResult[0].verification_status}" en Amazon SES. Para poder enviar correos de calentamiento, debes agregar los registros DNS (TXT y CNAME DKIM) en tu proveedor de dominio y esperar a que esté verificado.`
+              });
+            }
+          } catch (checkErr) {
+            console.warn('No se pudo comprobar estado del dominio en SES:', checkErr.message);
+          }
+        }
+      } catch (domErr) {
+        console.warn('Error verificando estado del dominio:', domErr.message);
+      }
+    }
+
+    const cleanSenderName = senderName ? senderName.replace(/[<>\r\n]/g, '').trim() : '';
+    const formattedSender = cleanSenderName ? `"${cleanSenderName}" <${cleanSenderEmail}>` : cleanSenderEmail;
 
     // 4. Enviar a cada semilla
     let sentCount = 0;
@@ -2414,7 +2648,7 @@ app.post('/api/settings/warmup/send-manual', protectRoute, async (req, res) => {
       try {
         const command = new SendEmailCommand({
           Source: formattedSender,
-          Destination: { ToAddresses: [seed.email] },
+          Destination: { ToAddresses: [seed.email.trim()] },
           Message: {
             Subject: { Data: subject, Charset: 'UTF-8' },
             Body: { 
@@ -2426,15 +2660,31 @@ app.post('/api/settings/warmup/send-manual', protectRoute, async (req, res) => {
         sentCount++;
       } catch (err) {
         console.error(`Error enviando correo de calentamiento a ${seed.email}:`, err);
-        errors.push(`${seed.email}: ${err.message}`);
+        errors.push({ email: seed.email, message: err.message });
       }
     }
 
     if (errors.length > 0) {
+      const firstErrMsg = errors[0].message || '';
+      let errorExplanation = '';
+      if (firstErrMsg.includes('not verified') || firstErrMsg.includes('identities failed the check')) {
+        errorExplanation = `Amazon SES rechazó el envío porque el remitente (${cleanSenderEmail}) o las direcciones semilla no están verificadas. Si el dominio está pendiente en DNS o tu cuenta de AWS está en modo Sandbox, debes verificar las identidades o solicitar acceso de producción en AWS SES.`;
+      } else if (firstErrMsg.includes('security token') || firstErrMsg.includes('CredentialsProviderError') || firstErrMsg.includes('AccessDenied')) {
+        errorExplanation = `Error de autenticación o permisos con AWS SES: ${firstErrMsg}`;
+      }
+
+      if (sentCount === 0) {
+        return res.status(400).json({ 
+          success: false, 
+          message: errorExplanation || `No se pudo enviar ningún correo de calentamiento. AWS SES: ${firstErrMsg}`,
+          errors: errors.map(e => `${e.email}: ${e.message}`) 
+        });
+      }
+
       return res.json({ 
         success: true, 
-        message: `Se enviaron ${sentCount} correos de calentamiento. Hubo errores en algunos envíos.`,
-        errors 
+        message: `Se enviaron ${sentCount} de ${seeds.length} correos de calentamiento. Hubo errores en algunos envíos: ${errorExplanation || firstErrMsg}`,
+        errors: errors.map(e => `${e.email}: ${e.message}`) 
       });
     }
 

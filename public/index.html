@@ -1989,13 +1989,18 @@
 
           <!-- ================= SUB-TAB: DOMAINS ================= -->
           <div id="sub-domains" class="hidden">
-            <div class="flex justify-between items-center mb-6">
-              <p class="text-xs text-brand-gray font-medium max-w-2xl">
-                Autentica tu dominio mediante registros DKIM en tu proveedor DNS para mejorar la entregabilidad, evitar la carpeta de spam y demostrar a los servidores que eres un remitente legítimo.
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+              <p class="text-xs text-brand-gray font-medium max-w-2xl leading-relaxed">
+                Autentica tu dominio mediante registros TXT y DKIM en tu proveedor DNS para garantizar la máxima entregabilidad y evitar la carpeta de spam en Gmail, Outlook y otros proveedores.
               </p>
-              <button onclick="openModal('modal-add-domain')" class="bg-brand-dark text-white font-bold px-5 py-2.5 rounded-xl hover:bg-brand-accent transition-all text-xs flex items-center gap-2 shadow-sm">
-                <i data-lucide="shield" class="w-4 h-4"></i> Autenticar Dominio
-              </button>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <button type="button" onclick="validateAllDomains()" id="btn-validate-all-domains" class="bg-slate-100 hover:bg-slate-200 text-brand-dark font-bold px-4 py-2.5 rounded-xl transition-all text-xs flex items-center gap-1.5 shadow-sm" title="Consultar estado de todos los dominios en AWS SES">
+                  <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-brand-gray"></i> Revalidar Todo
+                </button>
+                <button type="button" onclick="openModal('modal-add-domain')" class="bg-brand-dark text-white font-bold px-5 py-2.5 rounded-xl hover:bg-brand-accent transition-all text-xs flex items-center gap-2 shadow-sm">
+                  <i data-lucide="shield" class="w-4 h-4"></i> Autenticar Dominio
+                </button>
+              </div>
             </div>
             
             <div class="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm flex flex-col">
@@ -8740,6 +8745,127 @@
       }
     }
 
+    function toggleDnsDetails(domainId) {
+      const el = document.getElementById(`dns-details-${domainId}`);
+      if (el) {
+        el.classList.toggle('hidden');
+        lucide.createIcons();
+      }
+    }
+
+    async function verifyDomainManually(domainId, domainName) {
+      const btn = document.getElementById(`btn-verify-domain-${domainId}`);
+      const btnDns = document.getElementById(`btn-validate-inline-${domainId}`);
+      const originalHtml = btn ? btn.innerHTML : '';
+      
+      if (btn) {
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Validando...</span>`;
+        btn.disabled = true;
+      }
+      if (btnDns) {
+        btnDns.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Comprobando DNS...</span>`;
+        btnDns.disabled = true;
+      }
+      lucide.createIcons();
+
+      try {
+        const res = await fetch(`/api/domains/${domainId}/verify`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionStorage.getItem('kns_token')}`
+          }
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          // Si no está verificado, abrir panel DNS para mostrar diagnóstico
+          const detailRow = document.getElementById(`dns-details-${domainId}`);
+          if (detailRow) {
+            detailRow.classList.remove('hidden');
+          }
+
+          // Renderizar reporte de diagnóstico DNS en vivo
+          const diagContainer = document.getElementById(`dns-diag-container-${domainId}`);
+          if (diagContainer && data.dns_diagnostics) {
+            const diag = data.dns_diagnostics;
+            const txtOk = diag.txt?.status === 'ok';
+            const dkimList = diag.dkim || [];
+            const dkimMatches = dkimList.filter(x => x.matched).length;
+            const dkimOk = dkimList.length > 0 && dkimMatches === dkimList.length;
+
+            diagContainer.classList.remove('hidden');
+            diagContainer.innerHTML = `
+              <div class="mb-4 p-4 rounded-2xl border ${data.is_verified ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' : 'bg-amber-50/70 border-amber-200 text-amber-900'}">
+                <div class="flex items-center gap-2 mb-2 font-bold text-xs">
+                  <i data-lucide="${data.is_verified ? 'check-circle' : 'alert-circle'}" class="w-4 h-4 ${data.is_verified ? 'text-emerald-600' : 'text-amber-600'}"></i>
+                  <span>${data.message}</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] mt-3">
+                  <div class="flex items-center gap-2 bg-white/80 p-2.5 rounded-xl border border-slate-200/50">
+                    <span class="w-2.5 h-2.5 rounded-full ${txtOk ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
+                    <span class="font-medium">Registro TXT (_amazonses): <b>${txtOk ? 'Detectado en DNS' : (diag.txt?.status === 'mismatch' ? 'Valor no coincide' : 'No encontrado')}</b></span>
+                  </div>
+                  <div class="flex items-center gap-2 bg-white/80 p-2.5 rounded-xl border border-slate-200/50">
+                    <span class="w-2.5 h-2.5 rounded-full ${dkimOk ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
+                    <span class="font-medium">Registros CNAME DKIM: <b>${dkimMatches}/${dkimList.length} detectados en DNS</b></span>
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+
+          if (data.is_verified) {
+            showToast(data.message, 'success');
+          } else if (data.dns_diagnostics?.allDnsOk) {
+            showToast(data.message, 'info');
+          } else {
+            showToast(data.message, 'warning');
+          }
+
+          // Recargar dominios para refrescar badges
+          await fetchDomains();
+        } else {
+          showToast(data.message || 'Error al validar dominio.', 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Error de conexión al validar dominio.', 'error');
+      } finally {
+        if (btn) {
+          btn.innerHTML = originalHtml;
+          btn.disabled = false;
+        }
+        if (btnDns) {
+          btnDns.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Recomprobar DNS en vivo</span>`;
+          btnDns.disabled = false;
+        }
+        lucide.createIcons();
+      }
+    }
+
+    async function validateAllDomains() {
+      const btn = document.getElementById('btn-validate-all-domains');
+      if (btn) {
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Revalidando...`;
+        btn.disabled = true;
+      }
+      showToast('Comprobando estado de todos tus dominios en AWS SES...', 'info');
+
+      try {
+        await fetchDomains();
+        showToast('Lista de dominios actualizada con Amazon SES.', 'success');
+      } catch (e) {
+        showToast('Error al revalidar dominios.', 'error');
+      } finally {
+        if (btn) {
+          btn.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-brand-gray"></i> Revalidar Todo`;
+          btn.disabled = false;
+        }
+        lucide.createIcons();
+      }
+    }
+
     function renderDomains() {
       const tbody = document.getElementById('domains-table-body');
       if (!tbody) return;
@@ -8756,6 +8882,7 @@
         
         const isVerified = d.verification_status === 'Success';
         const isDkim = d.dkim_status === 'Success';
+        const isFullyValid = isVerified && isDkim;
         
         const vBadge = isVerified 
           ? `<span class="bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full text-[10px] border border-emerald-100 flex items-center gap-1.5 w-fit"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600"></i> Verificado</span>`
@@ -8771,74 +8898,110 @@
           <td class="py-3.5 px-4">${dBadge}</td>
           <td class="py-3.5 px-4 text-right">
             <div class="flex items-center justify-end gap-2">
-              ${(!isVerified || !isDkim) ? `
-              <button onclick="document.getElementById('dns-details-${d.id}').classList.toggle('hidden')" class="text-[#27bea5] hover:text-[#1c2938] bg-[#27bea5]/10 hover:bg-[#27bea5]/20 px-3 py-1.5 rounded-lg transition-colors inline-block text-[10px] font-bold tracking-wide uppercase" title="Ver registros DNS">
-                <i data-lucide="server" class="w-3.5 h-3.5 inline-block mr-1 mb-0.5"></i>DNS
+              <button type="button" onclick="verifyDomainManually('${d.id}', '${d.domain_name}')" id="btn-verify-domain-${d.id}" class="${!isFullyValid ? 'bg-[#27bea5] hover:bg-[#1fa892] text-white shadow-sm' : 'bg-slate-100 hover:bg-slate-200 text-brand-dark'} px-3 py-1.5 rounded-xl transition-all inline-flex items-center gap-1.5 text-[11px] font-bold" title="Comprobar registros DNS y estado en Amazon SES">
+                <i data-lucide="${!isFullyValid ? 'check-circle-2' : 'refresh-cw'}" class="w-3.5 h-3.5"></i>
+                <span>${!isFullyValid ? 'Validar Dominio' : 'Revalidar'}</span>
               </button>
-              ` : ''}
-              <button onclick="deleteDomain('${d.id}')" class="text-rose-400 hover:text-rose-600 bg-rose-50 hover:bg-rose-100 p-1.5 rounded-lg transition-colors inline-block" title="Eliminar">
-                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              <button type="button" onclick="toggleDnsDetails('${d.id}')" class="text-[#27bea5] hover:text-[#1c2938] bg-[#27bea5]/10 hover:bg-[#27bea5]/20 px-3 py-1.5 rounded-xl transition-colors inline-flex items-center gap-1 text-[11px] font-bold" title="Ver registros DNS requeridos">
+                <i data-lucide="server" class="w-3.5 h-3.5"></i> DNS
+              </button>
+              <button type="button" onclick="deleteDomain('${d.id}')" class="text-rose-400 hover:text-rose-600 bg-rose-50 hover:bg-rose-100 p-2 rounded-xl transition-colors inline-block" title="Eliminar Dominio">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
               </button>
             </div>
           </td>
         `;
         tbody.appendChild(tr);
 
-        if (!isVerified || !isDkim) {
-          const detailTr = document.createElement('tr');
-          detailTr.id = `dns-details-${d.id}`;
-          detailTr.className = "border-b border-brand-border bg-slate-50/50 hidden transition-all";
-          
-          let tokensHtml = '';
-          if (d.dkim_tokens && d.dkim_tokens.length > 0) {
-            d.dkim_tokens.forEach(token => {
-              const name = `${token}._domainkey`;
-              const value = `${token}.dkim.amazonses.com`;
-              tokensHtml += `
-                <div class="flex flex-col md:flex-row gap-4 p-3 bg-white border border-slate-200 rounded-xl mb-2 items-center shadow-sm">
-                  <div class="flex-shrink-0 w-24">
-                    <span class="text-[10px] font-bold text-brand-gray uppercase">TIPO</span><br/>
-                    <span class="text-xs font-mono font-bold text-[#1c2938] bg-slate-100 px-2 py-1 rounded">CNAME</span>
-                  </div>
-                  <div class="flex-1 flex flex-col relative w-full">
-                    <span class="text-[10px] font-bold text-brand-gray uppercase">NOMBRE (HOST)</span>
-                    <div class="flex items-center gap-2 mt-1">
-                      <input type="text" readonly value="${name}" class="text-xs font-mono bg-slate-50 border border-slate-200 rounded p-1.5 w-full outline-none text-[#1c2938]">
-                      <button type="button" onclick="copyToClipboard('${name}', this)" class="text-brand-gray hover:text-[#27bea5] p-1.5 rounded transition-colors" title="Copiar"><i data-lucide="copy" class="w-4 h-4"></i></button>
-                    </div>
-                  </div>
-                  <div class="flex-1 flex flex-col relative w-full">
-                    <span class="text-[10px] font-bold text-brand-gray uppercase">VALOR (APUNTA A)</span>
-                    <div class="flex items-center gap-2 mt-1">
-                      <input type="text" readonly value="${value}" class="text-xs font-mono bg-slate-50 border border-slate-200 rounded p-1.5 w-full outline-none text-[#1c2938]">
-                      <button type="button" onclick="copyToClipboard('${value}', this)" class="text-brand-gray hover:text-[#27bea5] p-1.5 rounded transition-colors" title="Copiar"><i data-lucide="copy" class="w-4 h-4"></i></button>
-                    </div>
+        // Subfila expandible con los registros DNS (TXT y DKIM CNAMEs)
+        const detailTr = document.createElement('tr');
+        detailTr.id = `dns-details-${d.id}`;
+        detailTr.className = "border-b border-brand-border bg-slate-50/50 hidden transition-all";
+        
+        let txtHtml = '';
+        if (d.verification_token) {
+          const txtHost = `_amazonses`;
+          const txtVal = d.verification_token;
+          txtHtml = `
+            <div class="flex flex-col md:flex-row gap-4 p-3 bg-white border border-slate-200 rounded-xl mb-2 items-center shadow-sm">
+              <div class="flex-shrink-0 w-24">
+                <span class="text-[10px] font-bold text-brand-gray uppercase">TIPO</span><br/>
+                <span class="text-xs font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded">TXT</span>
+              </div>
+              <div class="flex-1 flex flex-col relative w-full">
+                <span class="text-[10px] font-bold text-brand-gray uppercase">NOMBRE (HOST)</span>
+                <div class="flex items-center gap-2 mt-1">
+                  <input type="text" readonly value="${txtHost}" class="text-xs font-mono bg-slate-50 border border-slate-200 rounded p-1.5 w-full outline-none text-[#1c2938]">
+                  <button type="button" onclick="copyToClipboard('${txtHost}', this)" class="text-brand-gray hover:text-[#27bea5] p-1.5 rounded transition-colors" title="Copiar"><i data-lucide="copy" class="w-4 h-4"></i></button>
+                </div>
+              </div>
+              <div class="flex-1 flex flex-col relative w-full">
+                <span class="text-[10px] font-bold text-brand-gray uppercase">VALOR (VERIFICACIÓN SES)</span>
+                <div class="flex items-center gap-2 mt-1">
+                  <input type="text" readonly value="${txtVal}" class="text-xs font-mono bg-slate-50 border border-slate-200 rounded p-1.5 w-full outline-none text-[#1c2938]">
+                  <button type="button" onclick="copyToClipboard('${txtVal}', this)" class="text-brand-gray hover:text-[#27bea5] p-1.5 rounded transition-colors" title="Copiar"><i data-lucide="copy" class="w-4 h-4"></i></button>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        let tokensHtml = '';
+        if (d.dkim_tokens && d.dkim_tokens.length > 0) {
+          d.dkim_tokens.forEach(token => {
+            const name = `${token}._domainkey`;
+            const value = `${token}.dkim.amazonses.com`;
+            tokensHtml += `
+              <div class="flex flex-col md:flex-row gap-4 p-3 bg-white border border-slate-200 rounded-xl mb-2 items-center shadow-sm">
+                <div class="flex-shrink-0 w-24">
+                  <span class="text-[10px] font-bold text-brand-gray uppercase">TIPO</span><br/>
+                  <span class="text-xs font-mono font-bold text-[#1c2938] bg-slate-100 px-2 py-1 rounded">CNAME</span>
+                </div>
+                <div class="flex-1 flex flex-col relative w-full">
+                  <span class="text-[10px] font-bold text-brand-gray uppercase">NOMBRE (HOST)</span>
+                  <div class="flex items-center gap-2 mt-1">
+                    <input type="text" readonly value="${name}" class="text-xs font-mono bg-slate-50 border border-slate-200 rounded p-1.5 w-full outline-none text-[#1c2938]">
+                    <button type="button" onclick="copyToClipboard('${name}', this)" class="text-brand-gray hover:text-[#27bea5] p-1.5 rounded transition-colors" title="Copiar"><i data-lucide="copy" class="w-4 h-4"></i></button>
                   </div>
                 </div>
-              `;
-            });
-          }
-          
-          detailTr.innerHTML = `
-            <td colspan="4" class="p-5">
-              <div class="p-6 bg-[#f4f7fb] border border-blue-100/50 rounded-[2rem] shadow-sm">
-                <div class="flex items-start gap-4 mb-5">
+                <div class="flex-1 flex flex-col relative w-full">
+                  <span class="text-[10px] font-bold text-brand-gray uppercase">VALOR (APUNTA A)</span>
+                  <div class="flex items-center gap-2 mt-1">
+                    <input type="text" readonly value="${value}" class="text-xs font-mono bg-slate-50 border border-slate-200 rounded p-1.5 w-full outline-none text-[#1c2938]">
+                    <button type="button" onclick="copyToClipboard('${value}', this)" class="text-brand-gray hover:text-[#27bea5] p-1.5 rounded transition-colors" title="Copiar"><i data-lucide="copy" class="w-4 h-4"></i></button>
+                  </div>
+                </div>
+              </div>
+            `;
+          });
+        }
+        
+        detailTr.innerHTML = `
+          <td colspan="4" class="p-5">
+            <div class="p-6 bg-[#f4f7fb] border border-blue-100/50 rounded-[2rem] shadow-sm">
+              <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                <div class="flex items-start gap-3">
                   <div class="bg-blue-100 p-2 rounded-xl">
                     <i data-lucide="info" class="w-5 h-5 text-blue-600"></i>
                   </div>
                   <div>
-                    <h4 class="text-sm font-bold text-[#1B2939]">Acción Requerida: Configura tus registros DNS</h4>
-                    <p class="text-xs text-brand-gray mt-1 max-w-3xl">Copia y pega los siguientes registros en la configuración DNS de tu proveedor de dominio (GoDaddy, Cloudflare, etc.). AWS SES verificará esto automáticamente, lo cual puede tardar hasta 48 horas (generalmente toma 15 minutos).</p>
+                    <h4 class="text-sm font-bold text-[#1B2939]">Registros DNS requeridos para ${d.domain_name}</h4>
+                    <p class="text-xs text-brand-gray mt-0.5">Copia estos registros en el panel DNS de tu proveedor de dominio (Cloudflare, GoDaddy, Namecheap, cPanel, etc.).</p>
                   </div>
                 </div>
-                <div class="pl-0 md:pl-12">
-                  ${tokensHtml}
-                </div>
+                <button type="button" onclick="verifyDomainManually('${d.id}', '${d.domain_name}')" id="btn-validate-inline-${d.id}" class="bg-[#27bea5] hover:bg-[#1fa892] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all flex-shrink-0">
+                  <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Comprobar DNS en vivo
+                </button>
               </div>
-            </td>
-          `;
-          tbody.appendChild(detailTr);
-        }
+              <div id="dns-diag-container-${d.id}" class="hidden"></div>
+              <div class="pl-0 md:pl-11">
+                ${txtHtml}
+                ${tokensHtml}
+              </div>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(detailTr);
       });
       lucide.createIcons();
     }
@@ -9150,13 +9313,17 @@
         });
         const data = await res.json();
         if (data.success) {
-          showToast(data.message, 'success');
+          if (data.errors && data.errors.length > 0) {
+            showToast(data.message, 'warning');
+          } else {
+            showToast(data.message, 'success');
+          }
         } else {
           showToast(data.message || 'Error al enviar correos de calentamiento.', 'error');
         }
       } catch (err) {
         console.error(err);
-        showToast('Error de conexión.', 'error');
+        showToast('Error de conexión con el servidor.', 'error');
       }
     };
 
