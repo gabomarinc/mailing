@@ -5640,12 +5640,13 @@ app.get('/api/v1/subscribers', authenticateMailingApi, async (req, res) => {
   }
 });
 
-// 5. Listar listas de audiencias
+// 5. Listar listas de audiencias (Combina tabla lists y etiquetas únicas de contacts)
 app.get('/api/v1/lists', authenticateMailingApi, async (req, res) => {
   try {
     const kindeId = req.user.id || req.user.kinde_id;
-    const lists = await sql`
-      SELECT l.id, l.name, l.created_at,
+    // 1. Listas manuales de la tabla lists
+    const manualLists = await sql`
+      SELECT l.id::text, l.name, l.created_at,
              COUNT(c.id)::int AS subscriber_count
       FROM lists l
       LEFT JOIN contacts c ON c.kinde_id = l.kinde_id AND l.name = ANY(c.tags)
@@ -5653,8 +5654,104 @@ app.get('/api/v1/lists', authenticateMailingApi, async (req, res) => {
       GROUP BY l.id, l.name, l.created_at
       ORDER BY l.created_at DESC
     `;
-    return res.json({ success: true, data: lists });
+
+    // 2. Tags usados en contacts que no estén registrados explícitamente en la tabla lists
+    const contactTags = await sql`
+      SELECT tag as name, COUNT(*)::int AS subscriber_count
+      FROM contacts, unnest(tags) AS tag
+      WHERE kinde_id = ${kindeId} AND tags IS NOT NULL
+      GROUP BY tag
+    `;
+
+    const existingNames = new Set(manualLists.map(l => l.name));
+    const combined = [...manualLists];
+
+    for (const ct of contactTags) {
+      if (!existingNames.has(ct.name)) {
+        combined.push({
+          id: `tag_${ct.name}`,
+          name: ct.name,
+          created_at: new Date().toISOString(),
+          subscriber_count: ct.subscriber_count
+        });
+        existingNames.add(ct.name);
+      }
+    }
+
+    return res.json({ success: true, data: combined, meta: { count: combined.length } });
   } catch (error) {
+    console.error('Error en /api/v1/lists:', error);
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } });
+  }
+});
+
+// 5b. Actualizar / agregar / remover etiquetas de un suscriptor por email
+app.post('/api/v1/subscribers/tags', authenticateMailingApi, async (req, res) => {
+  try {
+    const kindeId = req.user.id || req.user.kinde_id;
+    const { email, addTags = [], removeTags = [] } = req.body;
+
+    if (!email) {
+      return res.status(422).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'El email es requerido.' } });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const existing = await sql`SELECT id, name, tags FROM contacts WHERE kinde_id = ${kindeId} AND email = ${cleanEmail} LIMIT 1`;
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Contacto no encontrado en Mailing.' } });
+    }
+
+    let tags = existing[0].tags || [];
+    const toAdd = Array.isArray(addTags) ? addTags.map(t => String(t).trim()).filter(Boolean) : (addTags ? [String(addTags).trim()] : []);
+    const toRemoveList = Array.isArray(removeTags) ? removeTags.map(t => String(t).trim()).filter(Boolean) : (removeTags ? [String(removeTags).trim()] : []);
+    const toRemove = new Set(toRemoveList);
+
+    tags = Array.from(new Set([...tags, ...toAdd])).filter(t => !toRemove.has(t));
+
+    const updated = await sql`
+      UPDATE contacts
+      SET tags = ${tags}
+      WHERE id = ${existing[0].id}
+      RETURNING id, email, name, tags, status
+    `;
+
+    return res.json({ success: true, data: { contact: updated[0] } });
+  } catch (error) {
+    console.error('Error en /api/v1/subscribers/tags:', error);
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } });
+  }
+});
+
+// 5c. Actualizar estado de suscriptor (desuscribir / reactivar)
+app.post('/api/v1/subscribers/status', authenticateMailingApi, async (req, res) => {
+  try {
+    const kindeId = req.user.id || req.user.kinde_id;
+    const { email, status = 'unsubscribe' } = req.body;
+
+    if (!email) {
+      return res.status(422).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'El email es requerido.' } });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const validStates = ['active', 'unsubscribe', 'bounced', 'complained', 'invalid'];
+    if (!validStates.includes(status)) {
+      return res.status(422).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Estado inválido.' } });
+    }
+
+    const updated = await sql`
+      UPDATE contacts
+      SET status = ${status}
+      WHERE kinde_id = ${kindeId} AND email = ${cleanEmail}
+      RETURNING id, email, name, status
+    `;
+
+    if (updated.length === 0) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Contacto no encontrado en Mailing.' } });
+    }
+
+    return res.json({ success: true, data: { contact: updated[0] } });
+  } catch (error) {
+    console.error('Error en /api/v1/subscribers/status:', error);
     return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: error.message } });
   }
 });
