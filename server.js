@@ -3,7 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const { SESClient, SendEmailCommand, VerifyDomainIdentityCommand, VerifyDomainDkimCommand, GetIdentityVerificationAttributesCommand, GetIdentityDkimAttributesCommand, GetSendQuotaCommand, GetSendStatisticsCommand } = require('@aws-sdk/client-ses');
+const { SESClient, SendEmailCommand, VerifyEmailIdentityCommand, VerifyDomainIdentityCommand, VerifyDomainDkimCommand, GetIdentityVerificationAttributesCommand, GetIdentityDkimAttributesCommand, GetSendQuotaCommand, GetSendStatisticsCommand } = require('@aws-sdk/client-ses');
 const { neon } = require('@neondatabase/serverless');
 require('dotenv').config();
 const dns = require('dns').promises;
@@ -1928,12 +1928,88 @@ app.post('/api/contacts/merge-lists', protectRoute, async (req, res) => {
   }
 });
 
+// Helper para verificar si un remitente o su dominio están autenticados en AWS SES
+async function isSenderVerifiedInSes(senderEmail, userId) {
+  if (!senderEmail || !senderEmail.includes('@')) return false;
+  const cleanEmail = senderEmail.toLowerCase().trim();
+  const domainPart = cleanEmail.split('@')[1];
+
+  // 1. Comprobar tabla de dominios del usuario
+  try {
+    const domainDb = await sql`
+      SELECT verification_status, dkim_status FROM domains 
+      WHERE kinde_id = ${userId} AND LOWER(domain_name) = ${domainPart}
+    `;
+    if (domainDb.length > 0 && domainDb[0].verification_status === 'Success') {
+      return true;
+    }
+  } catch(e) {}
+
+  // 2. Consultar directamente a AWS SES por el dominio o email individual
+  try {
+    const ses = await getSesClientForUser(userId);
+    const cmd = new GetIdentityVerificationAttributesCommand({
+      Identities: [cleanEmail, domainPart]
+    });
+    const res = await ses.send(cmd);
+    const attrs = res.VerificationAttributes || {};
+    if (attrs[domainPart]?.VerificationStatus === 'Success') return true;
+    if (attrs[cleanEmail]?.VerificationStatus === 'Success') return true;
+  } catch (e) {
+    console.warn('[isSenderVerifiedInSes] Error consultando AWS SES:', e.message);
+  }
+
+  return false;
+}
+
 // Remitentes (Senders)
 app.get('/api/senders', protectRoute, async (req, res) => {
   try {
     const userId = req.user.id;
     const senders = await sql`SELECT * FROM senders WHERE kinde_id = ${userId} ORDER BY created_at DESC`;
-    res.json(senders);
+    const userDomains = await sql`SELECT domain_name, verification_status, dkim_status FROM domains WHERE kinde_id = ${userId}`;
+    const verifiedDomains = new Set(
+      userDomains
+        .filter(d => d.verification_status === 'Success')
+        .map(d => d.domain_name.toLowerCase().trim())
+    );
+
+    // Consultar AWS SES en lote para verificar el estado real de cada remitente y dominio
+    let sesAttrs = {};
+    try {
+      const ses = await getSesClientForUser(userId);
+      const allIdentities = [
+        ...senders.map(s => s.email.toLowerCase().trim()),
+        ...userDomains.map(d => d.domain_name.toLowerCase().trim())
+      ].filter(Boolean);
+
+      if (allIdentities.length > 0) {
+        const uniqueIdentities = [...new Set(allIdentities)].slice(0, 100);
+        const sesCmd = new GetIdentityVerificationAttributesCommand({ Identities: uniqueIdentities });
+        const sesRes = await ses.send(sesCmd);
+        sesAttrs = sesRes.VerificationAttributes || {};
+      }
+    } catch (e) {
+      console.warn('[GET /api/senders] Error consultando SES identities:', e.message);
+    }
+
+    // Enriquecer con estado real de verificación de AWS SES y dominio DNS
+    const enrichedSenders = senders.map(s => {
+      const cleanEmail = s.email.toLowerCase().trim();
+      const domainPart = cleanEmail.split('@')[1];
+      const domainOk = verifiedDomains.has(domainPart) || sesAttrs[domainPart]?.VerificationStatus === 'Success';
+      const emailOk = sesAttrs[cleanEmail]?.VerificationStatus === 'Success';
+      const isRealVerified = domainOk || emailOk;
+
+      return {
+        ...s,
+        domain_verified: domainOk,
+        email_verified: emailOk,
+        is_verified: isRealVerified
+      };
+    });
+
+    res.json(enrichedSenders);
   } catch (err) {
     res.status(500).json({ error: 'DB Error' });
   }
@@ -1942,21 +2018,81 @@ app.get('/api/senders', protectRoute, async (req, res) => {
 app.post('/api/senders', protectRoute, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { name, email } = req.body;
+    const { name, email, request_ses_verification } = req.body;
     
     if (!name || !email) {
       return res.status(400).json({ success: false, message: 'Faltan campos' });
     }
 
+    const cleanEmail = email.toLowerCase().trim();
+    const domainPart = cleanEmail.split('@')[1];
+
+    // Verificar si el dominio ya está autenticado
+    const domainCheck = await sql`
+      SELECT verification_status FROM domains 
+      WHERE kinde_id = ${userId} AND LOWER(domain_name) = ${domainPart}
+    `;
+    const isDomainOk = domainCheck.length > 0 && domainCheck[0].verification_status === 'Success';
+
     const inserted = await sql`
-      INSERT INTO senders (kinde_id, name, email)
-      VALUES (${userId}, ${name}, ${email})
+      INSERT INTO senders (kinde_id, name, email, is_verified, dkim_status, dmarc_status)
+      VALUES (${userId}, ${name}, ${cleanEmail}, ${isDomainOk}, ${isDomainOk}, ${isDomainOk})
       RETURNING *
     `;
-    res.json({ success: true, sender: inserted[0] });
+
+    let sesVerificationSent = false;
+    let sesMessage = '';
+
+    // Si el dominio no está autenticado, enviar correo de verificación individual de AWS SES
+    if (!isDomainOk) {
+      try {
+        const ses = await getSesClientForUser(userId);
+        await ses.send(new VerifyEmailIdentityCommand({ EmailAddress: cleanEmail }));
+        sesVerificationSent = true;
+        sesMessage = `Se ha enviado un correo de verificación desde Amazon SES a "${cleanEmail}". Haz clic en el enlace para validar el remitente, o configura los registros DNS de "${domainPart}" en Ajustes > Dominios.`;
+      } catch (sesErr) {
+        console.warn('No se pudo enviar VerifyEmailIdentityCommand:', sesErr.message);
+        sesMessage = `Remitente agregado. Recuerda autenticar el dominio "${domainPart}" en Ajustes > Dominios para garantizar la entregabilidad.`;
+      }
+    } else {
+      sesMessage = `Remitente agregado exitosamente con dominio autenticado (@${domainPart}).`;
+    }
+
+    res.json({
+      success: true,
+      sender: { ...inserted[0], domain_verified: isDomainOk },
+      domain_verified: isDomainOk,
+      ses_verification_sent: sesVerificationSent,
+      message: sesMessage
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, error: 'DB Error' });
+  }
+});
+
+// Endpoint para reenviar correo de verificación individual de Amazon SES
+app.post('/api/senders/:id/verify-email', protectRoute, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    const senderRes = await sql`SELECT * FROM senders WHERE id = ${id} AND kinde_id = ${userId}`;
+    if (senderRes.length === 0) {
+      return res.status(404).json({ success: false, message: 'Remitente no encontrado.' });
+    }
+    const sender = senderRes[0];
+
+    const ses = await getSesClientForUser(userId);
+    await ses.send(new VerifyEmailIdentityCommand({ EmailAddress: sender.email }));
+
+    res.json({
+      success: true,
+      message: `Amazon SES ha enviado un correo de verificación a ${sender.email}. Revisa tu bandeja de entrada y haz clic en el enlace para validar el remitente.`
+    });
+  } catch (err) {
+    console.error('Error enviando verificación individual SES:', err);
+    res.status(500).json({ success: false, message: 'Error comunicando con AWS SES: ' + err.message });
   }
 });
 
@@ -3060,6 +3196,29 @@ app.post('/api/send-bulk', protectRoute, async (req, res) => {
       return res.status(400).json({ success: false, message: `Supera límite de contactos de tu plan (${allowedLimit.toLocaleString()}).` });
     }
 
+    // Pre-flight Check de Entregabilidad: Verificar que el remitente esté autenticado en AWS SES
+    const isMainSenderVerified = await isSenderVerifiedInSes(senderEmail, userId);
+    if (!isMainSenderVerified) {
+      const domainPart = senderEmail.split('@')[1] || '';
+      return res.status(400).json({
+        success: false,
+        code: 'SENDER_NOT_VERIFIED',
+        message: `El remitente "${senderEmail}" no está verificado en Amazon SES. Para asegurar la entregabilidad y evitar que tus correos sean rechazados, debes autenticar el dominio "${domainPart}" en tus registros DNS (DKIM/SPF) o verificar el remitente en Ajustes > Dominios antes de lanzar la campaña.`
+      });
+    }
+
+    if (isAbTest && abTestType === 'sender' && abVarBSenderEmail) {
+      const isAltSenderVerified = await isSenderVerifiedInSes(abVarBSenderEmail, userId);
+      if (!isAltSenderVerified) {
+        const domainPartB = abVarBSenderEmail.split('@')[1] || '';
+        return res.status(400).json({
+          success: false,
+          code: 'SENDER_NOT_VERIFIED',
+          message: `El remitente variante B "${abVarBSenderEmail}" no está verificado en Amazon SES. Autentica el dominio "${domainPartB}" antes de enviar la prueba A/B.`
+        });
+      }
+    }
+
     // SI LA CAMPAÑA ESTÁ PROGRAMADA PARA EL FUTURO
     if (scheduledFor && new Date(scheduledFor) > new Date()) {
       const campaignInsert = await sql`
@@ -3134,6 +3293,17 @@ app.post('/api/campaigns/send-test', protectRoute, async (req, res) => {
     }
 
     const cleanRecipient = recipient.trim().toLowerCase();
+
+    // Pre-flight check para envío de prueba
+    const isTestSenderVerified = await isSenderVerifiedInSes(senderEmail, req.user.id);
+    if (!isTestSenderVerified) {
+      const domainPart = senderEmail.split('@')[1] || '';
+      return res.status(400).json({
+        success: false,
+        message: `El remitente "${senderEmail}" no está verificado en Amazon SES. Para enviar pruebas o campañas, debes autenticar el dominio "${domainPart}" en Ajustes > Dominios (registros DKIM/SPF) o verificar el remitente.`
+      });
+    }
+
     const baseUrl = getPublicBaseUrl(req.headers.host);
     const mockUnsubscribeUrl = `${baseUrl}/unsubscribe/test-campaign/${encodeURIComponent(cleanRecipient)}`;
 
@@ -3985,6 +4155,24 @@ async function sendCampaignIncremental(campaignId, host) {
     } : undefined;
 
     const sesClient = new SESClient({ region, credentials });
+
+    // Pre-flight check en segundo plano: verificar identidad de remitente en AWS SES
+    const isSenderOk = await isSenderVerifiedInSes(campaign.sender_email, userId);
+    if (!isSenderOk) {
+      const domainPart = campaign.sender_email.split('@')[1] || '';
+      console.error(`[AWS SES] Remitente ${campaign.sender_email} no está verificado para campaña ${campaignId}`);
+      await sql`
+        UPDATE campaigns 
+        SET status = 'failed',
+            failed_count = total_sent,
+            error_details = ${JSON.stringify([{
+              email: campaign.sender_email,
+              error: `El remitente "${campaign.sender_email}" o su dominio "${domainPart}" no están verificados en Amazon SES (US-EAST-1). Configura tus registros DNS DKIM/SPF en Ajustes > Dominios o verifica el remitente para poder enviar.`
+            }])}::jsonb
+        WHERE id = ${campaignId}
+      `;
+      return;
+    }
 
     // Configurar listas de Prueba A/B si corresponde y no se ha hecho
     if (campaign.is_ab_test && !campaign.ab_status) {

@@ -32,8 +32,12 @@
       "dest": "/public/favicon.ico"
     },
     {
-      "src": "/(.*)",
+      "src": "/(.*\\.(js|css|ico|png|jpg|jpeg|svg|gif|webp|woff|woff2|ttf|eot|txt))",
       "dest": "/public/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/index.html"
     }
   ],
   "crons": [
