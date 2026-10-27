@@ -9265,6 +9265,16 @@
               </div>
               <div id="dns-diag-container-${d.id}" class="hidden"></div>
               <div class="pl-0 md:pl-11">
+                <!-- Tip para usuarios de Bluehost / cPanel -->
+                <div class="mb-3 p-3.5 bg-amber-50/80 border border-amber-200/80 rounded-2xl flex items-start gap-2.5 text-xs text-amber-900">
+                  <i data-lucide="alert-circle" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i>
+                  <div>
+                    <span class="font-extrabold text-[11px] text-amber-950 uppercase tracking-wide">Importante en Bluehost y cPanel:</span>
+                    <p class="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
+                      En cPanel <strong>Zone Editor</strong>, asegúrate de seleccionar en la lista la fila de <strong>${d.domain_name}</strong> y NO el subdominio temporal del hosting (como <code>*.mybluehost.me</code>). En el campo <strong>Nombre / Host</strong>, ingresa solo el prefijo (ej: <code>_amazonses</code> o <code>&lt;token&gt;._domainkey</code>), ya que tu panel añadirá automáticamente <code>.${d.domain_name}</code> al guardar.
+                    </p>
+                  </div>
+                </div>
                 ${txtHtml}
                 ${tokensHtml}
               </div>
@@ -9658,6 +9668,12 @@
         const dkimBadge = `<span class="flex items-center gap-1 text-[10px] text-emerald-600 font-bold"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i> ${domain}</span>`;
         const dmarcBadge = `<span class="flex items-center gap-1 text-[10px] text-emerald-600 font-bold"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Configurado</span>`;
 
+        const verifyBtn = !isVerified 
+          ? `<button type="button" onclick="sendSesEmailVerification('${s.id}', '${s.email}')" class="text-[11px] font-bold text-[#27bea5] hover:text-[#1fa892] bg-[#27bea5]/10 px-2.5 py-1.5 rounded-xl transition-all inline-flex items-center gap-1 shadow-2xs" title="Enviar correo de confirmación de Amazon SES para validar este remitente de inmediato">
+              <i data-lucide="mail-check" class="w-3.5 h-3.5"></i> Validar por Email
+            </button>`
+          : '';
+
         tr.innerHTML = `
           <td class="py-3.5 px-4 font-bold text-[#1B2939]">${s.name}</td>
           <td class="py-3.5 px-4 font-mono text-brand-gray">${s.email}</td>
@@ -9665,13 +9681,35 @@
           <td class="py-3.5 px-4">${dmarcBadge}</td>
           <td class="py-3.5 px-4">${statusBadge}</td>
           <td class="py-3.5 px-4 text-right">
-            <button onclick="deleteSender('${s.id}')" class="text-rose-500 hover:text-rose-700 font-bold">Eliminar</button>
+            <div class="flex items-center justify-end gap-2">
+              ${verifyBtn}
+              <button onclick="deleteSender('${s.id}')" class="text-rose-400 hover:text-rose-600 bg-rose-50 hover:bg-rose-100 p-1.5 rounded-xl transition-colors" title="Eliminar"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+            </div>
           </td>
         `;
         tbody.appendChild(tr);
       });
       lucide.createIcons();
     }
+
+    async function sendSesEmailVerification(senderId, email) {
+      try {
+        showToast(`Solicitando validación a Amazon SES para ${email}...`, 'info');
+        const res = await fetch(`/api/senders/${senderId}/verify-email`, {
+          method: 'POST'
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`¡Correo de verificación enviado a ${email}!`, 'success');
+          alert(`Amazon SES ha enviado un correo con un enlace de confirmación a:\n\n${email}\n\nHaz clic en el enlace de ese correo para autorizar este remitente de inmediato sin esperar a los DNS.`);
+        } else {
+          showToast('Error: ' + data.message, 'error');
+        }
+      } catch (err) {
+        showToast('Error de conexión con el servidor.', 'error');
+      }
+    }
+    window.sendSesEmailVerification = sendSesEmailVerification;
 
     function filterSenders() {
       renderSenders();
