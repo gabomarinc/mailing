@@ -2323,6 +2323,15 @@ app.post('/api/domains/:id/verify', protectRoute, async (req, res) => {
           sesVerificationToken = vAttr.VerificationToken;
         }
       }
+      // Si AWS SES marcó el dominio como Failed por inactividad, reactivar la verificación
+      if (sesVerificationStatus === 'Failed') {
+        const reVerifyCmd = new VerifyDomainIdentityCommand({ Domain: domainName });
+        const reVerifyRes = await targetSesClient.send(reVerifyCmd);
+        if (reVerifyRes.VerificationToken) {
+          sesVerificationToken = reVerifyRes.VerificationToken;
+        }
+        sesVerificationStatus = 'Pending';
+      }
     } catch (e) {
       console.warn(`Error al consultar VerificationAttributes para ${domainName}:`, e.message);
     }
@@ -2337,6 +2346,15 @@ app.post('/api/domains/:id/verify', protectRoute, async (req, res) => {
           sesDkimTokens = dAttr.DkimTokens;
         }
       }
+      // Si DKIM estaba en Failed, reactivarlo en SES
+      if (sesDkimStatus === 'Failed') {
+        const reDkimCmd = new VerifyDomainDkimCommand({ Domain: domainName });
+        const reDkimRes = await targetSesClient.send(reDkimCmd);
+        if (reDkimRes.DkimTokens && reDkimRes.DkimTokens.length > 0) {
+          sesDkimTokens = reDkimRes.DkimTokens;
+        }
+        sesDkimStatus = 'Pending';
+      }
     } catch (e) {
       console.warn(`Error al consultar DkimAttributes para ${domainName}:`, e.message);
     }
@@ -2348,10 +2366,11 @@ app.post('/api/domains/:id/verify', protectRoute, async (req, res) => {
         expected: sesVerificationToken,
         foundRecords: [],
         matched: false,
-        status: 'pending' // 'ok' | 'mismatch' | 'not_found'
+        status: 'pending' // 'ok' | 'mismatch' | 'not_found' | 'duplicated_domain'
       },
       dkim: [],
-      allDnsOk: false
+      allDnsOk: false,
+      hasDuplicatedDomain: false
     };
 
     // Verificar TXT de Amazon SES en DNS
@@ -2367,8 +2386,20 @@ app.post('/api/domains/:id/verify', protectRoute, async (req, res) => {
           dnsDiagnostics.txt.status = 'mismatch';
         }
       } catch (err) {
-        dnsDiagnostics.txt.status = 'not_found';
-        dnsDiagnostics.txt.error = err.code || err.message;
+        // Chequear si el proveedor DNS duplicó el dominio (_amazonses.cranealo.com.cranealo.com)
+        try {
+          const txtDouble = await dns.resolveTxt(`_amazonses.${domainName}.${domainName}`);
+          const flattenedDouble = txtDouble.map(r => r.join(''));
+          if (flattenedDouble.includes(sesVerificationToken)) {
+            dnsDiagnostics.txt.status = 'duplicated_domain';
+            dnsDiagnostics.txt.error = `Dominio duplicado (_amazonses.${domainName}.${domainName})`;
+            dnsDiagnostics.hasDuplicatedDomain = true;
+          }
+        } catch (e2) {}
+        if (dnsDiagnostics.txt.status !== 'duplicated_domain') {
+          dnsDiagnostics.txt.status = 'not_found';
+          dnsDiagnostics.txt.error = err.code || err.message;
+        }
       }
     }
 
@@ -2398,8 +2429,20 @@ app.post('/api/domains/:id/verify', protectRoute, async (req, res) => {
             item.status = 'mismatch';
           }
         } catch (err) {
-          item.status = 'not_found';
-          item.error = err.code || err.message;
+          // Chequear si se duplicó el dominio en el registro CNAME
+          try {
+            const doubleHost = `${token}._domainkey.${domainName}.${domainName}`;
+            const cnamesDouble = await dns.resolveCname(doubleHost);
+            if (cnamesDouble.some(c => c.toLowerCase().replace(/\.$/, '') === expectedTarget.toLowerCase())) {
+              item.status = 'duplicated_domain';
+              item.error = `Dominio duplicado (${doubleHost})`;
+              dnsDiagnostics.hasDuplicatedDomain = true;
+            }
+          } catch (e2) {}
+          if (item.status !== 'duplicated_domain') {
+            item.status = 'not_found';
+            item.error = err.code || err.message;
+          }
         }
         dnsDiagnostics.dkim.push(item);
       }
@@ -2427,6 +2470,8 @@ app.post('/api/domains/:id/verify', protectRoute, async (req, res) => {
       message = `¡El dominio "${domainName}" está 100% verificado y activo en Amazon SES!`;
     } else if (dnsDiagnostics.allDnsOk) {
       message = `Los registros DNS de "${domainName}" ya están correctamente configurados en tu proveedor de dominio. Amazon SES está procesando la validación final (suele tardar unos minutos).`;
+    } else if (dnsDiagnostics.hasDuplicatedDomain) {
+      message = `Atención en "${domainName}": Detectamos que tus registros DNS se guardaron con el nombre de dominio duplicado (ej. "_amazonses.${domainName}.${domainName}"). En el panel de tu proveedor DNS, en el campo "Nombre" o "Host", coloca únicamente el prefijo (ej: "_amazonses" o "<token>._domainkey") sin volver a escribir "${domainName}".`;
     } else {
       const missingParts = [];
       if (sesVerificationToken && !isTxtOk) missingParts.push('Registro TXT (_amazonses)');
